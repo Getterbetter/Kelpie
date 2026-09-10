@@ -27,7 +27,10 @@ final class HerdrClientStore {
     private(set) var terminal: AttachTerminalStore
 
     @ObservationIgnored private let runTerminal: TerminalSessionRunner
-    @ObservationIgnored private let isOnStage: @MainActor () -> Bool
+    /// False while the native Console covers the Client. A Transport serves
+    /// one Attach channel at a time, so the Client has to be off stage — and
+    /// its channel closed — before an Agent Attach can open.
+    @ObservationIgnored private var isPresented = true
     @ObservationIgnored private var transportGeneration: UInt64?
     @ObservationIgnored private var lifecycleState = LifecycleState.active
     @ObservationIgnored private var lifecycleTask: Task<Void, Never>?
@@ -40,19 +43,28 @@ final class HerdrClientStore {
         hostID: Host.ID,
         sessionName: String?,
         transportGeneration: UInt64?,
-        isOnStage: @escaping @MainActor () -> Bool = { true },
         runTerminal: @escaping TerminalSessionRunner
     ) {
         self.hostID = hostID
         self.sessionName = sessionName
         self.transportGeneration = transportGeneration
-        self.isOnStage = isOnStage
         self.runTerminal = runTerminal
         terminal = Self.makeTerminal(
             sessionName: sessionName,
             input: input,
             transportGeneration: transportGeneration,
             runTerminal: runTerminal)
+    }
+
+    private func isOnStage() -> Bool { isPresented }
+
+    /// The Console cover came up over the Client, or went away again. Coming
+    /// back reattaches from scratch: herdr's scrollback lives on the Host, so
+    /// nothing local is lost.
+    func setPresented(_ presented: Bool) {
+        guard presented != isPresented else { return }
+        isPresented = presented
+        if presented { rejoin() } else { leave() }
     }
 
     var terminalID: TerminalSurfaceID { terminal.surfaceID }
@@ -144,9 +156,8 @@ final class HerdrClientStore {
         replaceTerminal()
     }
 
-    /// The screen went away — the native Console is covering it, or the app is
-    /// tearing down. The Host's single Attach channel is released explicitly
-    /// before this task completes, so an Agent Attach can take it.
+    /// Ends the attach, releasing the Host's single Attach channel explicitly
+    /// before the returned task completes so an Agent Attach can take it.
     @discardableResult
     func leave() -> Task<Void, Never> {
         guard lifecycleState != .left else {
@@ -162,8 +173,7 @@ final class HerdrClientStore {
         }
     }
 
-    /// The screen came back. Reattaches herdr's client from scratch: its own
-    /// scrollback lives on the Host, so nothing local is lost by doing so.
+    /// Reattaches after a `leave()`.
     func rejoin() {
         guard lifecycleState != .active, isOnStage() else { return }
         activationRecovery.clear()
