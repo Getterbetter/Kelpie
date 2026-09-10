@@ -24,10 +24,15 @@ struct ContentView: View {
     @State private var activation = SceneActivationTracker(isRestored: false)
     /// `AgentRoute.sceneStorageValue`; nil while the window shows the Console.
     @SceneStorage("dev.bybee.heeler.agentRoute") private var storedRoute: String?
+    @State private var hardwareKeyboard = HardwareKeyboardObserver()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ConsoleView(
+        // herdr's own client is the screen (ADR 0017). The stores it and
+        // the Console need are owned by `HeelerAppModel` and driven here, at
+        // the root, so push, Live Activities and the activity driver keep
+        // running while the Console itself is only a cover away.
+        HerdrClientRootView(
             hosts: app.hostStore, console: app.console, terminal: app.terminal,
             inputMode: app.inputMode,
             appearance: app.appearance,
@@ -37,8 +42,10 @@ struct ContentView: View {
             notificationRouter: notificationRouter,
             bannerStore: app.bannerStore,
             liveActivities: app.liveActivities,
-            activity: app.activity
+            activity: app.activity,
+            hardwareKeyboard: hardwareKeyboard
         )
+        .environment(hardwareKeyboard)
         .environment(\.sceneWindow, window)
         .environment(
             \.agentSceneRouting,

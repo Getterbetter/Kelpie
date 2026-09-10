@@ -10,6 +10,11 @@ struct HeelerApp: App {
     private var pushDelegate
     /// The aggregate phase across every window: active while any one is.
     @Environment(\.scenePhase) private var scenePhase
+    /// The Agent the root window is on. Kelpie shows herdr's own client full
+    /// screen (ADR 0017) and a Transport serves one Attach channel at a time,
+    /// so there is one window and no `WindowGroup` value to carry the route;
+    /// it is held here and restored from the scene's own storage.
+    @State private var windowRoute: AgentRoute?
 
     init() {
         try? ImagePreparer.cleanupRemnants()
@@ -17,18 +22,18 @@ struct HeelerApp: App {
     }
 
     var body: some Scene {
-        // Valued by the Agent a window shows, so Open in New Window and a
-        // dragged Console row each get a window restored to their Agent. A
-        // cold launch opens the Console with no value.
-        WindowGroup(for: AgentRoute.self) { $route in
+        // One window, not upstream's value-typed multi-window group: herdr's
+        // client is the screen and a Transport serves one Attach channel at a
+        // time, so two windows would compete for it (ADR 0017).
+        WindowGroup {
             #if DEBUG && targetEnvironment(simulator)
                 if DemoScreenshotMode.isEnabled {
                     DemoScreenshotRootView()
                 } else {
-                    productionContent(route: $route)
+                    productionContent(route: $windowRoute)
                 }
             #else
-                productionContent(route: $route)
+                productionContent(route: $windowRoute)
             #endif
         }
         .commands { ConsoleCommands() }

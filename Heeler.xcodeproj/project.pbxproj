@@ -305,6 +305,8 @@
 		CBAEF7D1E91053F0B15E2F31 /* PairingCeremonyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0763484EE05424146492C1 /* PairingCeremonyTests.swift */; };
 		CCEBF66BA9AFE64EDD371A78 /* AttachUserMessageIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85BEE99E7BEFA0D0D985162C /* AttachUserMessageIndex.swift */; };
 		D08663BD250210835FE7ED49 /* PhotosPickerImageSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A3BD235B5209892137FCAF9 /* PhotosPickerImageSelection.swift */; };
+		D11D9F43C098E9B4A30F6CA3 /* HerdrClientRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C9DD852D2E00C5A5D09FACA /* HerdrClientRootView.swift */; };
+		D2055626390ADC335E8CFFA9 /* PrimaryHostStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4389265BA012DBCE3C29B2D6 /* PrimaryHostStore.swift */; };
 		D20C025851965986547FAAB5 /* ClosePaneStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D46328CE795C513FE11AD04 /* ClosePaneStore.swift */; };
 		D2405D8443F085D4E3CD1810 /* NotificationKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC6D0361E0EB15681156D5C7 /* NotificationKeyStore.swift */; };
 		D3E3356479AC4B4EFA7D407D /* AgentListFieldsPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E018A4C6816BAEEACB96FA /* AgentListFieldsPreviewTests.swift */; };
@@ -433,6 +435,7 @@
 		0AEC3D31861DABF40C05EE8D /* HostStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostStore.swift; sourceTree = "<group>"; };
 		0B248F9372687FDBE3AD24A1 /* AppForegroundRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppForegroundRecoveryTests.swift; sourceTree = "<group>"; };
 		0C833B5BA50276247A54258B /* FilePreparerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreparerTests.swift; sourceTree = "<group>"; };
+		0C9DD852D2E00C5A5D09FACA /* HerdrClientRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HerdrClientRootView.swift; sourceTree = "<group>"; };
 		0CBB19433AC9C494DFDC36FE /* AgentDirectInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDirectInputTests.swift; sourceTree = "<group>"; };
 		0DAC3DCDEF81B14A2019DDBE /* TerminalStatusDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalStatusDialog.swift; sourceTree = "<group>"; };
 		0DBBD602AA4969937A9306C3 /* HostCredentialsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostCredentialsProvider.swift; sourceTree = "<group>"; };
@@ -498,6 +501,7 @@
 		4273AC6F39EB1E015820E614 /* TerminalAppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAppearanceSettingsView.swift; sourceTree = "<group>"; };
 		427512344847A84699F819A0 /* TerminalFontSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFontSettingsTests.swift; sourceTree = "<group>"; };
 		431389855EAA66004BCCB5B9 /* AgentRowLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRowLayoutTests.swift; sourceTree = "<group>"; };
+		4389265BA012DBCE3C29B2D6 /* PrimaryHostStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryHostStore.swift; sourceTree = "<group>"; };
 		442A5127B47FF6FF8840B0B9 /* WorktreeDetailStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeDetailStoreTests.swift; sourceTree = "<group>"; };
 		444F11A4450A3CA904B26658 /* SkillsPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsPickerView.swift; sourceTree = "<group>"; };
 		4582B5EA42CFA9C8878E6207 /* HeelerSSH */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HeelerSSH; path = Packages/HeelerSSH; sourceTree = SOURCE_ROOT; };
@@ -1324,8 +1328,10 @@
 			isa = PBXGroup;
 			children = (
 				8289CD92E16DCCF019DC2463 /* HardwareKeyboardObserver.swift */,
+				0C9DD852D2E00C5A5D09FACA /* HerdrClientRootView.swift */,
 				16E9A96D37D9B1676C8B882C /* HerdrClientStore.swift */,
 				DD00528B04355D672A1DF756 /* HerdrClientView.swift */,
+				4389265BA012DBCE3C29B2D6 /* PrimaryHostStore.swift */,
 			);
 			path = Client;
 			sourceTree = "<group>";
@@ -1658,6 +1664,7 @@
 				22A39C0FD2A18C6655D14F53 /* HeelerSSHHostKeyVerifier.swift in Sources */,
 				4B05BA1966251828850D2AFF /* HeelerSSHTransport.swift in Sources */,
 				36FB81E449F98DC68A366C2E /* HerdrAPITypes.swift in Sources */,
+				D11D9F43C098E9B4A30F6CA3 /* HerdrClientRootView.swift in Sources */,
 				B1BD5EA58DEACB1E7ED7130E /* HerdrClientStore.swift in Sources */,
 				5E6E3FA26583B0C4D9132D18 /* HerdrClientView.swift in Sources */,
 				E9D5DD0D136597844A8FE54B /* HerdrEvents.swift in Sources */,
@@ -1705,6 +1712,7 @@
 				D08663BD250210835FE7ED49 /* PhotosPickerImageSelection.swift in Sources */,
 				DDD5A27BA1126296E5AF7EAA /* PinnedAgentsStore.swift in Sources */,
 				2292C89F605CE42073D49B11 /* Preflight.swift in Sources */,
+				D2055626390ADC335E8CFFA9 /* PrimaryHostStore.swift in Sources */,
 				F1896998EA513073CF4EE713 /* PushRegistrationStore.swift in Sources */,
 				C1F06F7588D4713392223CC5 /* RecentWorkspaceStore.swift in Sources */,
 				F8D65F54BA2C27606B01EE73 /* RenameSheetView.swift in Sources */,
