@@ -155,7 +155,8 @@ struct ConsoleView: View {
                         relaySettings: relaySettings,
                         liveActivities: liveActivities,
                         console: console,
-                        hosts: hosts.hosts)
+                        hosts: hosts.hosts,
+                        inputMode: inputMode)
                 }
         } detail: {
             detail

@@ -614,6 +614,12 @@ struct AgentTerminalView: View {
                 cancelKeyboardHandoffs()
             }
         }
+        // The keyboard can arrive after the screen did — a Magic Keyboard is
+        // docked mid-session as often as it is docked before one.
+        .onChange(of: inputMode.isHardwareKeyboardConnected) { _, _ in
+            guard isOnStage() else { return }
+            armDirectKeyboardClaimIfNeeded()
+        }
         .onChange(of: agent.agent.status) { _, status in
             // A new turn may have pushed the conversation past the screen;
             // re-offer Up if an earlier walk had found nothing above.
@@ -1210,6 +1216,15 @@ struct AgentTerminalView: View {
 
     private func armDirectKeyboardClaimIfNeeded() {
         guard isDirectInput else { return }
+        // A hardware keyboard raises no software keyboard, so none of the
+        // evidence below ever appears — and without first responder no key
+        // reaches the PTY at all, Return included (ADR 0017).
+        guard !inputMode.isHardwareKeyboardConnected else {
+            directKeyboardIntent.setWantsKeyboard(true)
+            keyboardHandoff.arm(for: agent.id)
+            keyboardControl.requestKeyboard()
+            return
+        }
         guard AgentDirectInputPresentation.shouldClaimKeyboard(
             wantsKeyboard: directKeyboardIntent.wantsKeyboard,
             isKeyboardUp: keyboardControl.isKeyboardUp,
