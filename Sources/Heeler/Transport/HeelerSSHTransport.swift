@@ -2156,9 +2156,15 @@ actor HeelerSSHTransport: Transport {
                     CharacterSet.controlCharacters.contains($0)
                 })
         }
+        // The Client's one argument is an optional session name; every other
+        // target names a remote object and must have one.
+        let argumentIsOptional: Bool
+        if case .client = request.target { argumentIsOptional = true } else {
+            argumentIsOptional = false
+        }
         guard
             !attachCommand.isEmpty,
-            !target.isEmpty,
+            argumentIsOptional || !target.isEmpty,
             !target.contains(where: unquotable)
         else {
             throw TransportError.channelFailed(
@@ -2168,13 +2174,24 @@ actor HeelerSSHTransport: Transport {
             throw TransportError.channelFailed(
                 detail: "The remote socket path cannot be quoted safely.")
         }
-        let takeover = request.takeover ? " --takeover" : ""
-        // The marker goes out last thing before the exec, so earlier startup
-        // chatter can be dropped.
+        let arguments: String
+        switch request.target {
+        case .client(let session):
+            // Never `--takeover`: the Client joins a session, it does not
+            // seize a single pane from whoever else is watching it.
+            arguments = session == nil ? "" : " --session \"$1\""
+        case .agentPane, .terminal:
+            arguments = " \"$1\"" + (request.takeover ? " --takeover" : "")
+        }
+        // A non-login `ssh` exec inherits neither, and herdr's box drawing
+        // needs UTF-8 while its palette needs truecolor.
         return "/bin/sh -c '\(HerdrHostPath.pathExport); "
+            + "export COLORTERM=truecolor; export LANG=\"${LANG:-en_US.UTF-8}\"; "
             + "export HERDR_SOCKET_PATH=\"$2\"; "
+            // The marker goes out last thing before the exec, so earlier
+            // startup chatter can be dropped.
             + "printf \"\(AttachBootstrapHandshake.markerPrintfFormat)\"; "
-            + "exec \(attachCommand) \"$1\"\(takeover)' attach "
+            + "exec \(attachCommand)\(arguments)' attach "
             + "'\(target)' \(quotedSocketPath)"
     }
 
@@ -2201,6 +2218,10 @@ actor HeelerSSHTransport: Transport {
             agentAttachCommand
         case .terminal:
             terminalAttachCommand
+        case .client:
+            // herdr's own client is the bare command; there is no per-Host
+            // override for it, so exit 127 still classifies as a PATH miss.
+            SSHTransportSettings.defaultClientCommand
         }
     }
 

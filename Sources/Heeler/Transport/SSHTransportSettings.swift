@@ -9,6 +9,9 @@ struct SSHTransportSettings: Sendable {
         + "printf \"__HEELER_STAGE_DIR__=%s\\n\" \"$directory\"'"
     static let defaultWakeCommand = "herdr remote-client-bridge"
     static let defaultAttachCommand = "herdr agent attach"
+    /// herdr's own full client — workspaces, tabs, panes — as opposed to the
+    /// single-pane attaches above.
+    static let defaultClientCommand = "herdr"
     static let defaultTerminalAttachCommand = "herdr terminal attach"
     static let defaultHomeCommand =
         "/bin/sh -c 'printf \"__HEELER_HOME__=%s\\n\" \"$HOME\"'"

@@ -5,16 +5,23 @@ import Synchronization
 ///
 /// Agent Attach addresses herdr's Agent-facing command with a Pane id. An
 /// ordinary shell terminal instead addresses `herdr terminal attach` with the
-/// terminal id returned by `tab.create`. Keeping the distinction in the
-/// request prevents UI code from selecting remote commands itself.
+/// terminal id returned by `tab.create`. The Client is neither: it is herdr's
+/// own full TUI — bare `herdr`, optionally scoped to a named session — and so
+/// carries no remote object id at all. Keeping the distinction in the request
+/// prevents UI code from selecting remote commands itself.
 enum TerminalAttachTarget: Sendable, Equatable {
     case agentPane(String)
     case terminal(String)
+    case client(session: String?)
 
+    /// The remote object this attach names, empty for the Client (whose only
+    /// optional argument is a session name, not an id).
     var identifier: String {
         switch self {
         case .agentPane(let identifier), .terminal(let identifier):
             identifier
+        case .client(let session):
+            session ?? ""
         }
     }
 }
