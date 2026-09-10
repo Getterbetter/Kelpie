@@ -17,6 +17,7 @@ enum TerminalMouseEncoding {
     /// Button codes as they appear on the wire, before the legacy +32 bias.
     enum Button: Int {
         case left = 0
+        case right = 2
         case wheelUp = 64
         case wheelDown = 65
     }
