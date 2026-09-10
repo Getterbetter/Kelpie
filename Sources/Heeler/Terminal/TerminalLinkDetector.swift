@@ -25,12 +25,16 @@ enum TerminalLinkDetector {
     ]
 
     /// `column` and `row` are 1-based, as they come off the grid mapper (and
-    /// as an SGR mouse report would carry them).
-    static func url(inViewport text: String, column: Int, row: Int) -> URL? {
-        url(in: text.components(separatedBy: "\n"), column: column, row: row)
+    /// as an SGR mouse report would carry them). `width` is the grid's column
+    /// count: a URL only continues on the next row if it reached the last
+    /// column, and a row's *string* ends wherever the viewport read stopped
+    /// padding it, which is not the same thing. Without a width, nothing is
+    /// ever joined — a wrong URL is worse than a truncated one.
+    static func url(inViewport text: String, column: Int, row: Int, width: Int? = nil) -> URL? {
+        url(in: text.components(separatedBy: "\n"), column: column, row: row, width: width)
     }
 
-    static func url(in rows: [String], column: Int, row: Int) -> URL? {
+    static func url(in rows: [String], column: Int, row: Int, width: Int? = nil) -> URL? {
         guard row >= 1, row <= rows.count, column >= 1 else { return nil }
         let characters = Array(rows[row - 1])
         let index = column - 1
@@ -38,7 +42,7 @@ enum TerminalLinkDetector {
             return nil
         }
         var link = String(characters[span])
-        if span.upperBound == characters.count, row < rows.count {
+        if let width, span.upperBound >= width, row < rows.count {
             let continuation = Array(rows[row]).prefix { !isTerminator($0) }
             link += String(continuation)
         }

@@ -31,6 +31,9 @@ struct HerdrClientRootView: View {
     /// menu outlives no store and must not hold one.
     @State private var commands = HerdrClientCommands()
     @State private var isShowingConsole = false
+    /// True while the Client is handing its Attach channel back, before the
+    /// cover is presented. See ``presentConsole()``.
+    @State private var isPreparingConsole = false
     @State private var isShowingSettings = false
     @State private var hostSheet: HostSheet?
     @State private var manualReconnectInFlightHostIDs: Set<Host.ID> = []
@@ -70,6 +73,10 @@ struct HerdrClientRootView: View {
         // repoint the pipeline.
         .id(host.id)
         .overlay(alignment: .topTrailing) { menuButton }
+        // The foreground Blocked/Done banner (#77) is drawn wherever the app's
+        // root is; ConsoleView keeps drawing its own for when the cover is up.
+        .overlay(alignment: .top) { banner }
+        .animation(.snappy, value: bannerStore.banner)
         .fullScreenCover(isPresented: $isShowingConsole) {
             consoleScreen(onClose: { isShowingConsole = false })
         }
@@ -102,6 +109,31 @@ struct HerdrClientRootView: View {
             guard !path.isEmpty else { return }
             hostSheet = nil
             isShowingSettings = false
+            presentConsole()
+        }
+    }
+
+    @ViewBuilder
+    private var banner: some View {
+        if let banner = bannerStore.banner {
+            AgentNotificationBannerView(banner: banner) {
+                bannerStore.dismiss()
+                notificationRouter.open(banner.target)
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// Presents the Agents cover only once the Client's Attach channel is
+    /// actually closed. A Transport serves one channel at a time and an Agent
+    /// Attach does not retry a refusal, so presenting first and closing after
+    /// is a race — and the deep link is the flow that would lose it.
+    private func presentConsole() {
+        guard !isShowingConsole, !isPreparingConsole else { return }
+        isPreparingConsole = true
+        Task { @MainActor in
+            await commands.prepareForConsole()
+            isPreparingConsole = false
             isShowingConsole = true
         }
     }
@@ -132,7 +164,7 @@ struct HerdrClientRootView: View {
     private var menuButton: some View {
         Menu {
             Button("Agents", systemImage: "rectangle.on.rectangle") {
-                isShowingConsole = true
+                presentConsole()
             }
             Button("Hosts", systemImage: "server.rack") {
                 hostSheet = HostSheet(hostID: nil)
@@ -191,6 +223,13 @@ final class HerdrClientCommands {
     weak var store: HerdrClientStore?
 
     func reconnect() { store?.reconnect() }
+
+    /// Ends the Client's attach and waits for the channel to close.
+    func prepareForConsole() async {
+        guard let store else { return }
+        store.setPresented(false)
+        await store.leave().value
+    }
 }
 
 /// Owns one Host's Client store for as long as that Host is the primary one.
@@ -243,6 +282,14 @@ private struct HerdrClientHostView: View {
         .onChange(of: isShowingConsole, initial: true) { _, isShowing in
             store.setPresented(!isShowing)
         }
-        .onAppear { commands.store = store }
+        // Paired: a Host switch replaces this view (`.id(host.id)`) and the
+        // old store's channel has to close with it, or the Host it was
+        // holding refuses the next attach. `rejoin()` is a no-op unless a
+        // spurious disappear/appear pair actually left it.
+        .onAppear {
+            commands.store = store
+            store.rejoin()
+        }
+        .onDisappear { store.leave() }
     }
 }

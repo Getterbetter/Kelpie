@@ -32,6 +32,10 @@ targets:
   Heeler:
     type: application
     platform: iOS
+    # The built product is Kelpie.app (see PRODUCT_NAME below); without this
+    # the generated scheme's BuildableName reverts to Heeler.app and Run/Test
+    # from Xcode look for a product that is never built.
+    productName: Kelpie
     sources:
       - path: Sources/Heeler
         excludes:
