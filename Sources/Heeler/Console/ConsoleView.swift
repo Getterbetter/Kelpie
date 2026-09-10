@@ -197,7 +197,8 @@ struct ConsoleView: View {
                 relaySettings: relaySettings,
                 liveActivities: liveActivities,
                 console: console,
-                hosts: hosts.hosts)
+                hosts: hosts.hosts,
+                inputMode: inputMode)
             .modifier(ConsoleSheetPresentationModifier(
                 presentation: ConsoleSheetPresentation(
                     horizontalSizeClass: horizontalSizeClass)))

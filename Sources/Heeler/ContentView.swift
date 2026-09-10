@@ -50,6 +50,11 @@ struct ContentView: View {
         .environment(
             \.agentSceneRouting,
             AgentSceneRouting(directory: app.sceneDirectory, sceneID: sceneID))
+        // Automatic input mode is a function of this one fact, so it is
+        // pushed from the single observer rather than read in three places.
+        .onChange(of: hardwareKeyboard.isConnected, initial: true) { _, isConnected in
+            app.inputMode.hardwareKeyboardDidChange(isConnected)
+        }
         // The one place the app's light/dark override is applied: it lands on
         // the window, so sheets, pushed screens, and the UIKit terminal
         // surfaces all resolve against the chosen appearance.

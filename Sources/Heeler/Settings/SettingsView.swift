@@ -51,6 +51,9 @@ struct SettingsView: View {
     let liveActivities: HostLiveActivityCoordinator
     let console: ConsoleStore
     let hosts: [Host]
+    /// Optional so previews and tests that only care about appearance can
+    /// leave it out; the Agent Input row is hidden when it is absent.
+    var inputMode: AgentInputModeSettings? = nil
 
     static let agentListDestination = SettingsAgentListDestination.fields
     @Environment(\.dismiss) private var dismiss
@@ -127,6 +130,9 @@ struct SettingsView: View {
                     } label: {
                         Label("Notifications", systemImage: "bell.badge")
                     }
+                    if let inputMode {
+                        agentInputPicker(inputMode)
+                    }
                     appearancePicker
                     NavigationLink {
                         TerminalAppearanceSettingsView(terminal: terminal)
@@ -181,6 +187,22 @@ struct SettingsView: View {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
             }
+        }
+    }
+
+    /// Automatic follows the hardware keyboard (ADR 0017); either explicit
+    /// choice pins the mode. Same shape as the appearance picker below.
+    private func agentInputPicker(_ inputMode: AgentInputModeSettings) -> some View {
+        Picker(
+            selection: Binding(
+                get: { inputMode.preference },
+                set: { inputMode.select(preference: $0) })
+        ) {
+            ForEach(AgentInputModePreference.allCases) { option in
+                Text(option.title).tag(option)
+            }
+        } label: {
+            Label("Agent Input", systemImage: "keyboard")
         }
     }
 
