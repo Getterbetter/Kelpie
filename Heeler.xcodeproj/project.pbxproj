@@ -562,6 +562,7 @@
 		67D6865847B4D827038D1AF0 /* HostOnboardingPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostOnboardingPresentationTests.swift; sourceTree = "<group>"; };
 		6803A0055A861DFCA2A67217 /* AgentCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCardView.swift; sourceTree = "<group>"; };
 		6876069E2B641D09FF1520E6 /* NotificationRelayEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRelayEndpoint.swift; sourceTree = "<group>"; };
+		68BA23A46C7FAD65D531CA10 /* Kelpie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Kelpie.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6908778391053E855ED67E36 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		696C6905D9D6EEFF77A64E2E /* FakeTransportConnector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeTransportConnector.swift; sourceTree = "<group>"; };
 		698E712B4BE15626800C366F /* TerminalMessageJumpController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalMessageJumpController.swift; sourceTree = "<group>"; };
@@ -582,7 +583,6 @@
 		7683DF30B1A0E9FA0064AAA2 /* HeelerSSHTransportBehaviorE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeelerSSHTransportBehaviorE2ETests.swift; sourceTree = "<group>"; };
 		76FEA2FB18C10525E4B4F1D8 /* ConsoleListPresentationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleListPresentationStore.swift; sourceTree = "<group>"; };
 		775417BCAF4E4110FDEF5A75 /* AgentListFieldsPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentListFieldsPreview.swift; sourceTree = "<group>"; };
-		7780BE78D868DB0A8275E6FB /* Heeler.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Heeler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		78F85C588963C3CE948AA9E4 /* AgentNotificationBannerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNotificationBannerStore.swift; sourceTree = "<group>"; };
 		79662827F6A91D8EFBF112F7 /* HostListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListView.swift; sourceTree = "<group>"; };
 		7A8ED9AD5019F303932B0F9C /* ImageStagingE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStagingE2ETests.swift; sourceTree = "<group>"; };
@@ -1130,10 +1130,10 @@
 		615BBEAAA95BF5A909D55F8B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7780BE78D868DB0A8275E6FB /* Heeler.app */,
 				59A749D2AF2390BCACBADED3 /* HeelerNotificationService.appex */,
 				FBA937EDF831047EA33892F9 /* HeelerTests.xctest */,
 				AD69BB4579A415BE96578319 /* HeelerWidgets.appex */,
+				68BA23A46C7FAD65D531CA10 /* Kelpie.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1434,7 +1434,7 @@
 				E086C559FC229264CF662993 /* GhosttyTheme */,
 			);
 			productName = Heeler;
-			productReference = 7780BE78D868DB0A8275E6FB /* Heeler.app */;
+			productReference = 68BA23A46C7FAD65D531CA10 /* Kelpie.app */;
 			productType = "com.apple.product-type.application";
 		};
 		134E6CD1AC1396155DAB93E2 /* HeelerWidgets */ = {
