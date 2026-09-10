@@ -2160,7 +2160,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = TME.Kelpie.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Heeler.app/Heeler";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kelpie.app/Kelpie";
 			};
 			name = Debug;
 		};
@@ -2177,7 +2177,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = TME.Kelpie.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Heeler.app/Heeler";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kelpie.app/Kelpie";
 			};
 			name = Release;
 		};

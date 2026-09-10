@@ -227,6 +227,9 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.tests
+        # The host app's product is Kelpie.app (PRODUCT_NAME) while the target
+        # stays Heeler; XcodeGen derives TEST_HOST from the target name.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Kelpie.app/Kelpie"
     dependencies:
       - target: Heeler
       - package: HeelerSSH
