@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "081A3B29EFF2C7B2FCAA3248"
-               BuildableName = "Heeler.app"
+               BuildableName = "Kelpie.app"
                BlueprintName = "Heeler"
                ReferencedContainer = "container:Heeler.xcodeproj">
             </BuildableReference>
@@ -33,7 +33,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "081A3B29EFF2C7B2FCAA3248"
-            BuildableName = "Heeler.app"
+            BuildableName = "Kelpie.app"
             BlueprintName = "Heeler"
             ReferencedContainer = "container:Heeler.xcodeproj">
          </BuildableReference>
@@ -76,7 +76,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "081A3B29EFF2C7B2FCAA3248"
-            BuildableName = "Heeler.app"
+            BuildableName = "Kelpie.app"
             BlueprintName = "Heeler"
             ReferencedContainer = "container:Heeler.xcodeproj">
          </BuildableReference>
@@ -95,7 +95,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "081A3B29EFF2C7B2FCAA3248"
-            BuildableName = "Heeler.app"
+            BuildableName = "Kelpie.app"
             BlueprintName = "Heeler"
             ReferencedContainer = "container:Heeler.xcodeproj">
          </BuildableReference>

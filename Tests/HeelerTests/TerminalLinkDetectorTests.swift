@@ -44,9 +44,28 @@ struct TerminalLinkDetectorTests {
             "https://herdr.dev/docs/configuration/keybindings",
             "#prefix and the rest of the line",
         ]
+        // The first row fills the grid, which is what makes it a wrap.
         #expect(
-            TerminalLinkDetector.url(in: wrapped, column: 3, row: 1)?.absoluteString
+            TerminalLinkDetector.url(
+                in: wrapped, column: 3, row: 1, width: wrapped[0].count)?.absoluteString
                 == "https://herdr.dev/docs/configuration/keybindings#prefix")
+    }
+
+    /// A row that merely *ends* with a URL is not a wrap. Viewport reads drop
+    /// trailing padding, so the string ending says nothing on its own — only
+    /// the grid width does.
+    @Test func doesNotJoinAUrlThatEndsShortOfTheGridWidth() {
+        let rows = [
+            "Server running at https://localhost:3000",
+            "Press Ctrl-C to quit",
+        ]
+        #expect(
+            TerminalLinkDetector.url(in: rows, column: 20, row: 1, width: 80)?.absoluteString
+                == "https://localhost:3000")
+        // And with no width at all, nothing is ever joined.
+        #expect(
+            TerminalLinkDetector.url(in: rows, column: 20, row: 1)?.absoluteString
+                == "https://localhost:3000")
     }
 
     @Test func doesNotJoinWhenTheNextRowStartsWithSpace() {
@@ -55,7 +74,8 @@ struct TerminalLinkDetectorTests {
             " indented continuation",
         ]
         #expect(
-            TerminalLinkDetector.url(in: wrapped, column: 3, row: 1)?.absoluteString
+            TerminalLinkDetector.url(
+                in: wrapped, column: 3, row: 1, width: wrapped[0].count)?.absoluteString
                 == "https://herdr.dev/docs/configuration/keybindings")
     }
 

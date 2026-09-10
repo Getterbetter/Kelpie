@@ -624,11 +624,16 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private var didReportRightClickForTouch = false
     /// The pointer touch this view took over for a right click, if any.
     private weak var claimedRightButtonTouch: UITouch?
-    /// A primary-button pointer touch that began on a URL, with the URL it
-    /// began on. Owned here for the whole sequence, exactly as a right-button
-    /// touch is, so Ghostty never turns it into a click herdr would answer by
-    /// opening the link on the Mac.
-    private var claimedLinkTouch: (touch: UITouch, url: URL)?
+    /// A primary-button pointer touch that began on a URL, with the URL and
+    /// the point it began on. Owned here for the whole sequence, exactly as a
+    /// right-button touch is, so Ghostty never turns it into a click herdr
+    /// would answer by opening the link on the Mac — until it moves far enough
+    /// to be a drag-selection instead, at which point the sequence is replayed
+    /// to Ghostty and handed back.
+    private var claimedLinkTouch: (touch: UITouch, url: URL, origin: CGPoint)?
+    /// Past this, a pointer press that began on a URL is a selection drag, not
+    /// a click on the link.
+    private static let linkClaimMovementThreshold: CGFloat = 8
 
     private lazy var touchScrollGesture = UIPanGestureRecognizer(
         target: self,
@@ -1321,9 +1326,20 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let forwarded = touches
-            .subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
-            .subtracting(claimedLinkTouch.map { [$0.touch] } ?? [])
+        var forwarded = touches.subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
+        if let claimed = claimedLinkTouch, touches.contains(claimed.touch) {
+            if Self.distance(claimed.touch.location(in: self), claimed.origin)
+                > Self.linkClaimMovementThreshold
+            {
+                // A drag, not a click on the link. Ghostty never saw the
+                // press, so replay it before handing the rest over: its
+                // pointer selection starts from that `.began`.
+                claimedLinkTouch = nil
+                super.touchesBegan([claimed.touch], with: event)
+            } else {
+                forwarded.remove(claimed.touch)
+            }
+        }
         guard !forwarded.isEmpty else { return }
         super.touchesMoved(forwarded, with: event)
     }
@@ -1388,12 +1404,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private func linkTouchToClaim(
         in touches: Set<UITouch>,
         with event: UIEvent?
-    ) -> (touch: UITouch, url: URL)? {
+    ) -> (touch: UITouch, url: URL, origin: CGPoint)? {
         guard event?.buttonMask.contains(.primary) == true,
-            let touch = touches.first(where: { $0.type == .indirectPointer }),
-            let url = linkURL(at: touch.location(in: self))
+            let touch = touches.first(where: { $0.type == .indirectPointer })
         else { return nil }
-        return (touch, url)
+        let origin = touch.location(in: self)
+        guard let url = linkURL(at: origin) else { return nil }
+        return (touch, url, origin)
+    }
+
+    private static func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        hypot(a.x - b.x, a.y - b.y)
     }
 
     /// Opens the claimed link when the click ended on the same URL it began
@@ -1406,7 +1427,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             return touches
         }
         claimedLinkTouch = nil
-        if opening, linkURL(at: claimed.touch.location(in: self)) == claimed.url {
+        let ended = claimed.touch.location(in: self)
+        if opening,
+            Self.distance(ended, claimed.origin) <= Self.linkClaimMovementThreshold,
+            linkURL(at: ended) == claimed.url
+        {
             onOpenLink?(claimed.url)
         }
         return touches.subtracting([claimed.touch])
@@ -1654,11 +1679,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// from the viewport rather than asked of libghostty, which has no such
     /// query on iOS. See ``TerminalLinkDetector``.
     func linkURL(at point: CGPoint) -> URL? {
-        guard let cell = gridPointMapper.cell(at: point),
+        let mapper = gridPointMapper
+        guard let cell = mapper.cell(at: point),
             let text = terminalSession.readViewportText()
         else { return nil }
         return TerminalLinkDetector.url(
-            inViewport: text, column: cell.column, row: cell.row)
+            inViewport: text, column: cell.column, row: cell.row,
+            width: mapper.columns)
     }
 
     /// Reports a touch as a left click when the remote application asked for
