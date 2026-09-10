@@ -44,7 +44,12 @@ struct ConsoleView: View {
     /// later — an extra reflow, and a Connecting dialog that visibly jumps
     /// from the middle of the screen to the middle of the terminal.
     @State private var keyboardInset = TerminalKeyboardInset()
+    /// Which columns the split view shows. Driven by
+    /// ``preferredColumnVisibility``, and left alone afterwards so the
+    /// sidebar toggle keeps working.
+    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -53,7 +58,7 @@ struct ConsoleView: View {
         // width collapses into the familiar push navigation. The router's
         // path stays the single source of truth — the sidebar selection is a
         // projection of it, so notification deep links keep working.
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             content
                 .navigationTitle("Agents")
                 .navigationSplitViewColumnWidth(min: 320, ideal: 380)
@@ -163,6 +168,9 @@ struct ConsoleView: View {
             }
         }
         .animation(.snappy, value: bannerStore.banner)
+        .onChange(of: preferredColumnVisibility, initial: true) { _, visibility in
+            columnVisibility = visibility
+        }
         // A notification deep link must land on Agent detail even when one of
         // the Console's sheets covers it. The only other push a sheet can
         // cause is the new-agent flow's, which dismisses itself first, so
@@ -180,6 +188,14 @@ struct ConsoleView: View {
                 self.hostFilter = nil
             }
         }
+    }
+
+    /// An open terminal is the screen on iPad: it takes the whole window and
+    /// the Agent list returns with the standard sidebar toggle. Compact width
+    /// keeps its push navigation, where this value is ignored anyway.
+    private var preferredColumnVisibility: NavigationSplitViewVisibility {
+        guard horizontalSizeClass == .regular else { return .automatic }
+        return notificationRouter.path.isEmpty ? .automatic : .detailOnly
     }
 
     /// The sidebar selection as a projection of the router's path. Setting
