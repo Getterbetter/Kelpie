@@ -5,6 +5,33 @@ All notable changes to Heeler are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries reference the issue that motivated them.
 
+## Kelpie
+
+Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
+
+### Added
+
+- Right-click reaches herdr from a trackpad or a mouse. While a remote
+  application tracks the mouse the right button is reported to it instead of
+  opening the iPadOS copy menu, so herdr's context menu opens under the
+  pointer and the next click picks a row.
+
+- A long press is a right click by touch. Holding a cell for half a second
+  sends a right-button report with a haptic, and the release no longer arrives
+  as a stray left click. Two fingers open the text-selection sheet while the
+  remote application owns the single-finger hold; in a plain shell the
+  one-finger hold still selects.
+
+- Trackpad and mouse-wheel scrolling in the terminal. A two-finger swipe or a
+  wheel scrolls local scrollback, or sends wheel reports to a TUI, exactly as
+  a finger drag does.
+
+### Changed
+
+- On iPad, an open terminal fills the window: the Agent list starts hidden
+  behind the sidebar toggle instead of splitting the screen. iPhone
+  navigation is unchanged.
+
 ## [Unreleased]
 
 ### Added
