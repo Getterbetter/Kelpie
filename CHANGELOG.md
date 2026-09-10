@@ -11,6 +11,24 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
+- herdr's own client is the screen. Kelpie opens full screen on the herdr TUI
+  for one Host — its workspaces sidebar, tabs and panes, exactly as a desktop
+  terminal shows them — with a small menu at the top right for the Agents
+  console, Hosts, switching Host, Settings and Reconnect. A tapped
+  notification still opens the Agents console on that Agent, and push and
+  Live Activities are unaffected.
+
+- Tapping a URL in the terminal opens it in the iPad's browser. herdr would
+  otherwise open it on the Mac it is running on, so the click is answered on
+  the iPad and never sent. Works by touch and with a trackpad or mouse,
+  including a URL wrapped across two rows.
+
+- Agent input mode follows the hardware keyboard. The new Automatic default
+  uses Keyboard mode while a keyboard is attached and the Composer when it is
+  not; Settings still offers either explicitly. The terminal also takes focus
+  as soon as a keyboard is attached, so keys reach the Agent without tapping
+  the screen first.
+
 - Right-click reaches herdr from a trackpad or a mouse. While a remote
   application tracks the mouse the right button is reported to it instead of
   opening the iPadOS copy menu, so herdr's context menu opens under the
@@ -27,6 +45,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   a finger drag does.
 
 ### Changed
+
+- The terminal starts at 12 pt on iPad instead of 8 pt. Pinch-to-zoom still
+  overrides it, and a size you have already chosen is kept.
 
 - On iPad, an open terminal fills the window: the Agent list starts hidden
   behind the sidebar toggle instead of splitting the screen. iPhone
