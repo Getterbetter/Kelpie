@@ -93,7 +93,8 @@ struct HerdrClientRootView: View {
                 relaySettings: relaySettings,
                 liveActivities: liveActivities,
                 console: console,
-                hosts: hosts.hosts)
+                hosts: hosts.hosts,
+                inputMode: inputMode)
         }
         // A notification tap routes through the Console, so the Console has
         // to be on screen for it to land.
