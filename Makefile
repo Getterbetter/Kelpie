@@ -29,7 +29,8 @@ ssh-artifacts: ## Rebuild the pinned HeelerSSH XCFrameworks
 verify-ssh-artifacts: ## Verify HeelerSSH artifact hashes, slices, and policy
 	Packages/HeelerSSH/Scripts/verify-native.sh
 
-generate: ## Regenerate the Xcode project from project.yml (XcodeGen)
+generate: ## Regenerate the Xcode project from project.yml (XcodeGen); fetches libghostty first
+	./scripts/fetch-ghostty-artifact.sh
 	xcodegen generate
 
 resolve: generate ## Resolve pinned Swift packages into .ci/source-packages
