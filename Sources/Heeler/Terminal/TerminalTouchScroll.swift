@@ -187,6 +187,17 @@ struct TerminalModeTracker {
             + encoding.report(button: .left, column: column, row: row, isRelease: true)
     }
 
+    /// A full right-button click on a 1-based cell. Same contract as
+    /// ``remoteClickSequence(column:row:)``: nil unless the remote application
+    /// asked for mouse tracking. herdr opens its context menu on the press and
+    /// activates a row on the following left click.
+    func remoteRightClickSequence(column: Int, row: Int) -> Data? {
+        guard tracksMouse else { return nil }
+        let encoding = mouseEncoding
+        return encoding.report(button: .right, column: column, row: row)
+            + encoding.report(button: .right, column: column, row: row, isRelease: true)
+    }
+
     private mutating func update(mode: Int, enabled: Bool) {
         switch mode {
         case 1:

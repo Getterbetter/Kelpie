@@ -762,6 +762,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Echo de-dup for the originating consumed press only. Cleared on that
     /// press's ended/cancelled, or on any non-matching insert/delete.
     private var echoSuppression: ArmedModifierEchoSuppression?
+    /// Whether the touch sequence in progress already went out as a right
+    /// click. Its release is not a tap.
+    private var didReportRightClickForTouch = false
 
     private lazy var touchScrollGesture = UIPanGestureRecognizer(
         target: self,
@@ -774,6 +777,20 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private lazy var tapGesture = UITapGestureRecognizer(
         target: self,
         action: #selector(handleHerdrTap(_:)))
+
+    private lazy var rightClickGesture = UILongPressGestureRecognizer(
+        target: self,
+        action: #selector(handleHerdrRightClickGesture(_:)))
+
+    private lazy var textSelectionGesture = UILongPressGestureRecognizer(
+        target: self,
+        action: #selector(handleHerdrTextSelectionGesture(_:)))
+
+    #if !targetEnvironment(macCatalyst)
+        private lazy var pointerScrollGesture = UIPanGestureRecognizer(
+            target: self,
+            action: #selector(handleHerdrPointerScrollGesture(_:)))
+    #endif
 
     override var inputView: UIView? {
         terminalInputView
@@ -1044,6 +1061,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         installTouchScrolling()
         installZoom()
+        #if !targetEnvironment(macCatalyst)
+            installPointerScrolling()
+        #endif
     }
 
     @available(*, unavailable)
@@ -1489,6 +1509,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if rightClickGesture.state == .possible {
+            didReportRightClickForTouch = false
+        }
         responderGate.directTouchesBegan(Self.directTouchCount(in: touches))
         super.touchesBegan(touches, with: event)
     }
@@ -1525,7 +1548,49 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 || isTouchScrollMomentumRunning
                 || keyboardActivationRegion.contains(tapGesture.location(in: self))
         }
+        if gestureRecognizer === rightClickGesture {
+            return modeTracker.tracksMouse
+        }
+        if gestureRecognizer === textSelectionGesture {
+            return true
+        }
+        if gestureRecognizer is UILongPressGestureRecognizer {
+            // Ghostty's selection long-press. While a TUI owns the mouse the
+            // same hold is a right click, and only one of the two may answer
+            // it — two fingers ask for the selection sheet instead.
+            guard !modeTracker.tracksMouse else { return false }
+            return super.gestureRecognizerShouldBegin(gestureRecognizer)
+        }
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
+    }
+
+    /// While a remote application owns the mouse, a right-click belongs to it,
+    /// not to the iPadOS copy menu. Ghostty holds the right press back on
+    /// `.began` whenever this returns a point, so nulling it here is what lets
+    /// the press and release reach libghostty — and herdr — as SGR reports.
+    override func selectionMenuPoint(at point: CGPoint) -> CGPoint? {
+        guard !modeTracker.tracksMouse else { return nil }
+        return super.selectionMenuPoint(at: point)
+    }
+
+    override func contextMenuInteraction(
+        _ interaction: UIContextMenuInteraction,
+        configurationForMenuAtLocation location: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard !modeTracker.tracksMouse else { return nil }
+        return super.contextMenuInteraction(
+            interaction, configurationForMenuAtLocation: location)
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer
+    ) -> Bool {
+        #if !targetEnvironment(macCatalyst)
+            return gestureRecognizer === pointerScrollGesture
+        #else
+            return false
+        #endif
     }
 
     private func reloadInputViewsAfterWindowResize() {
@@ -1724,6 +1789,21 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         return true
     }
 
+    /// Reports a touch as a right click, on the same terms as
+    /// ``clickTouch(at:)``. Returns whether anything was sent.
+    @discardableResult
+    func rightClickTouch(at point: CGPoint) -> Bool {
+        guard isLocalInputEnabled,
+            let cell = gridPointMapper.cell(at: point),
+            let report = modeTracker.remoteRightClickSequence(
+                column: cell.column,
+                row: cell.row)
+        else { return false }
+
+        terminalSession.sendInput(report)
+        return true
+    }
+
     /// The grid Ghostty last measured this surface against, or `nil` before
     /// the surface has reported one. This is the value a thawing freeze
     /// forwards to the Host as the settled grid.
@@ -1815,7 +1895,34 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         tapGesture.cancelsTouchesInView = false
         tapGesture.delegate = self
         addGestureRecognizer(tapGesture)
+
+        for gesture in [rightClickGesture, textSelectionGesture] {
+            gesture.allowedTouchTypes = [directTouch]
+            gesture.minimumPressDuration = 0.5
+            gesture.allowableMovement = 10
+            gesture.cancelsTouchesInView = false
+            gesture.delegate = self
+            addGestureRecognizer(gesture)
+        }
+        rightClickGesture.numberOfTouchesRequired = 1
+        textSelectionGesture.numberOfTouchesRequired = 2
     }
+
+    #if !targetEnvironment(macCatalyst)
+        /// Trackpad and mouse-wheel scrolling. Ghostty installs a scroll-type
+        /// pan under macCatalyst only, so on iPadOS nothing answers a
+        /// two-finger trackpad swipe until this one does.
+        private func installPointerScrolling() {
+            pointerScrollGesture.allowedScrollTypesMask = [.continuous, .discrete]
+            pointerScrollGesture.allowedTouchTypes = [
+                NSNumber(value: UITouch.TouchType.indirectPointer.rawValue),
+            ]
+            pointerScrollGesture.cancelsTouchesInView = false
+            pointerScrollGesture.delaysTouchesBegan = false
+            pointerScrollGesture.delegate = self
+            addGestureRecognizer(pointerScrollGesture)
+        }
+    #endif
 
     /// Ghostty ships its own pinch handler that mutates the surface font size
     /// behind the app's back. Zoom has to be app state to persist, so that
@@ -2126,9 +2233,50 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     @objc private func handleHerdrTap(_ gesture: UITapGestureRecognizer) {
-        guard gesture.state == .ended else { return }
+        guard gesture.state == .ended, !didReportRightClickForTouch else { return }
         handleTap(at: gesture.location(in: self))
     }
+
+    /// A hold is the touch spelling of a right click: herdr opens its context
+    /// menu on the press, and the next tap activates a row.
+    @objc private func handleHerdrRightClickGesture(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        guard rightClickTouch(at: gesture.location(in: self)) else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        // The hold is spent. Releasing it must not also arrive as a left
+        // click, which herdr would read as picking a menu row.
+        didReportRightClickForTouch = true
+    }
+
+    /// Two fingers reach the selection sheet while one finger is spoken for.
+    @objc private func handleHerdrTextSelectionGesture(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began,
+            let text = terminalSession.readViewportText()
+        else { return }
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        TerminalTextSelectionPresenter.present(text: text, anchorRange: nil, from: self)
+    }
+
+    #if !targetEnvironment(macCatalyst)
+        @objc private func handleHerdrPointerScrollGesture(_ gesture: UIPanGestureRecognizer) {
+            // A pointer with a touch down is dragging, which is Ghostty's own
+            // indirect-pointer pan (selection or a remote drag).
+            guard gesture.numberOfTouches == 0 else { return }
+            switch gesture.state {
+            case .began:
+                stopTouchScrollMomentum()
+                touchScrollAccumulator.reset()
+            case .changed:
+                _ = scrollTouch(translationY: gesture.translation(in: self).y)
+                gesture.setTranslation(.zero, in: self)
+            case .ended, .cancelled, .failed:
+                touchScrollAccumulator.reset()
+            default:
+                break
+            }
+        }
+    #endif
 
     func handleTap(at location: CGPoint) {
         switch tapAction(at: location) {
