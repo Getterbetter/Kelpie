@@ -1,0 +1,52 @@
+---
+status: accepted
+---
+
+# iPad pointer input reaches herdr through Ghostty's open seams
+
+Kelpie ships for iPad, where a trackpad, a mouse and a hardware keyboard are
+ordinary. herdr's TUI enables mouse tracking (DECSET 1000/1002/1003 plus 1006),
+so it wants right clicks — its context menu opens on a right-button press at a
+cell and a row is chosen with the next left click. Three input paths were
+missing on iPad, and all three are fixed from `HeelerTerminalView` alone: the
+`GhosttyTerminal` package is a pinned dependency and is never edited.
+
+## Right click from a trackpad or mouse
+
+Ghostty's `handleIndirectPointerTouches` holds the right press back on `.began`
+and stores `selectionMenuPoint(at:)`; on `.ended` a stored point shows the
+iPadOS copy menu instead of telling the terminal anything, and only a nil point
+sends the press and release on to libghostty — which encodes the SGR report and
+emits it through the same session write callback Kelpie already bridges to SSH.
+
+`HeelerTerminalView` therefore overrides `selectionMenuPoint(at:)` to return nil
+while `TerminalModeTracker.tracksMouse`, and `contextMenuInteraction(_:
+configurationForMenuAtLocation:)` to match. The copy menu stays available in a
+plain shell, where nothing remote wants the click.
+
+## Long press is the touch spelling of a right click
+
+A finger produces no mouse event at all — Ghostty's UIKit layer converts
+indirect pointers only, which is why `TerminalMouseReporting` encodes touch
+reports itself. So a one-finger long press sends
+`TerminalModeTracker.remoteRightClickSequence` (button 2, press then release)
+for the cell under the finger, with a medium haptic, and suppresses the tap that
+release would otherwise produce — herdr would read that tap as picking a menu
+row.
+
+The alternative, some new on-screen affordance, was rejected: a hold is what a
+right click already means on iPadOS, and herdr's own menu is the destination.
+
+The trade is Ghostty's long-press text selection, which uses the same gesture.
+While a remote application owns the mouse that recognizer is refused and two
+fingers ask for the selection sheet instead; in a plain shell the one-finger
+hold still selects, exactly as before.
+
+## Trackpad scrolling
+
+Ghostty installs a scroll-type pan under macCatalyst only, so on iPadOS a
+two-finger trackpad swipe and a wheel did nothing. A scroll-type
+`UIPanGestureRecognizer` (indirect pointer, continuous and discrete) feeds
+`scrollTouch(translationY:)` — the same entry point the finger pan uses, so
+local scrollback and remote wheel reports keep one decision. Events carrying a
+touch belong to Ghostty's own pointer pan (drag selection) and are ignored.
