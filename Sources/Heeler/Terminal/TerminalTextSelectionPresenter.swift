@@ -4,13 +4,20 @@ import UIKit
 @MainActor
 enum TerminalTextSelectionPresenter {
     static func present(_ request: TerminalTextSelectionRequest, from sourceView: UIView) {
+        present(text: request.text, anchorRange: request.anchorRange, from: sourceView)
+    }
+
+    /// The same sheet for a selection the app asks for itself. Ghostty keeps
+    /// ``TerminalTextSelectionRequest``'s initializer to its own module, so a
+    /// caller outside the delegate callback hands over the parts instead.
+    static func present(text: String, anchorRange: NSRange?, from sourceView: UIView) {
         guard let presentingViewController = sourceView.nearestPresentingViewController else {
             return
         }
 
         let selection = TerminalTextSelectionViewController(
-            text: request.text,
-            anchorRange: request.anchorRange)
+            text: text,
+            anchorRange: anchorRange)
         let navigation = UINavigationController(rootViewController: selection)
         navigation.modalPresentationStyle = .pageSheet
         navigation.sheetPresentationController?.detents = [.large()]
