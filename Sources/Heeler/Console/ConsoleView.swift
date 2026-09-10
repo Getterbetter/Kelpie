@@ -22,6 +22,10 @@ struct ConsoleView: View {
     /// Scene phase widened by the background grace period; an Attach screen
     /// pauses its work on real suspensions only.
     let activity: AppActivityCoordinator
+    /// Set when the Console is presented over the herdr Client (Kelpie's
+    /// root); nil when it is the screen in its own right, as it is during
+    /// onboarding. Only the Done button depends on it.
+    var onClose: (@MainActor () -> Void)? = nil
     @State private var hostSheet: HostSheet?
     @State private var isStartingAgent = false
     @State private var isShowingSettings = false
@@ -98,6 +102,11 @@ struct ConsoleView: View {
                             }
                             .accessibilityLabel("Agent list presentation")
                             .accessibilityValue(listPresentation.mode.title)
+                        }
+                    }
+                    if let onClose {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { onClose() }
                         }
                     }
                     ToolbarItem(placement: .primaryAction) {

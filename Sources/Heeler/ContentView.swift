@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var bannerStore: AgentNotificationBannerStore
     @State private var liveActivities: HostLiveActivityCoordinator
     @State private var activity: AppActivityCoordinator
+    @State private var hardwareKeyboard = HardwareKeyboardObserver()
     @Environment(\.scenePhase) private var scenePhase
 
     /// `hostStore`, `console`, and `activity` are injectable so a test can
@@ -96,7 +97,11 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ConsoleView(
+        // herdr's own client is the screen (ADR 0017). Every store the
+        // Console needs is still created and driven here, at the root, so
+        // push, Live Activities and the activity driver below keep running
+        // while the Console itself is only a cover away.
+        HerdrClientRootView(
             hosts: hostStore, console: console, terminal: terminal,
             inputMode: inputMode,
             appearance: appearance,
@@ -106,8 +111,10 @@ struct ContentView: View {
             notificationRouter: notificationRouter,
             bannerStore: bannerStore,
             liveActivities: liveActivities,
-            activity: activity
+            activity: activity,
+            hardwareKeyboard: hardwareKeyboard
         )
+        .environment(hardwareKeyboard)
         // The one place the app's light/dark override is applied: it lands on
         // the window, so sheets, pushed screens, and the UIKit terminal
         // surfaces all resolve against the chosen appearance.
