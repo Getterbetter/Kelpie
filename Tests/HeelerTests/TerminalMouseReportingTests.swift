@@ -48,6 +48,34 @@ struct TerminalMouseReportingTests {
         #expect(tracker.remoteClickSequence(column: 4, row: 2) == nil)
     }
 
+    @Test func rightButtonReportsAsButtonTwo() {
+        #expect(TerminalMouseEncoding.Button.right.rawValue == 2)
+        #expect(
+            TerminalMouseEncoding.sgr.report(button: .right, column: 20, row: 10)
+                == Data("\u{1B}[<2;20;10M".utf8))
+        #expect(
+            TerminalMouseEncoding.legacy.report(button: .right, column: 1, row: 1)
+                == Data([0x1B, 0x5B, 0x4D, 34, 33, 33]))
+    }
+
+    @Test func rightClicksOnlyReportWhileTheApplicationTracksTheMouse() {
+        var tracker = TerminalModeTracker()
+        #expect(tracker.remoteRightClickSequence(column: 4, row: 2) == nil)
+
+        tracker.receive(Data("\u{1B}[?1000h".utf8))
+        #expect(
+            tracker.remoteRightClickSequence(column: 4, row: 2)
+                == Data([0x1B, 0x5B, 0x4D, 34, 36, 34, 0x1B, 0x5B, 0x4D, 35, 36, 34]))
+
+        tracker.receive(Data("\u{1B}[?1006h".utf8))
+        #expect(
+            tracker.remoteRightClickSequence(column: 4, row: 2)
+                == Data("\u{1B}[<2;4;2M\u{1B}[<2;4;2m".utf8))
+
+        tracker.receive(Data("\u{1B}[?1000l".utf8))
+        #expect(tracker.remoteRightClickSequence(column: 4, row: 2) == nil)
+    }
+
     @Test func bracketedPasteFollowsDECSET2004() {
         var tracker = TerminalModeTracker()
         #expect(!tracker.usesBracketedPaste)
