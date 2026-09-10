@@ -765,6 +765,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Whether the touch sequence in progress already went out as a right
     /// click. Its release is not a tap.
     private var didReportRightClickForTouch = false
+    /// The pointer touch this view took over for a right click, if any.
+    private weak var claimedRightButtonTouch: UITouch?
 
     private lazy var touchScrollGesture = UIPanGestureRecognizer(
         target: self,
@@ -1512,20 +1514,76 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         if rightClickGesture.state == .possible {
             didReportRightClickForTouch = false
         }
+        var forwarded = touches
+        if let claimed = rightButtonTouchToClaim(in: touches, with: event) {
+            claimedRightButtonTouch = claimed
+            // A pointer click claims the keyboard the way Ghostty's own
+            // pointer path does; nothing else will, now that it never sees
+            // this touch.
+            if !isFirstResponder { becomeFirstResponder() }
+            forwarded.remove(claimed)
+        }
         responderGate.directTouchesBegan(Self.directTouchCount(in: touches))
-        super.touchesBegan(touches, with: event)
+        guard !forwarded.isEmpty else { return }
+        super.touchesBegan(forwarded, with: event)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let forwarded = touches.subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
+        guard !forwarded.isEmpty else { return }
+        super.touchesMoved(forwarded, with: event)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let forwarded = finishClaimedRightButtonTouch(in: touches, reporting: true)
         // Ghostty's touchesEnded is where its tap-to-dismiss resign fires, so
         // the touches stay counted until super returns.
-        super.touchesEnded(touches, with: event)
+        if !forwarded.isEmpty {
+            super.touchesEnded(forwarded, with: event)
+        }
         responderGate.directTouchesEnded(Self.directTouchCount(in: touches))
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        super.touchesCancelled(touches, with: event)
+        let forwarded = finishClaimedRightButtonTouch(in: touches, reporting: false)
+        if !forwarded.isEmpty {
+            super.touchesCancelled(forwarded, with: event)
+        }
         responderGate.directTouchesEnded(Self.directTouchCount(in: touches))
+    }
+
+    /// The pointer touch of a right-button press to take over, if this is one.
+    ///
+    /// Ghostty decides on `.began` whether a right click belongs to its copy
+    /// menu, and a stale pointer drag-selection rect is enough for it to
+    /// swallow the click before ``selectionMenuPoint(at:)`` is ever asked. So
+    /// while a remote application owns the mouse the whole sequence is taken
+    /// here and never shown to Ghostty, which leaves its own pointer state
+    /// untouched.
+    private func rightButtonTouchToClaim(
+        in touches: Set<UITouch>,
+        with event: UIEvent?
+    ) -> UITouch? {
+        guard modeTracker.tracksMouse,
+            event?.buttonMask.contains(.secondary) == true
+        else { return nil }
+        return touches.first { $0.type == .indirectPointer }
+    }
+
+    /// Reports the claimed sequence's click and returns whatever Ghostty
+    /// should still see.
+    private func finishClaimedRightButtonTouch(
+        in touches: Set<UITouch>,
+        reporting: Bool
+    ) -> Set<UITouch> {
+        guard let claimed = claimedRightButtonTouch, touches.contains(claimed) else {
+            return touches
+        }
+        claimedRightButtonTouch = nil
+        if reporting {
+            rightClickTouch(at: claimed.location(in: self))
+        }
+        return touches.subtracting([claimed])
     }
 
     private static func directTouchCount(in touches: Set<UITouch>) -> Int {
@@ -1552,7 +1610,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             return modeTracker.tracksMouse
         }
         if gestureRecognizer === textSelectionGesture {
-            return true
+            // Only while the one-finger hold is spoken for; otherwise
+            // Ghostty's own long press already presents the sheet.
+            return modeTracker.tracksMouse
         }
         if gestureRecognizer is UILongPressGestureRecognizer {
             // Ghostty's selection long-press. While a TUI owns the mouse the

@@ -24,6 +24,14 @@ while `TerminalModeTracker.tracksMouse`, and `contextMenuInteraction(_:
 configurationForMenuAtLocation:)` to match. The copy menu stays available in a
 plain shell, where nothing remote wants the click.
 
+Those overrides are a second line of defence rather than the mechanism: Ghostty
+also stores a menu point when the press lands inside a stale pointer
+drag-selection rect, and it checks that before asking `selectionMenuPoint(at:)`
+at all. So while the remote owns the mouse, `HeelerTerminalView` takes the whole
+right-button pointer touch sequence in `touchesBegan`/`Ended`/`Cancelled`,
+reports the click itself on release, and forwards none of those touches —
+leaving Ghostty's own pointer state untouched.
+
 ## Long press is the touch spelling of a right click
 
 A finger produces no mouse event at all — Ghostty's UIKit layer converts
@@ -40,7 +48,8 @@ right click already means on iPadOS, and herdr's own menu is the destination.
 The trade is Ghostty's long-press text selection, which uses the same gesture.
 While a remote application owns the mouse that recognizer is refused and two
 fingers ask for the selection sheet instead; in a plain shell the one-finger
-hold still selects, exactly as before.
+hold still selects, exactly as before, and the two-finger gesture stands down so
+the sheet cannot be presented twice.
 
 ## Trackpad scrolling
 
