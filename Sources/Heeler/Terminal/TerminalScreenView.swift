@@ -624,6 +624,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private var didReportRightClickForTouch = false
     /// The pointer touch this view took over for a right click, if any.
     private weak var claimedRightButtonTouch: UITouch?
+    /// A primary-button pointer touch that began on a URL, with the URL it
+    /// began on. Owned here for the whole sequence, exactly as a right-button
+    /// touch is, so Ghostty never turns it into a click herdr would answer by
+    /// opening the link on the Mac.
+    private var claimedLinkTouch: (touch: UITouch, url: URL)?
 
     private lazy var touchScrollGesture = UIPanGestureRecognizer(
         target: self,
@@ -1306,6 +1311,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             // this touch.
             if !isFirstResponder { becomeFirstResponder() }
             forwarded.remove(claimed)
+        } else if let claimed = linkTouchToClaim(in: touches, with: event) {
+            claimedLinkTouch = claimed
+            forwarded.remove(claimed.touch)
         }
         responderGate.directTouchesBegan(Self.directTouchCount(in: touches))
         guard !forwarded.isEmpty else { return }
@@ -1313,13 +1321,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let forwarded = touches.subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
+        let forwarded = touches
+            .subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
+            .subtracting(claimedLinkTouch.map { [$0.touch] } ?? [])
         guard !forwarded.isEmpty else { return }
         super.touchesMoved(forwarded, with: event)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let forwarded = finishClaimedRightButtonTouch(in: touches, reporting: true)
+        let forwarded = finishClaimedLinkTouch(
+            in: finishClaimedRightButtonTouch(in: touches, reporting: true),
+            opening: true)
         // Ghostty's touchesEnded is where its tap-to-dismiss resign fires, so
         // the touches stay counted until super returns.
         if !forwarded.isEmpty {
@@ -1329,7 +1341,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let forwarded = finishClaimedRightButtonTouch(in: touches, reporting: false)
+        let forwarded = finishClaimedLinkTouch(
+            in: finishClaimedRightButtonTouch(in: touches, reporting: false),
+            opening: false)
         if !forwarded.isEmpty {
             super.touchesCancelled(forwarded, with: event)
         }
@@ -1370,6 +1384,34 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         return touches.subtracting([claimed])
     }
 
+    /// The primary-button pointer touch of a click that landed on a URL.
+    private func linkTouchToClaim(
+        in touches: Set<UITouch>,
+        with event: UIEvent?
+    ) -> (touch: UITouch, url: URL)? {
+        guard event?.buttonMask.contains(.primary) == true,
+            let touch = touches.first(where: { $0.type == .indirectPointer }),
+            let url = linkURL(at: touch.location(in: self))
+        else { return nil }
+        return (touch, url)
+    }
+
+    /// Opens the claimed link when the click ended on the same URL it began
+    /// on, and returns whatever Ghostty should still see.
+    private func finishClaimedLinkTouch(
+        in touches: Set<UITouch>,
+        opening: Bool
+    ) -> Set<UITouch> {
+        guard let claimed = claimedLinkTouch, touches.contains(claimed.touch) else {
+            return touches
+        }
+        claimedLinkTouch = nil
+        if opening, linkURL(at: claimed.touch.location(in: self)) == claimed.url {
+            onOpenLink?(claimed.url)
+        }
+        return touches.subtracting([claimed.touch])
+    }
+
     private static func directTouchCount(in touches: Set<UITouch>) -> Int {
         touches.count { $0.type == .direct }
     }
@@ -1385,10 +1427,14 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             // A TUI wants every tap — to click, to raise the keyboard, or both.
             // In the normal buffer only the input row is interactive. A running
             // flick claims any tap regardless, to halt itself.
+            let location = tapGesture.location(in: self)
             return modeTracker.tracksMouse
                 || modeTracker.isAlternateScreen
                 || isTouchScrollMomentumRunning
-                || keyboardActivationRegion.contains(tapGesture.location(in: self))
+                || keyboardActivationRegion.contains(location)
+                // A link is worth a tap wherever it is, including the plain
+                // shell's output area, which none of the above answers.
+                || linkURL(at: location) != nil
         }
         if gestureRecognizer === rightClickGesture {
             return modeTracker.tracksMouse
@@ -1602,6 +1648,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             minimumHeight: modeTracker.isAlternateScreen
                 ? TerminalKeyboardTapTarget.alternateScreenMinimumHeight
                 : TerminalKeyboardTapTarget.minimumHeight)
+    }
+
+    /// The http/https URL the cell under `point` is part of, if any. Read
+    /// from the viewport rather than asked of libghostty, which has no such
+    /// query on iOS. See ``TerminalLinkDetector``.
+    func linkURL(at point: CGPoint) -> URL? {
+        guard let cell = gridPointMapper.cell(at: point),
+            let text = terminalSession.readViewportText()
+        else { return nil }
+        return TerminalLinkDetector.url(
+            inViewport: text, column: cell.column, row: cell.row)
     }
 
     /// Reports a touch as a left click when the remote application asked for
@@ -1856,6 +1913,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     #endif
 
     func handleTap(at location: CGPoint) {
+        // A URL takes the tap whole: no click for herdr to answer by opening
+        // the link on the Mac, and no keyboard on the way out.
+        if let url = linkURL(at: location) {
+            onOpenLink?(url)
+            return
+        }
         switch tapAction(at: location) {
         case .haltMomentum:
             stopTouchScrollMomentum()
