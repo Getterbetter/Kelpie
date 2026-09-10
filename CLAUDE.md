@@ -2,6 +2,20 @@
 
 Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; nothing is pushed anywhere.
 
+## The root screen
+
+The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen
+Attach running herdr's own client — `exec herdr`, plus `--session` when the Host names
+one — for the primary Host, persisted in `kelpie.primary-host`. Heeler's native Console
+is not gone; it is a `fullScreenCover` behind the floating `ellipsis.circle` menu, and a
+notification deep link presents it by itself. Every store it needs between visits
+(`ConsoleStore`, Live Activities, notification preferences, the activity driver `.task`)
+is still created and driven in `ContentView`, above the cover. A Transport serves one
+Attach channel at a time, so the client leaves and rejoins as the cover comes up and
+down. Keyboard mode is automatic from `HardwareKeyboardObserver` (GameController), and
+URL taps are resolved by `TerminalLinkDetector` and opened on the iPad, never sent to
+herdr. See `docs/adr/0017-herdr-client-is-the-screen.md`.
+
 ## Running it: always the physical iPad, never the simulator
 
 - The iOS simulator does not run reliably on this Mac (not enough RAM; launches wedge with "Mach error -308, server died"). Do not spend time on it.
