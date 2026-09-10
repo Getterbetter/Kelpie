@@ -499,6 +499,7 @@
 		4582B5EA42CFA9C8878E6207 /* HeelerSSH */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HeelerSSH; path = Packages/HeelerSSH; sourceTree = SOURCE_ROOT; };
 		45DB60007029322902FD1AFF /* PairingScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingScanStore.swift; sourceTree = "<group>"; };
 		4692E780178FDFA1CF9537B1 /* AgentName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentName.swift; sourceTree = "<group>"; };
+		46EB11C2A7C3AACD911FA647 /* GhosttyTerminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GhosttyTerminal; path = Packages/GhosttyTerminal; sourceTree = SOURCE_ROOT; };
 		46F7218F35AFEB5DCDF8BAF5 /* ConsoleActivityDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleActivityDriver.swift; sourceTree = "<group>"; };
 		4829061EC3F8F3D60A252594 /* ShellTerminalStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTerminalStoreTests.swift; sourceTree = "<group>"; };
 		486179D8400BD10ECC235EFE /* AgentRowLayoutResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRowLayoutResolverTests.swift; sourceTree = "<group>"; };
@@ -1163,6 +1164,7 @@
 		80BAAF0BFB8E96E9532F0F06 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				46EB11C2A7C3AACD911FA647 /* GhosttyTerminal */,
 				4582B5EA42CFA9C8878E6207 /* HeelerSSH */,
 			);
 			path = Packages;
@@ -1496,7 +1498,7 @@
 			mainGroup = CA64F2E56275EA06F4C854E0;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				EC48994DC336C11AF91D8DEE /* XCRemoteSwiftPackageReference "libghostty-spm" */,
+				C986504A1C7E7759D31E9AA4 /* XCLocalSwiftPackageReference "Packages/GhosttyTerminal" */,
 				056B9BE67ABA0AE15160C8D8 /* XCLocalSwiftPackageReference "Packages/HeelerSSH" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -2281,18 +2283,11 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/HeelerSSH;
 		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		EC48994DC336C11AF91D8DEE /* XCRemoteSwiftPackageReference "libghostty-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/lakr233/libghostty-spm.git";
-			requirement = {
-				kind = revision;
-				revision = 356f730bec03281fc7b83666a129b0246137ea26;
-			};
+		C986504A1C7E7759D31E9AA4 /* XCLocalSwiftPackageReference "Packages/GhosttyTerminal" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/GhosttyTerminal;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		13CFA5F5C15E83F411CC03BA /* HeelerSSH */ = {
@@ -2301,7 +2296,6 @@
 		};
 		19D717C20DA226346335AFF6 /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = EC48994DC336C11AF91D8DEE /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTerminal;
 		};
 		6B0C40F1407743FF92CC9242 /* HeelerSSH */ = {
@@ -2310,12 +2304,10 @@
 		};
 		BE53F92F352D5CEE9A715FA9 /* GhosttyTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = EC48994DC336C11AF91D8DEE /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTerminal;
 		};
 		E086C559FC229264CF662993 /* GhosttyTheme */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = EC48994DC336C11AF91D8DEE /* XCRemoteSwiftPackageReference "libghostty-spm" */;
 			productName = GhosttyTheme;
 		};
 /* End XCSwiftPackageProductDependency section */
