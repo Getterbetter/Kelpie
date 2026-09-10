@@ -1,6 +1,6 @@
 name: Heeler
 options:
-  bundleIdPrefix: dev.bybee
+  bundleIdPrefix: TME.Kelpie
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
@@ -11,7 +11,7 @@ settings:
     # Swift 6 language mode implies complete strict concurrency checking.
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    DEVELOPMENT_TEAM: 9VM4RM39R3
+    DEVELOPMENT_TEAM: 8JQWBQKEXX
     CODE_SIGN_STYLE: Automatic
 
 packages:
@@ -73,15 +73,19 @@ targets:
         # Shared with the Notification Service Extension; doubles as the
         # Keychain access group holding the Notification Keys.
         com.apple.security.application-groups:
-          - group.dev.bybee.heeler.shared
+          - group.TME.Kelpie.shared
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: dev.bybee.heeler
+        PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie
+        # Product/display name is rebranded to Kelpie; the module name stays
+        # Heeler so Swift sources and imports keep working unchanged.
+        PRODUCT_NAME: Kelpie
+        PRODUCT_MODULE_NAME: Heeler
         # Home-screen name; the App Store listing is "Heeler for herdr".
-        INFOPLIST_KEY_CFBundleDisplayName: Heeler
-        MARKETING_VERSION: "0.1.8"
-        CURRENT_PROJECT_VERSION: "20"
+        INFOPLIST_KEY_CFBundleDisplayName: Kelpie
+        MARKETING_VERSION: "0.1.6"
+        CURRENT_PROJECT_VERSION: "18"
         # Scan to Pair (#62) reads the Pairing Code QR from the computer screen.
         INFOPLIST_KEY_NSCameraUsageDescription: "Heeler uses the camera to scan the Pairing Code shown on your computer, so you can add that machine without typing anything."
         # Only exempt encryption is used (standard SSH algorithms via the
@@ -89,7 +93,7 @@ targets:
         # declaring it here keeps every TestFlight upload from stalling on the
         # Missing Compliance prompt.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        # iPhone and iPad. App Store Connect derives device support from the build.
+        # iPhone + iPad. App Store Connect derives device support from the build.
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -97,6 +101,8 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         # ActivityKit starts Live Activities from the app; HeelerWidgets renders them.
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        # Required for trackpad/mouse (indirect input) support on iPad.
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
     dependencies:
       - package: HeelerSSH
       - package: GhosttyTerminal
@@ -125,7 +131,7 @@ targets:
       path: Sources/HeelerNotificationService/HeelerNotificationService.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.dev.bybee.heeler.shared
+          - group.TME.Kelpie.shared
     info:
       path: Sources/HeelerNotificationService/Info.plist
       properties:
@@ -143,10 +149,10 @@ targets:
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.bybee.heeler.NotificationService
-        MARKETING_VERSION: "0.1.8"
-        CURRENT_PROJECT_VERSION: "20"
-        # Match the containing app's iPhone and iPad device family.
+        PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.NotificationService
+        MARKETING_VERSION: "0.1.6"
+        CURRENT_PROJECT_VERSION: "18"
+        # Match the containing app's iPhone + iPad device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 
   # Lock-screen / Dynamic Island Live Activity (docs/agents/live-activity-contract.md).
@@ -174,7 +180,7 @@ targets:
       path: Sources/HeelerWidgets/HeelerWidgets.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.dev.bybee.heeler.shared
+          - group.TME.Kelpie.shared
     info:
       path: Sources/HeelerWidgets/Info.plist
       properties:
@@ -191,10 +197,10 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.bybee.heeler.Widgets
-        MARKETING_VERSION: "0.1.8"
-        CURRENT_PROJECT_VERSION: "20"
-        # Match the containing app's iPhone and iPad device family.
+        PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.Widgets
+        MARKETING_VERSION: "0.1.6"
+        CURRENT_PROJECT_VERSION: "18"
+        # Match the containing app's iPhone + iPad device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 
   HeelerTests:
@@ -218,7 +224,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: dev.bybee.heeler.tests
+        PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.tests
     dependencies:
       - target: Heeler
       - package: HeelerSSH
