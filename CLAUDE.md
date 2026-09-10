@@ -1,3 +1,24 @@
+# Kelpie
+
+Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; nothing is pushed anywhere.
+
+## Running it: always the physical iPad, never the simulator
+
+- The iOS simulator does not run reliably on this Mac (not enough RAM; launches wedge with "Mach error -308, server died"). Do not spend time on it.
+- Build and run on Anthony's 11-inch iPad Pro, plugged in and paired. Find it with `xcrun devicectl list devices` (physical, "connected"), then:
+  `xcodebuild build -project Heeler.xcodeproj -scheme Heeler -configuration Debug -destination 'platform=iOS,id=<device id>' -clonedSourcePackagesDirPath <scratch>/kelpie-spm -derivedDataPath <scratch>/kelpie-dd -allowProvisioningUpdates`
+  then `xcrun devicectl device install app --device <device id> <derivedData>/Build/Products/Debug-iphoneos/Kelpie.app` and `xcrun devicectl device process launch --device <device id> TME.Kelpie`.
+- Unit tests that need a host app run on an iPhone simulator destination only if it happens to boot; otherwise run them on the device too.
+- Always pass `-clonedSourcePackagesDirPath` and `-derivedDataPath` to xcodebuild, log to a file, and read only the tail; two builds sharing one derived-data path lock each other out.
+
+## Build quirks
+
+- `GhosttyTerminal` is vendored under `Packages/GhosttyTerminal` because Xcode's downloader hangs on the remote libghostty binary on this Mac. `scripts/fetch-ghostty-artifact.sh` (run by `make generate`) fetches and checksum-verifies `Artifacts/GhosttyKit.xcframework`, which is gitignored. Never edit the vendored package; override its `open` members from `HeelerTerminalView`.
+- After adding a Swift file, run `xcodegen generate` and commit the regenerated `Heeler.xcodeproj`.
+- The iPad pointer, long-press and trackpad-scroll decisions are in `docs/adr/0016-ipad-pointer-input.md`.
+
+The upstream Heeler guidance follows and still applies.
+
 # Heeler
 
 Native iOS companion app for herdr (https://herdr.dev): an agent console over SSH, not a terminal app. Read `CONTEXT.md` for vocabulary and `docs/adr/` before challenging architecture decisions — the transport design in particular was reached after eliminating several dead ends.
