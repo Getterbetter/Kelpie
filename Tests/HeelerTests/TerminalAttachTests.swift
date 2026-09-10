@@ -2118,6 +2118,64 @@ struct TerminalAttachTests {
                 == NSRange(location: 0, length: 8))
     }
 
+    /// herdr needs truecolor for its palette and UTF-8 for its box drawing,
+    /// and a non-login `ssh` exec inherits neither.
+    static let terminalEnvironmentExports =
+        "export COLORTERM=truecolor; export LANG=\"${LANG:-en_US.UTF-8}\"; "
+
+    @Test func clientTargetExecsBareHerdr() throws {
+        let command = try HeelerSSHTransport.attachExecCommand(
+            agentAttachCommand: "herdr agent attach",
+            terminalAttachCommand: "herdr terminal attach",
+            request: TerminalAttachRequest(
+                target: .client(session: nil), cols: 120, rows: 40),
+            socketPath: "/home/u/.config/herdr/herdr.sock")
+
+        #expect(
+            command == "/bin/sh -c '\(HerdrHostPath.pathExport); "
+                + Self.terminalEnvironmentExports
+                + "export HERDR_SOCKET_PATH=\"$2\"; "
+                + "printf \"\(AttachBootstrapHandshake.markerPrintfFormat)\"; "
+                + "exec herdr' attach "
+                + "'' '/home/u/.config/herdr/herdr.sock'")
+    }
+
+    @Test func clientTargetPassesANamedSessionAsAnArgument() throws {
+        let command = try HeelerSSHTransport.attachExecCommand(
+            agentAttachCommand: "herdr agent attach",
+            terminalAttachCommand: "herdr terminal attach",
+            request: TerminalAttachRequest(
+                target: .client(session: "work"), takeover: true, cols: 120, rows: 40),
+            socketPath: "/home/u/.config/herdr/sessions/work/herdr.sock")
+
+        #expect(
+            command == "/bin/sh -c '\(HerdrHostPath.pathExport); "
+                + Self.terminalEnvironmentExports
+                + "export HERDR_SOCKET_PATH=\"$2\"; "
+                + "printf \"\(AttachBootstrapHandshake.markerPrintfFormat)\"; "
+                + "exec herdr --session \"$1\"' attach "
+                + "'work' '/home/u/.config/herdr/sessions/work/herdr.sock'")
+        // The Client joins a session; it never seizes one.
+        #expect(!command.contains("--takeover"))
+    }
+
+    @Test(arguments: [
+        TerminalAttachTarget.agentPane("w1:p1"),
+        .terminal("terminal-123"),
+        .client(session: nil),
+        .client(session: "work"),
+    ])
+    func everyTargetExportsTruecolorAndUTF8(target: TerminalAttachTarget) throws {
+        let command = try HeelerSSHTransport.attachExecCommand(
+            agentAttachCommand: "herdr agent attach",
+            terminalAttachCommand: "herdr terminal attach",
+            request: TerminalAttachRequest(target: target, cols: 80, rows: 24),
+            socketPath: "/tmp/fake.sock")
+
+        #expect(command.contains("export COLORTERM=truecolor;"))
+        #expect(command.contains("export LANG=\"${LANG:-en_US.UTF-8}\";"))
+    }
+
     @Test func injectableAttachCommandRidesThrough() throws {
         // Tests substitute a script at the environment boundary, like the
         // wake command.
@@ -2127,6 +2185,7 @@ struct TerminalAttachTests {
             socketPath: "/tmp/fake.sock")
         #expect(
             command == "/bin/sh -c '\(HerdrHostPath.pathExport); "
+                + Self.terminalEnvironmentExports
                 + "export HERDR_SOCKET_PATH=\"$2\"; "
                 + "printf \"\(AttachBootstrapHandshake.markerPrintfFormat)\"; "
                 + "exec /bin/sh /tmp/fake-attach.sh \"$1\"' attach "
@@ -2145,6 +2204,7 @@ struct TerminalAttachTests {
 
         #expect(
             command == "/bin/sh -c '\(HerdrHostPath.pathExport); "
+                + Self.terminalEnvironmentExports
                 + "export HERDR_SOCKET_PATH=\"$2\"; "
                 + "printf \"\(AttachBootstrapHandshake.markerPrintfFormat)\"; "
                 + "exec herdr agent attach \"$1\" --takeover' attach "
