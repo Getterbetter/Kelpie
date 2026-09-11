@@ -17,5 +17,5 @@ enum KelpieLinks {
     static let privacyPolicy = "https://github.com/Getterbetter/Kelpie/blob/kelpie/PRIVACY.md"
 
     /// Where users ask for help. Also the App Store support URL.
-    static let support = "https://www.reddit.com/r/KelpieApp/"
+    static let support = "https://www.reddit.com/r/KelpieConsole/"
 }

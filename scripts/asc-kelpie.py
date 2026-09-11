@@ -23,6 +23,7 @@ JWT minted by ~/Developer/Weights/scripts/asc-jwt.swift (never printed).
 
 import copy
 import json
+import re
 import os
 import subprocess
 import sys
@@ -41,7 +42,7 @@ PRIMARY_CATEGORY = "DEVELOPER_TOOLS"
 SECONDARY_CATEGORY = "UTILITIES"
 SUBTITLE = "herdr console for iPad"
 PRIVACY_POLICY_URL = "https://github.com/Getterbetter/Kelpie/blob/kelpie/PRIVACY.md"
-SUPPORT_URL = "https://www.reddit.com/r/KelpieApp/"
+SUPPORT_URL = "https://www.reddit.com/r/KelpieConsole/"
 MARKETING_URL = "https://github.com/Getterbetter/Kelpie"
 VERSION_STRING = "1.0"
 PLATFORM = "IOS"
@@ -240,8 +241,30 @@ def step_version():
     return vid
 
 
+COPY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                         "KelpieVault", "App Store copy.md")
+
+
+def listing_copy():
+    """The approved listing text from the vault: each `**Field** (limit):`
+    block up to the next bold heading. Returns ASC attribute names."""
+    try:
+        text = open(COPY_FILE, encoding="utf-8").read()
+    except OSError:
+        return {}
+    fields = {"Description": "description", "Keywords": "keywords",
+              "Promotional text": "promotionalText", "What's new": "whatsNew"}
+    out = {}
+    for heading, attr in fields.items():
+        m = re.search(r"\*\*" + re.escape(heading) + r"\*\*[^\n]*:\n(.*?)(?=\n\*\*|\Z)", text, re.S)
+        if m:
+            out[attr] = m.group(1).strip()
+    return out
+
+
 def step_version_localization(version_id):
     want = {"supportUrl": SUPPORT_URL, "marketingUrl": MARKETING_URL}
+    want.update(listing_copy())
     if version_id.startswith("<"):
         body = {"data": {"type": "appStoreVersionLocalizations",
                          "attributes": dict(want, locale=LOCALE),

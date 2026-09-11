@@ -31,7 +31,7 @@ What you need
 A Mac or Linux machine running herdr (herdr.dev) that the iPad can reach over SSH. Kelpie is a client; it runs nothing on its own.
 
 Free and open source
-Kelpie is free, with an optional tip jar for the developer. It is a fork of the open-source Heeler app, under the Apache 2.0 licence, and the source is at github.com/Getterbetter/Kelpie. Feedback and support: r/KelpieApp.
+Kelpie is free, with an optional tip jar for the developer. It is a fork of the open-source Heeler app, under the Apache 2.0 licence, and the source is at github.com/Getterbetter/Kelpie. Feedback and support: r/KelpieConsole.
 
 **Keywords** (100):
 herdr,terminal,ssh,claude code,codex,agent,console,tmux,developer,remote,coding,cli
