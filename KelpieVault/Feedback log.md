@@ -60,6 +60,20 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **Asked for a sub-agent to research what else is missing** when working through the iPad that would otherwise be available directly on the Mac.
 - **New feature to workshop: reducing the size of the window, and how that works in side-by-side viewing** (Split View / Slide Over / Stage Manager).
 
+### Round 4 feedback (2026-09-11)
+
+- **Media works for copy and paste.** Attaching from the menu works.
+- **Drag and drop from Files does not work**: the item just disappears from the screen when released. Copy and paste of the same file works.
+- **Clipboard out works**: text selected in herdr pastes into other iPad apps. (Gap 2 closed with no code.)
+- **"The Mac vs iPad gaps: implement all of them."**
+- **Window size**: "resizing keeps its shape so a side by side view is near impossible. Most apps will let you do half a screen to share it with another half a screen." Asked to see the workshop details.
+
+### Round 5 feedback (2026-09-11)
+
+- **Split View works well.**
+- **herdr's sidebar is either impossible to touch with a tap or not moveable with a tap; it only works with the mouse.**
+- **Selecting text by touch**: a double tap selects one word and there is no way to extend it. He would like iPadOS-style selection handles. Highlighting with the trackpad or mouse is fine.
+
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
 Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
