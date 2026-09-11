@@ -1,4 +1,5 @@
 import Observation
+import PhotosUI
 import SwiftUI
 
 /// The app's root: herdr's own client for the primary Host, full screen.
@@ -42,6 +43,9 @@ struct HerdrClientRootView: View {
     @State private var hostSheet: HostSheet?
     @State private var manualReconnectInFlightHostIDs: Set<Host.ID> = []
     @State private var isHovering = false
+    @State private var isSelectingPhoto = false
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var isSelectingFile = false
 
     private struct HostSheet: Identifiable {
         let id = UUID()
@@ -132,6 +136,28 @@ struct HerdrClientRootView: View {
                 pendingHostAction = Self.initialAction(for: action)
                 isShowingSetupGuide = false
             }
+        }
+        .photosPicker(
+            isPresented: $isSelectingPhoto,
+            selection: $selectedPhoto,
+            matching: .images)
+        .onChange(of: selectedPhoto) { _, item in
+            guard let item else { return }
+            selectedPhoto = nil
+            commands.stage([.photo(PhotosPickerImageSelection(item: item))])
+        }
+        // `.item` rather than `.data`: an agent can be handed a folder-backed
+        // document as readily as a file, and `FilePreparer` refuses what it
+        // cannot read.
+        .fileImporter(
+            isPresented: $isSelectingFile,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            guard case .success(let urls) = result, !urls.isEmpty else { return }
+            // The security scope is opened by `FilePreparer`, exactly as it is
+            // for the Agent terminal's own importer.
+            commands.stage(urls.map { .file($0) })
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(
@@ -237,6 +263,15 @@ struct HerdrClientRootView: View {
             Button("Setup Guide", systemImage: "questionmark.circle") {
                 isShowingSetupGuide = true
             }
+            Divider()
+            // Uploaded to the Host, then typed into the focused pane as a
+            // path — the way herdr's own remote client pastes an image.
+            Button("Attach Photo…", systemImage: "photo") {
+                isSelectingPhoto = true
+            }
+            Button("Attach File…", systemImage: "doc") {
+                isSelectingFile = true
+            }
             Button("Reconnect", systemImage: "arrow.clockwise") {
                 commands.reconnect()
             }
@@ -290,8 +325,13 @@ struct HerdrClientRootView: View {
 @Observable
 final class HerdrClientCommands {
     weak var store: HerdrClientStore?
+    /// The live Client's media staging, for the menu's own pickers. Weak for
+    /// the same reason `store` is: the menu outlives every Host switch.
+    weak var media: HerdrMediaStagingStore?
 
     func reconnect() { store?.reconnect() }
+
+    func stage(_ items: [MediaIntakeItem]) { media?.stage(items) }
 
     /// Ends the Client's attach and waits for the channel to close.
     func prepareForConsole() async {
@@ -312,6 +352,8 @@ private struct HerdrClientHostView: View {
     let commands: HerdrClientCommands
 
     @State private var store: HerdrClientStore
+    @State private var keyboardControl: TerminalKeyboardControl
+    @State private var media: HerdrMediaStagingStore
 
     init(
         host: Host,
@@ -330,12 +372,26 @@ private struct HerdrClientHostView: View {
         self.isShowingConsole = isShowingConsole
         self.commands = commands
         let sessionName = host.sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
-        _store = State(
-            initialValue: HerdrClientStore(
-                hostID: host.id,
-                sessionName: sessionName.isEmpty ? nil : sessionName,
-                transportGeneration: console.hostConnectionGenerations[host.id],
-                runTerminal: console.terminalRunner(for: host.id)))
+        let store = HerdrClientStore(
+            hostID: host.id,
+            sessionName: sessionName.isEmpty ? nil : sessionName,
+            transportGeneration: console.hostConnectionGenerations[host.id],
+            runTerminal: console.terminalRunner(for: host.id))
+        let keyboardControl = TerminalKeyboardControl()
+        _store = State(initialValue: store)
+        _keyboardControl = State(initialValue: keyboardControl)
+        // The Client's draft is the pane itself: a staged path is typed in,
+        // through the same route a text paste takes, with the bracketed-paste
+        // mode the live surface reports.
+        _media = State(
+            initialValue: HerdrMediaStagingStore(
+                stageImage: console.imageStager(for: host.id),
+                stageFile: console.fileStager(for: host.id),
+                insert: { text in
+                    store.requestPaste(
+                        text,
+                        bracketedPaste: keyboardControl.usesBracketedPaste)
+                }))
     }
 
     var body: some View {
@@ -343,7 +399,9 @@ private struct HerdrClientHostView: View {
             store: store,
             terminal: terminal,
             activity: activity,
-            hardwareKeyboard: hardwareKeyboard
+            hardwareKeyboard: hardwareKeyboard,
+            keyboardControl: keyboardControl,
+            media: media
         )
         .onChange(of: console.hostConnectionGenerations[host.id]) { _, generation in
             store.transportGenerationDidChange(generation)
@@ -357,8 +415,15 @@ private struct HerdrClientHostView: View {
         // spurious disappear/appear pair actually left it.
         .onAppear {
             commands.store = store
+            commands.media = media
             store.rejoin()
         }
         .onDisappear { store.leave() }
+        // A staging operation is exactly the work worth finishing while the
+        // app is briefly out of sight; it is cancelled only on real suspension.
+        .onChange(of: activity.phase) { _, phase in
+            guard phase == .suspended else { return }
+            media.didEnterBackground()
+        }
     }
 }

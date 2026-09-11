@@ -2,6 +2,7 @@ import GhosttyTerminal
 import Observation
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// Remote terminal output is untrusted. Only ordinary web links cross from
 /// Ghostty into the system URL opener; local files and executable schemes do not.
@@ -95,6 +96,13 @@ final class TerminalKeyboardControl {
         terminal?.requestPaste(text)
     }
 
+    /// Whether the application on the other end asked for bracketed paste.
+    /// The same answer `onPaste` carries, for the routes that insert text
+    /// without going through the surface.
+    var usesBracketedPaste: Bool {
+        terminal?.usesBracketedPaste ?? false
+    }
+
     private func syncFirstResponder() {
         let next = terminal?.isFirstResponder ?? false
         guard isFirstResponder != next else { return }
@@ -127,6 +135,9 @@ struct TerminalScreenView: UIViewRepresentable {
     var onSend: ((Data) -> Void)?
     var onScroll: ((_ sequence: Data, _ rows: Int) -> Void)?
     var onPaste: ((_ text: String, _ bracketed: Bool) -> Void)?
+    /// Pasted or dropped image and file providers, handed over for staging
+    /// onto the Host. Text never arrives here — it pastes as text.
+    var onStageItems: (([NSItemProvider]) -> Void)?
     /// Asked exactly once, as the surface is created: does this terminal
     /// inherit the keyboard from the one it replaced? Asking through a
     /// closure rather than a stored flag keeps the answer tied to the
@@ -168,6 +179,7 @@ struct TerminalScreenView: UIViewRepresentable {
             fontSize: fontSize,
             fontFamily: fontFamily)
         view.onOpenLink = { url in openURL(url) }
+        view.onStageItems = onStageItems
         // Only here, never in updateUIView: the intent belongs to this
         // terminal's first appearance, not to every state change after it.
         view.raisesKeyboardWhenReady = claimsKeyboard?() ?? false
@@ -265,6 +277,7 @@ struct TerminalScreenView: UIViewRepresentable {
         // and the update loops on itself until the app is wedged. Terminal
         // output already schedules a snapshot in `receive`.
         view.onOpenLink = { url in openURL(url) }
+        view.onStageItems = onStageItems
     }
 }
 
@@ -545,6 +558,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private(set) var appliedFontFamily: String?
     var onFontSizeChanged: ((Float) -> Void)?
     var onOpenLink: ((URL) -> Void)?
+    /// Image and file providers this terminal accepted from a paste or a
+    /// drop. Staging them is the owner's business, not the surface's.
+    var onStageItems: (([NSItemProvider]) -> Void)?
+    /// Whether a paste has already been answered in this run-loop turn.
+    private var hasClaimedPasteThisTurn = false
     /// Raises the keyboard once this surface reaches a window. An Agent switch
     /// rebuilds the whole terminal, and the user who tapped a switcher chip
     /// was mid-conversation — dropping the keyboard would hide the switcher
@@ -918,7 +936,14 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         callbackBridge.onTerminalInput = { [weak self] data in
             self?.recordTerminalInput(data)
         }
-        pasteConfiguration = UIPasteConfiguration(forAccepting: String.self)
+        let acceptedPasteTypes = UIPasteConfiguration(forAccepting: String.self)
+        // Images and files are pasteable too: they are staged onto the Host
+        // and their paths typed into the pane.
+        acceptedPasteTypes.addAcceptableTypeIdentifiers([
+            UTType.image.identifier,
+            UTType.fileURL.identifier,
+        ])
+        pasteConfiguration = acceptedPasteTypes
         inputAccessoryItems = []
         configuration = TerminalSurfaceOptions(backend: .inMemory(terminalSession))
         controller = terminalController
@@ -931,6 +956,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         installTouchScrolling()
         installZoom()
+        installMediaDrop()
         #if !targetEnvironment(macCatalyst)
             installPointerScrolling()
         #endif
@@ -1253,7 +1279,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func paste(_ sender: Any?) {
-        guard isLocalInputEnabled, let text = clipboard.string() else { return }
+        guard isLocalInputEnabled, claimPasteForThisTurn() else { return }
+        guard let text = clipboard.string() else {
+            // No text on the pasteboard: an image or a file is still worth
+            // pasting — it goes to the Host and its path is typed here.
+            stageMedia(from: UIPasteboard.general.itemProviders)
+            return
+        }
 
         // The keyboard's clipboard suggestion invokes this standard action
         // directly, bypassing Ghostty's text-input handler. Tell UIKit about
@@ -1275,13 +1307,46 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             }
             return
         }
+        stageMedia(from: itemProviders)
     }
 
     override func canPaste(_ itemProviders: [NSItemProvider]) -> Bool {
-        isLocalInputEnabled
-            && itemProviders.contains {
-                $0.canLoadObject(ofClass: NSString.self)
+        guard isLocalInputEnabled else { return false }
+        return itemProviders.contains {
+            MediaIntake.classify(typeIdentifiers: $0.registeredTypeIdentifiers)
+                != .unsupported
+        }
+    }
+
+    /// ⌘V can arrive twice for one key event: from `pressesBegan`, which
+    /// answers it because Ghostty ignores it, and from UIKit's own editing
+    /// shortcut, which `canPerformAction` enables. The second one would type
+    /// the text twice — or upload the same file twice — so whichever arrives
+    /// first in a run-loop turn wins and the other is dropped. Cleared the way
+    /// the hardware-key claim is.
+    private func claimPasteForThisTurn() -> Bool {
+        guard !hasClaimedPasteThisTurn else { return false }
+        hasClaimedPasteThisTurn = true
+        DispatchQueue.main.async { [weak self] in
+            self?.hasClaimedPasteThisTurn = false
+        }
+        return true
+    }
+
+    /// Hands on the providers this terminal cannot type — the image and file
+    /// ones. Reading the providers is the owner's job; the surface only sorts.
+    private func stageMedia(from itemProviders: [NSItemProvider]) {
+        guard let onStageItems else { return }
+        let media = itemProviders.filter { provider in
+            switch MediaIntake.classify(
+                typeIdentifiers: provider.registeredTypeIdentifiers)
+            {
+            case .image, .file: true
+            case .text, .unsupported: false
             }
+        }
+        guard !media.isEmpty else { return }
+        onStageItems(media)
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
@@ -1291,7 +1356,14 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             return answer
         }
         if action == #selector(paste(_:)) {
-            return isLocalInputEnabled && clipboard.hasStrings()
+            // `hasImages`/`hasURLs` answer from the pasteboard's declared
+            // types; only reading its contents would raise the paste banner.
+            // They count only where something stages them: the Console's
+            // terminal has no stager, and a Paste that does nothing is worse
+            // than no Paste at all.
+            let stagesMedia = onStageItems != nil
+                && (UIPasteboard.general.hasImages || UIPasteboard.general.hasURLs)
+            return isLocalInputEnabled && (clipboard.hasStrings() || stagesMedia)
         }
         return super.canPerformAction(action, withSender: sender)
     }
@@ -1851,6 +1923,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
     #endif
 
+    /// A photo or a file dragged onto the terminal is an upload, not a paste:
+    /// it goes to the Host over SFTP and its path is typed into the pane.
+    /// Text-only drags are left alone — nothing here improves on them.
+    private func installMediaDrop() {
+        addInteraction(UIDropInteraction(delegate: self))
+    }
+
     /// Ghostty ships its own pinch handler that mutates the surface font size
     /// behind the app's back. Zoom has to be app state to persist, so that
     /// gesture steps aside for one that routes through `onFontSizeChanged`.
@@ -1945,6 +2024,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 zoom(to: appliedFontSize + step)
                 continue
             }
+            // Ghostty ignores ⌘V, and the pasteboard is the one place a
+            // hardware keyboard can hand this pane a photo or a file.
+            if Self.isPasteShortcut(press) {
+                paste(nil)
+                continue
+            }
             guard !interceptHardwareKey(press) else { continue }
             forwarded.insert(press)
         }
@@ -1995,6 +2080,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 continue
             }
             guard Self.zoomShortcutStep(for: press) == nil else { continue }
+            guard !Self.isPasteShortcut(press) else { continue }
             forwarded.insert(press)
         }
         return forwarded
@@ -2077,6 +2163,18 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             option: modifierFlags.contains(.alternate),
             shift: modifierFlags.contains(.shift),
             command: modifierFlags.contains(.command))
+    }
+
+    /// Bare ⌘V. Any other modifier is somebody else's shortcut.
+    private static func isPasteShortcut(_ press: UIPress) -> Bool {
+        guard let key = press.key else { return false }
+        let modifiers = key.modifierFlags
+        guard modifiers.contains(.command),
+            !modifiers.contains(.control),
+            !modifiers.contains(.alternate),
+            !modifiers.contains(.shift)
+        else { return false }
+        return key.charactersIgnoringModifiers.lowercased() == "v"
     }
 
     private static func zoomShortcutStep(for press: UIPress) -> Float? {
@@ -2285,5 +2383,34 @@ extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
 
     func terminalDidDetachSurface() {
         removeOrphanedSurfaceLayers()
+    }
+}
+
+/// Photos and files dropped onto the terminal. A drop of plain text is
+/// refused: it would race the text-input path for the same insertion, and
+/// staging is the only thing this interaction adds.
+extension HeelerTerminalView: UIDropInteractionDelegate {
+    func dropInteraction(
+        _: UIDropInteraction,
+        canHandle session: any UIDropSession
+    ) -> Bool {
+        isLocalInputEnabled
+            && onStageItems != nil
+            && session.hasItemsConforming(toTypeIdentifiers: [
+                UTType.image.identifier,
+                UTType.fileURL.identifier,
+            ])
+    }
+
+    func dropInteraction(
+        _: UIDropInteraction,
+        sessionDidUpdate _: any UIDropSession
+    ) -> UIDropProposal {
+        UIDropProposal(operation: isLocalInputEnabled ? .copy : .cancel)
+    }
+
+    func dropInteraction(_: UIDropInteraction, performDrop session: any UIDropSession) {
+        guard isLocalInputEnabled else { return }
+        stageMedia(from: session.items.map(\.itemProvider))
     }
 }
