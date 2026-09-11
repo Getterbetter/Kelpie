@@ -316,7 +316,12 @@ def step_iap(product_id, reference_name, name, description, usd, territories):
     # price schedule, base territory USA
     schedule = None
     if not iap_id.startswith("<"):
-        schedule = get(f"/v2/inAppPurchases/{iap_id}/iapPriceSchedule").get("data")
+        # A brand-new IAP has no schedule yet; ASC answers 404, not an empty body.
+        try:
+            schedule = get(f"/v2/inAppPurchases/{iap_id}/iapPriceSchedule").get("data")
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
     if schedule:
         unchanged(f"{product_id} price schedule exists (verify {usd} USD in App Store Connect)")
     else:
