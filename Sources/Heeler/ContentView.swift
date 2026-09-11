@@ -25,6 +25,9 @@ struct ContentView: View {
     /// `AgentRoute.sceneStorageValue`; nil while the window shows the Console.
     @SceneStorage("dev.bybee.heeler.agentRoute") private var storedRoute: String?
     @State private var hardwareKeyboard = HardwareKeyboardObserver()
+    /// Owned here with the other client stores so the three products stay
+    /// loaded across every presentation of the tip jar sheet.
+    @State private var tipJar = TipJarStore()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -43,7 +46,8 @@ struct ContentView: View {
             bannerStore: app.bannerStore,
             liveActivities: app.liveActivities,
             activity: app.activity,
-            hardwareKeyboard: hardwareKeyboard
+            hardwareKeyboard: hardwareKeyboard,
+            tipJar: tipJar
         )
         .environment(\.sceneWindow, window)
         .environment(
