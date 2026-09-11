@@ -4,7 +4,11 @@ note: Workshop for Anthony's request (2026-09-11) — "reducing the size of the 
 
 # Window size workshop
 
-## What happens today
+## Status (2026-09-11, round 5)
+
+**Built**: the four-orientation fix (the real cause of the shape lock), resize coalescing (A), width-aware font (B), compact capsule (C). Anthony: "split view works well." D (multi-window) deferred: stores are per scene. E untouched.
+
+## What happened before round 5
 
 - **Split View and Slide Over already work**: nothing in the project forbids them (`UIRequiresFullScreen` is unset). **Stage Manager** gives one resizable Kelpie window, never two (`UIApplicationSupportsMultipleScenes` is unset).
 - **Every resize goes straight to the mini.** A size change becomes an SSH window-change request; nothing coalesces them. Dragging the Split View divider fires one request per layout pass, serialised over SSH, and herdr re-lays out for each. Expect a stutter during the drag and a settle afterwards.
