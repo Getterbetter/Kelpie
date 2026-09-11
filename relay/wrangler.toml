@@ -16,7 +16,7 @@ workers_dev = true
 
 [vars]
 APNS_TEAM_ID = "8JQWBQKEXX"
-APNS_KEY_ID = "TODO-create-an-APNs-key-in-the-developer-portal"
+APNS_KEY_ID = "7RJ68B8QX8"
 APNS_TOPIC = "TME.Kelpie"
 # Live Activity pushes use `${APNS_TOPIC}.push-type.liveactivity`
 # (suffix-derived; no extra var).
