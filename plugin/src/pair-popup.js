@@ -7,6 +7,7 @@
 // itself happens in pair-accept.js, invoked by sshd as the forced command.
 
 import os from "node:os";
+import { pathToFileURL } from "node:url";
 import { emitKeypressEvents } from "node:readline";
 import QRCode from "qrcode";
 
@@ -102,19 +103,31 @@ function renderChecklist(state, warning) {
   process.stdout.write(CLEAR + lines.join("\n") + "\n");
 }
 
+// QR first, starting at row 1. Writing more lines than the pane has rows
+// scrolls the earliest ones off the top, and with a header above the QR that
+// meant the QR's top edge vanished into scrollback. Clamp to the viewport
+// instead, so any overflow costs trailing text, never the QR matrix itself:
+// a pane too short for the whole QR gets a notice instead of a cut code.
+export function clampPairingScreen({ qrLines, textLines, rows }) {
+  if (!Number.isInteger(rows) || rows <= 0) {
+    return { lines: [...qrLines, ...textLines], qrTruncated: false };
+  }
+  if (rows >= qrLines.length) {
+    return { lines: [...qrLines, ...textLines].slice(0, rows), qrTruncated: false };
+  }
+  const notice = `${BOLD}Pane too short for the QR code (needs ${qrLines.length} rows, has ${rows}). Press c to copy the Pairing Code instead.${RESET}`;
+  return { lines: [notice, ...textLines].slice(0, rows), qrTruncated: true };
+}
+
 async function renderPairingCode(payload, { copied = false, printedCode = null } = {}) {
   const code = encodePairingCode(payload);
   const qr = await QRCode.toString(code, { type: "terminal", small: true });
   const expires = new Date(payload.expiresAt * 1000).toLocaleTimeString();
-  // QR first, starting at row 1. Writing more lines than the pane has rows
-  // scrolls the earliest ones off the top, and with a header above the QR
-  // that meant the QR's top edge vanished into scrollback. Clamp to the
-  // viewport instead, so any overflow costs trailing text, never the QR.
   const hint = copied
     ? `${BOLD}copied${RESET} ${DIM}-- any other key close${RESET}`
     : `${BOLD}Scan with Heeler${RESET} ${DIM}-- c: copy pairing code, any other key close${RESET}`;
-  const lines = [
-    ...qr.trimEnd().split("\n"),
+  const qrLines = qr.trimEnd().split("\n");
+  const textLines = [
     hint,
     `${BOLD}${payload.username}${RESET} on port ${BOLD}${payload.port}${RESET}`,
     `Host key ${payload.hostKeyFingerprint}`,
@@ -122,7 +135,7 @@ async function renderPairingCode(payload, { copied = false, printedCode = null }
     `Code valid until ${BOLD}${expires}${RESET}, single use`,
   ];
   const rows = process.stdout.rows;
-  const visible = Number.isInteger(rows) && rows > 0 ? lines.slice(0, rows) : lines;
+  const { lines: visible } = clampPairingScreen({ qrLines, textLines, rows });
   process.stdout.write(CLEAR + visible.join("\n"));
   // pbcopy is macOS-only; when copy fails, print the exact envelope after the
   // clamped QR so it can be selected by hand even if the footer was trimmed.
@@ -494,4 +507,9 @@ async function main() {
   });
 }
 
-await main();
+// Only run the popup when this file is the process entrypoint (as herdr
+// launches it); importing it for its exports, e.g. from tests, must not have
+// the side effect of starting the ceremony.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}
