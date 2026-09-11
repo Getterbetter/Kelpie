@@ -4,8 +4,7 @@ import Foundation
 /// the settings surface. The plugin carries the same value as its runtime
 /// default; changing the production endpoint requires updating both sides.
 enum NotificationRelayEndpoint {
-    // TODO(app-store): point at Anthony's relay once deployed
-    static let productionBaseURLString = "https://heeler-apns.bybee.dev"
+    static let productionBaseURLString = "https://kelpie-apns.getter-tilbury-0m.workers.dev"
 
     /// Endpoints that shipped as the production default before. Treat them as
     /// the default rather than a custom override so existing installations
@@ -13,6 +12,8 @@ enum NotificationRelayEndpoint {
     static let legacyProductionBaseURLStrings = [
         "https://herdr-push-relay.69709991236.workers.dev",
         "https://herdr-apns.bybee.dev",
+        // Heeler's relay: the default Kelpie shipped with before it had its own.
+        "https://heeler-apns.bybee.dev",
     ]
 
     static var productionBaseURL: URL? {

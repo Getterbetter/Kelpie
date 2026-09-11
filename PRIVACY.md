@@ -49,8 +49,8 @@ The developer of Kelpie is Anthony Topalides.
 Agent Notifications can tell you when an agent is blocked or done while Kelpie
 is backgrounded or closed. Apple Push Notification service (APNs) requires an
 Apple credential authorized for this app's bundle ID, so the App Store build
-uses an open-source push relay operated by the developer.
-<!-- TODO(app-store): name the relay host here once it is deployed -->
+uses an open-source push relay operated by the developer at
+`https://kelpie-apns.getter-tilbury-0m.workers.dev` (a Cloudflare Worker; the source is in this repository under `relay/`).
 
 The relay has no accounts, database, durable queue, retry queue, or message
 history. A Host encrypts the notification details with its Notification Key,

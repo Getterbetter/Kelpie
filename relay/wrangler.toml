@@ -10,22 +10,9 @@
 name = "kelpie-apns"
 main = "src/worker.js"
 compatibility_date = "2026-07-01"
-workers_dev = false
-
-# TODO(app-store): bybee.dev is the upstream Heeler developer's domain.
-# Replace this hostname with Anthony's own before deploying the Kelpie relay.
-[[routes]]
-pattern = "kelpie-apns.bybee.dev"
-custom_domain = true
-
-# Transitional. A herdr server whose plugin predates the rename still posts to
-# the old hostname, and the app wrote that hostname into its notify.json, so
-# dropping it here would silence notifications until every deployment is
-# updated. The updated plugin rewrites the URL on its next read; remove this
-# route once no deployment is left on the old name.
-[[routes]]
-pattern = "herdr-apns.bybee.dev"
-custom_domain = true
+# Kelpie's relay lives on the free workers.dev address; Anthony has no
+# Cloudflare zone, so there is no custom domain to route.
+workers_dev = true
 
 [vars]
 APNS_TEAM_ID = "8JQWBQKEXX"
