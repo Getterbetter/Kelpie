@@ -4,7 +4,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 
 ## Where things stand (2026-09-11)
 
-- Kelpie is a private iPadOS fork of Heeler, an SSH client for herdr. Branch `kelpie`, 18 commits on top of upstream Heeler (including the vault), remote `upstream` only, nothing pushed anywhere.
+- Kelpie is a private iPadOS fork of Heeler, an SSH client for herdr. Branch `kelpie`, 36 commits on top of upstream Heeler `375267c` (including the vault), remote `upstream` only, nothing pushed anywhere.
 - Round 1 (2026-09-10): rebrand, iPad target, trackpad right-click → herdr's menu, touch long-press → right-click, two-finger long-press → selection sheet, trackpad/mouse-wheel scrolling, sidebar collapse. Reviewed, two fixes applied.
 - Round 2 (2026-09-11): herdr's own TUI is the root screen (full-screen terminal running `herdr` over SSH), Heeler's console demoted behind a floating `ellipsis.circle` menu (Agents, Hosts, Switch host, Settings, Reconnect), automatic keyboard mode from hardware-keyboard presence, tappable URLs opening in the default browser, 12pt default font on iPad. Reviewed, six fixes applied (commit `58199a7`).
 - Round 3 (2026-09-11, commit `77cabda`): from round-2 feedback. Escape and Cmd+. now reach herdr (claimed as priority `UIKeyCommand`s on `HeelerTerminalView`; iPadOS's text-input system consumed them), Option+Backspace / Option+arrows / Option+Fn+Delete send ESC-prefixed word keys (`TerminalHardwareKeyMapping`, unit-tested), and the floating menu is a labelled host capsule with Switch Host and Hosts first. Reviewed, three fixes applied. Onboarding is a proposal in `KelpieVault/Onboarding proposal.md`, not built.
@@ -15,7 +15,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 - Since round 4, builds and installs are run by sonnet-runner sub-agents at Anthony's request ("we hit a safeguard, use a sub agent").
 - Round 6b (2026-09-11): two device fixes — the hold cue was stretched to the whole screen because the vendored `UITerminalView` sets every sublayer's frame to its bounds (any subview added to `HeelerTerminalView` must be a full-bounds container with the real content as an inner subview — a load-bearing quirk, see `TerminalHoldCueView`); touch selection is now clamped to the pane's box-drawing borders around the anchor so it no longer spans the sidebar.
 - Round 6c: hold ring enlarged to 64 pt ("the ring is good"); pane-bounded selection confirmed. The mini's data volume hit 97% mid-build (the parallel builds each kept a derived-data tree); this session's scratch trees were deleted and Anthony has a separate session handling disk space. **Use one derived-data path per session from now on** (`<scratchpad>/build/kelpie-dd`), not one per builder.
-- The latest Release build (round 6c, commit `53c6821`) is installed on the iPad and everything in rounds 3–6 has been confirmed on the device except: Cmd+arrows as Home/End/Page keys, the bell haptic, the Quick Look file viewer, desktop notifications (gated on the mini config), and the Welcome root with zero Hosts. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
+- Round 7 (2026-09-11, `/delegate`): the eight round-2 reviewer nits taken (`98187d3`; one reviewer must-fix applied: the floating capsule is a `Menu`, which only routes a `ButtonStyle` to its label under `.menuStyle(.button)`), then `kelpie` rebased onto Heeler upstream `375267c` (herdr 0.9.0 wire types, muse agent kind, PR #307 paste key cap in the console keyboard). Two `CHANGELOG.md` conflicts, nothing else; Release build clean; installed on the iPad. **Every commit hash quoted above this line is pre-rebase** — they live on tag `kelpie-pre-rebase-20260911`; `git log kelpie` has the rewritten ones. Specs, reviews and the rebase plan are in `KelpieVault/Archive/round7/`. Disk is back to ~31 GB free.
+- The latest Release build (round 7, `98187d3` on the rebased branch) is installed on the iPad and everything in rounds 3–6 has been confirmed on the device except (round 7's nit fixes are also unverified by hand — press-lift on the capsule, padding taps not opening links): Cmd+arrows as Home/End/Page keys, the bell haptic, the Quick Look file viewer, desktop notifications (gated on the mini config), and the Welcome root with zero Hosts. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
 
 ## What Anthony will bring
 
@@ -47,14 +48,14 @@ Context in the long session that did rounds 3–6 was at ~45% when this was writ
 
 ## Open items, in priority order
 
-0. **Git remote and push.** Anthony (2026-09-11): "not sure if we're using git for this project but we should." We are: every round is a commit on `kelpie` (32 commits ahead of upstream `main`, all local). Nothing is pushed because the only remote is `upstream` (Heeler). Next session: ask him for the destination — a private GitHub repo under his account (`gh repo create TME/Kelpie --private --source . --remote origin --push`, or his own name) — and push `kelpie` with his explicit yes. Until then, `git log` on this Mac is the only copy.
+0. **Git remote and push.** Anthony (2026-09-11): "not sure if we're using git for this project but we should." We are: every round is a commit on `kelpie` (36 commits ahead of upstream `main` after the round-7 rebase, all local). Nothing is pushed because the only remote is `upstream` (Heeler). Next session: ask him for the destination — a private GitHub repo under his account (`gh repo create TME/Kelpie --private --source . --remote origin --push`, or his own name) — and push `kelpie` with his explicit yes. Until then, `git log` on this Mac is the only copy.
 
 1. Remaining device checks (list in `KelpieVault/Open items.md`, items 1a–1g), then the two gates below.
 2. Return-to-submit in the console's Keyboard mode (partial fix, needs device confirmation).
 3. Own push relay: deploy `relay/` as a Cloudflare Worker with Anthony's APNs key and point the app at it. Outward-facing, needs his explicit yes. Required for any App Store build.
 4. TestFlight upload (needs his yes; `scripts/ExportOptions.plist` already carries team 8JQWBQKEXX).
-5. Rebase on Heeler upstream periodically; it moves daily. Consider a PR upstream for the iPad work (his call).
-6. Reviewer nits not yet taken: listed in `KelpieVault/Open items.md`.
+5. Rebase on Heeler upstream periodically; it moves daily. Done once on 2026-09-11 (round 7) — the recipe that worked: `git tag kelpie-pre-rebase-<date>`, `GIT_EDITOR=true git rebase upstream/main`, resolve `CHANGELOG.md` by keeping both `### Added` lists, `xcodegen generate`, device build. Consider a PR upstream for the iPad work (his call).
+6. Reviewer nits: the round-2 set was taken in round 7; the round-1 leftovers in `KelpieVault/Open items.md` are device checks or deliberate.
 
 ## Key facts to not rediscover
 
