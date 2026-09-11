@@ -109,7 +109,11 @@ final class TerminalSelectionOverlayView: UIView {
     /// The rect of the selection's last span, where the edit menu is anchored.
     var lastSpanRect: CGRect? {
         guard let selection, let metrics = gridMetrics?() else { return nil }
-        guard let span = selection.spans(width: metrics.columns).last else { return nil }
+        guard
+            let span = selection.spans(
+                width: metrics.columns, bounds: selection.columnBounds
+            ).last
+        else { return nil }
         return rect(forRow: span.row, first: span.first, last: span.last, metrics: metrics)
     }
 
@@ -150,7 +154,9 @@ final class TerminalSelectionOverlayView: UIView {
     override func draw(_: CGRect) {
         guard let selection, let metrics = gridMetrics?() else { return }
         tintColor.withAlphaComponent(Self.highlightAlpha).setFill()
-        for span in selection.spans(width: metrics.columns) {
+        for span in selection.spans(
+            width: metrics.columns, bounds: selection.columnBounds)
+        {
             guard
                 let rect = rect(
                     forRow: span.row, first: span.first, last: span.last, metrics: metrics)
@@ -196,7 +202,8 @@ final class TerminalSelectionOverlayView: UIView {
             endHandle.isHidden = true
             return
         }
-        let spans = selection.spans(width: metrics.columns)
+        let spans = selection.spans(
+            width: metrics.columns, bounds: selection.columnBounds)
         guard let firstSpan = spans.first, let lastSpan = spans.last,
             let firstRect = rect(
                 forRow: firstSpan.row, first: firstSpan.first, last: firstSpan.last,
@@ -256,7 +263,9 @@ final class TerminalSelectionOverlayView: UIView {
                 x: location.x + dragGrabOffset.width,
                 y: location.y + dragGrabOffset.height)
             guard let cell = metrics.cell(at: point) else { return }
-            let moved = TerminalGridCell(column: cell.column, row: cell.row)
+            // A handle dragged out of its pane stops at the border.
+            let moved = TerminalGridCell(
+                column: selection.clampedColumn(cell.column), row: cell.row)
             if movingAnchor {
                 selection.anchor = moved
             } else {
