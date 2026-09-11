@@ -95,6 +95,67 @@ struct TerminalLinkDetectorTests {
         #expect(TerminalLinkDetector.url(in: [line], column: 3, row: 1) == nil)
     }
 
+    /// The old scheme-anchored search found a URL anywhere inside the tapped
+    /// run, and terminal output puts plenty in front of one.
+    @Test(arguments: [
+        ("](https://herdr.dev/docs)", 10),
+        ("url=https://herdr.dev/docs", 10),
+        ("see:https://herdr.dev/docs", 12),
+    ])
+    func resolvesAUrlThatStartsPartWayIntoTheRun(line: String, column: Int) {
+        #expect(
+            TerminalLinkDetector.url(in: [line], column: column, row: 1)?.absoluteString
+                == "https://herdr.dev/docs")
+    }
+
+    @Test func resolvesAnAbsoluteHostPath() {
+        #expect(
+            TerminalLinkDetector.match(in: ["wrote /a/b/c.txt now"], column: 8, row: 1)
+                == .hostPath("/a/b/c.txt"))
+    }
+
+    @Test func resolvesAHomeRelativeHostPath() {
+        #expect(
+            TerminalLinkDetector.match(in: ["see ~/x/y.md ok"], column: 6, row: 1)
+                == .hostPath("~/x/y.md"))
+    }
+
+    /// `file.swift:12:3` is how every compiler and agent names a line; the
+    /// line and column are not part of the path.
+    @Test(arguments: ["at /a/b.swift:12:3 here", "at /a/b.swift:12 here"])
+    func dropsATrailingSourceLocation(line: String) {
+        #expect(
+            TerminalLinkDetector.match(in: [line], column: 5, row: 1)
+                == .hostPath("/a/b.swift"))
+    }
+
+    @Test(arguments: ["(/a/b.txt)", "/a/b.txt.", "\"/a/b.txt\","])
+    func stripsPunctuationAroundAHostPath(line: String) {
+        #expect(
+            TerminalLinkDetector.match(in: [line], column: 4, row: 1)
+                == .hostPath("/a/b.txt"))
+    }
+
+    /// A file-ish last component is the whole rule: without it every
+    /// directory herdr prints becomes a tappable dead end. `/dev/null` has no
+    /// extension, so it is deliberately not a match.
+    @Test(arguments: ["cat /dev/null", "cd /usr/local/bin", "at /Users/anthony"])
+    func extensionlessPathsAreNotMatched(line: String) {
+        #expect(TerminalLinkDetector.match(in: [line], column: 6, row: 1) == nil)
+    }
+
+    /// URL precedence: a URL's own path is not a Host path.
+    @Test func aPathInsideAUrlResolvesAsTheUrl() throws {
+        let line = ["https://herdr.dev/docs/file.md"]
+        let url = try #require(URL(string: "https://herdr.dev/docs/file.md"))
+        #expect(TerminalLinkDetector.match(in: line, column: 25, row: 1) == .url(url))
+    }
+
+    @Test(arguments: [("//comment/thing.txt", 5), ("/ alone", 1), ("a/b/c.txt", 3)])
+    func nonPathsAreNotMatched(line: String, column: Int) {
+        #expect(TerminalLinkDetector.match(in: [line], column: column, row: 1) == nil)
+    }
+
     @Test func readsRowsOutOfViewportText() {
         let text = rows.joined(separator: "\n")
         #expect(

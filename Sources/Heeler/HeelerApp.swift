@@ -12,6 +12,9 @@ struct HeelerApp: App {
     init() {
         try? ImagePreparer.cleanupRemnants()
         try? FilePreparer.cleanupRemnants()
+        // Files downloaded from a Host for Quick Look are deleted when their
+        // sheet closes; a kill mid-preview is the one case that leaves one.
+        HostFileViewerStore.cleanupRemnants()
     }
 
     var body: some Scene {

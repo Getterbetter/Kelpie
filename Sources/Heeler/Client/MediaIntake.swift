@@ -25,16 +25,21 @@ enum MediaIntakeClassification: Equatable {
 /// pasteboard, a drop session, or a Host.
 enum MediaIntake {
     /// Classifies by registered type identifiers, preferring text, then image,
-    /// then a file URL. Text wins because a terminal's first answer to a paste
-    /// is still to type it.
+    /// then a file. Text wins because a terminal's first answer to a paste is
+    /// still to type it — but only when the item is *purely* text. A document
+    /// dragged out of Files registers its own content type — `public.plain-text` for a
+    /// `.txt`, `com.adobe.pdf` for a PDF — alongside `public.file-url`, and
+    /// reading that as text would refuse exactly the drops this exists for.
     static func classify(typeIdentifiers: [String]) -> MediaIntakeClassification {
         let types = typeIdentifiers.compactMap { UTType($0) }
         guard !types.isEmpty else { return .unsupported }
-        if types.contains(where: Self.isText) { return .text }
+        let hasFileRepresentation = types.contains { $0.conforms(to: .fileURL) }
+        if !hasFileRepresentation, types.contains(where: Self.isText) { return .text }
         if types.contains(where: { $0.conforms(to: .image) }) { return .image }
-        if types.contains(where: { $0.conforms(to: .fileURL) || $0.conforms(to: .item) }) {
-            return .file
-        }
+        // `.data`/`.content` are what a PDF, an archive or a text file from
+        // Files conforms to; `public.file-url` is only the wrapper some
+        // providers add on top.
+        if types.contains(where: Self.isFile) { return .file }
         return .unsupported
     }
 
@@ -45,37 +50,135 @@ enum MediaIntake {
             || type.conforms(to: .url)
     }
 
-    /// Loads providers into items, in order, skipping the ones that carry text
-    /// or nothing this app can stage. Text providers are not this function's
-    /// business: the terminal's own paste path already handles them.
+    private static func isFile(_ type: UTType) -> Bool {
+        type.conforms(to: .fileURL) || type.conforms(to: .data)
+            || type.conforms(to: .content) || type.conforms(to: .item)
+    }
+
+    /// Every type identifier a drop session must carry for this app to offer
+    /// to take it. `UIDropSession.hasItemsConforming` is a cheap first pass;
+    /// ``classify(typeIdentifiers:)`` is the decision.
+    static let acceptedDropTypeIdentifiers = [
+        UTType.image.identifier,
+        UTType.fileURL.identifier,
+        UTType.data.identifier,
+        UTType.content.identifier,
+    ]
+
+    /// Starts every provider's load **now**, before returning, and hands back
+    /// the task its results arrive on.
+    ///
+    /// A drop's item providers are only guaranteed to work while the drop
+    /// session is alive, which ends when `performDrop` returns. An `async`
+    /// load suspends before it ever calls `loadFileRepresentation`, so the
+    /// request went out against a dead session and the drop silently staged
+    /// nothing (Files → terminal, observed on device). Every request therefore
+    /// leaves synchronously here; only the gathering is asynchronous.
+    ///
+    /// The task is also remembered, so the ``loadItems(from:)`` the owner
+    /// awaits a turn later joins this load rather than starting a second one.
     ///
     /// Main-actor bound because `NSItemProvider` is not `Sendable`: the
     /// providers arrive from UIKit on the main thread and are read there.
     @MainActor
+    @discardableResult
+    static func beginLoading(_ providers: [NSItemProvider]) -> Task<[MediaIntakeItem], Never> {
+        let task = startLoading(providers)
+        primedLoads.append((providers.map(ObjectIdentifier.init), task))
+        // A primed load nobody claims holds its intake copy until
+        // `sweepIntakeCopies` takes it; the cap keeps the list from growing.
+        if primedLoads.count > Self.primedLoadLimit { primedLoads.removeFirst() }
+        return task
+    }
+
+    /// Loads providers into items, in order, skipping the ones that carry text
+    /// or nothing this app can stage. Text providers are not this function's
+    /// business: the terminal's own paste path already handles them.
+    ///
+    /// Joins the load ``beginLoading(_:)`` already started for these same
+    /// providers when there is one — the drop path starts its loads inside
+    /// `performDrop` and calls this afterwards.
+    @MainActor
     static func loadItems(from providers: [NSItemProvider]) async -> [MediaIntakeItem] {
-        var items: [MediaIntakeItem] = []
-        for provider in providers {
+        let task = takePrimedLoad(for: providers) ?? startLoading(providers)
+        return await task.value
+    }
+
+    /// How many started-but-unclaimed loads are remembered at once. One drop
+    /// or paste is claimed on the next turn; the rest is slack.
+    private static let primedLoadLimit = 4
+
+    @MainActor
+    private static var primedLoads:
+        [(providers: [ObjectIdentifier], task: Task<[MediaIntakeItem], Never>)] = []
+
+    @MainActor
+    private static func takePrimedLoad(
+        for providers: [NSItemProvider]
+    ) -> Task<[MediaIntakeItem], Never>? {
+        let identities = providers.map(ObjectIdentifier.init)
+        guard let index = primedLoads.firstIndex(where: { $0.providers == identities })
+        else { return nil }
+        return primedLoads.remove(at: index).task
+    }
+
+    /// Issues every provider's load request before returning.
+    @MainActor
+    private static func startLoading(
+        _ providers: [NSItemProvider]
+    ) -> Task<[MediaIntakeItem], Never> {
+        let collector = MediaIntakeLoadCollector(expecting: providers.count)
+        for (index, provider) in providers.enumerated() {
             let identifiers = provider.registeredTypeIdentifiers
             switch classify(typeIdentifiers: identifiers) {
             case .image:
                 guard let identifier = identifiers.first(where: {
                     UTType($0)?.conforms(to: .image) == true
-                }), let data = await loadData(from: provider, typeIdentifier: identifier),
-                    !data.isEmpty
-                else { continue }
-                items.append(.image(data, suggestedName: provider.suggestedName))
+                }) else {
+                    collector.finish(index, with: nil)
+                    continue
+                }
+                let suggestedName = provider.suggestedName
+                provider.loadDataRepresentation(forTypeIdentifier: identifier) { data, _ in
+                    guard let data, !data.isEmpty else {
+                        collector.finish(index, with: nil)
+                        return
+                    }
+                    collector.finish(
+                        index, with: .image(data, suggestedName: suggestedName))
+                }
             case .file:
-                guard let identifier = identifiers.first(where: {
-                    guard let type = UTType($0) else { return false }
-                    return type.conforms(to: .fileURL) || type.conforms(to: .item)
-                }), let url = await loadFile(from: provider, typeIdentifier: identifier)
-                else { continue }
-                items.append(.file(url))
+                guard let identifier = fileTypeIdentifier(in: identifiers) else {
+                    collector.finish(index, with: nil)
+                    continue
+                }
+                // The URL the loader hands over is deleted when the callback
+                // returns, so the copy has to happen inside it.
+                provider.loadFileRepresentation(forTypeIdentifier: identifier) { url, _ in
+                    guard let url, let copy = copyIntoIntakeDirectory(url) else {
+                        collector.finish(index, with: nil)
+                        return
+                    }
+                    collector.finish(index, with: .file(copy))
+                }
             case .text, .unsupported:
-                continue
+                collector.finish(index, with: nil)
             }
         }
-        return items
+        return Task { await collector.items() }
+    }
+
+    /// The identifier to ask a file provider for. A document's own content
+    /// type is preferred over the `public.file-url` wrapper: Files registers
+    /// both, and the content type is the one that reliably yields a file.
+    private static func fileTypeIdentifier(in identifiers: [String]) -> String? {
+        let concrete = identifiers.first { identifier in
+            guard let type = UTType(identifier), !type.conforms(to: .fileURL)
+            else { return false }
+            return type.conforms(to: .data) || type.conforms(to: .content)
+        }
+        if let concrete { return concrete }
+        return identifiers.first { UTType($0)?.conforms(to: .item) == true }
     }
 
     /// A path for a bracketed paste into a shell or an agent prompt: quoted
@@ -88,36 +191,6 @@ enum MediaIntake {
         guard needsQuoting else { return "\(path) " }
         let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
         return "'\(escaped)' "
-    }
-
-    @MainActor
-    private static func loadData(
-        from provider: NSItemProvider,
-        typeIdentifier: String
-    ) async -> Data? {
-        await withCheckedContinuation { continuation in
-            provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, _ in
-                continuation.resume(returning: data)
-            }
-        }
-    }
-
-    /// The URL the loader hands over is deleted when the callback returns, so
-    /// the copy has to happen inside it.
-    @MainActor
-    private static func loadFile(
-        from provider: NSItemProvider,
-        typeIdentifier: String
-    ) async -> URL? {
-        await withCheckedContinuation { continuation in
-            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, _ in
-                guard let url else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                continuation.resume(returning: copyIntoIntakeDirectory(url))
-            }
-        }
     }
 
     /// Where intake copies live until their staging operation ends.
@@ -184,6 +257,56 @@ enum MediaIntake {
             return destination
         } catch {
             return nil
+        }
+    }
+}
+
+/// Gathers the results of provider loads that were all *started* before the
+/// caller got control back, keeping each item in the position its provider
+/// held. Loads complete on whatever queue `NSItemProvider` chooses, so the
+/// bookkeeping is under a lock rather than an actor: making it an actor would
+/// put a suspension between starting the loads and returning, which is the
+/// very thing the drop path cannot afford.
+private final class MediaIntakeLoadCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [Int: MediaIntakeItem] = [:]
+    private var outstanding: Int
+    private var gathered: [MediaIntakeItem]?
+    private var continuation: CheckedContinuation<[MediaIntakeItem], Never>?
+
+    init(expecting count: Int) {
+        outstanding = count
+        if count == 0 { gathered = [] }
+    }
+
+    /// Records one provider's outcome; `nil` is a provider that yielded
+    /// nothing this app can stage.
+    func finish(_ index: Int, with item: MediaIntakeItem?) {
+        lock.lock()
+        if let item { results[index] = item }
+        outstanding -= 1
+        guard outstanding <= 0, gathered == nil else {
+            lock.unlock()
+            return
+        }
+        let items = results.keys.sorted().compactMap { results[$0] }
+        gathered = items
+        let waiting = continuation
+        continuation = nil
+        lock.unlock()
+        waiting?.resume(returning: items)
+    }
+
+    func items() async -> [MediaIntakeItem] {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if let gathered {
+                lock.unlock()
+                continuation.resume(returning: gathered)
+                return
+            }
+            self.continuation = continuation
+            lock.unlock()
         }
     }
 }

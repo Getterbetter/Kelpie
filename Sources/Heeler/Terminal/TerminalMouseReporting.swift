@@ -22,16 +22,33 @@ enum TerminalMouseEncoding {
         case wheelDown = 65
     }
 
+    /// Set on a report that describes the pointer moving rather than a button
+    /// changing state. With button-event tracking (DECSET 1002) it is how a
+    /// held drag is spelled: left-drag is 0 + 32 = 32.
+    static let motionFlag = 32
+
     /// Encodes one report for a 1-based cell coordinate.
-    func report(button: Button, column: Int, row: Int, isRelease: Bool = false) -> Data {
+    ///
+    /// `isMotion` reports the pointer moving with `button` held — herdr resizes
+    /// a pane border from exactly these, and without them a press and a release
+    /// at two different cells say nothing about the drag between.
+    func report(
+        button: Button,
+        column: Int,
+        row: Int,
+        isRelease: Bool = false,
+        isMotion: Bool = false
+    ) -> Data {
         switch self {
         case .sgr:
             let terminator = isRelease ? "m" : "M"
-            return Data("\u{1B}[<\(button.rawValue);\(column);\(row)\(terminator)".utf8)
+            let code = button.rawValue + (isMotion ? Self.motionFlag : 0)
+            return Data("\u{1B}[<\(code);\(column);\(row)\(terminator)".utf8)
         case .legacy:
             // Legacy reports carry no button identity on release: the
             // terminator stays 'M' and the button becomes 3, "released".
-            let code = isRelease ? 3 : button.rawValue
+            var code = isRelease ? 3 : button.rawValue
+            if isMotion, !isRelease { code += Self.motionFlag }
             return Data([
                 0x1B, 0x5B, 0x4D,
                 UInt8(clamping: code + 32),

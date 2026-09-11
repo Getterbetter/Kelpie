@@ -281,12 +281,12 @@ struct AgentNotificationBannerStoreTests {
 
         store.agentsDidChange([agent("w1:pT", .blocked), agent("wR:pC", .working)])
         try await waitUntil("the first banner should show") {
-            store.banner?.target.paneID == "w1:pT"
+            store.banner?.target?.paneID == "w1:pT"
         }
 
         store.agentsDidChange([agent("w1:pT", .blocked), agent("wR:pC", .done)])
         try await waitUntil("the newer banner should replace it") {
-            store.banner?.target.paneID == "wR:pC"
+            store.banner?.target?.paneID == "wR:pC"
         }
     }
 

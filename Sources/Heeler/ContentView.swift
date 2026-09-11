@@ -203,6 +203,10 @@ struct ContentView: View {
             await ConsoleActivityDriver(activity: activity, console: console).run()
         }
         .task { await pushRegistration.refresh() }
+        // herdr's own desktop notifications (OSC 9 / OSC 777) share the
+        // Agent Notification banner while the app is foregrounded, so the
+        // relay is handed the same store the overlay above draws from.
+        .task { TerminalDesktopNotificationRelay.shared.connect(bannerStore: bannerStore) }
         .task {
             // Existing installs' Notification Keys predate the app-group
             // mirror; refresh it before a locked widget render needs it.
