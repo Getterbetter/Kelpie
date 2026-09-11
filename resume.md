@@ -13,7 +13,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 - Round 5 (2026-09-11): the Mac-vs-iPad gap list, implemented: all four iPad orientations (the cause of the window keeping its shape — Split View now works, confirmed), resize coalescing, width-aware font, icon-only capsule under 500 pt, drop-from-Files fix, Cmd+arrows as Home/End/Page keys, bell haptic, herdr desktop notifications (needs `ui.toast.delivery = "terminal"` on the mini — gated), host file viewer (tap a path or the menu → SFTP → Quick Look + share). Two builders in parallel with file ownership, one reviewer, six fixes. Not done: Stage Manager multi-window (stores per scene), finger drag as mouse drag.
 - Round 6 (2026-09-11): touch text selection with handles (Kelpie-drawn overlay over the grid, copied from viewport text — Ghostty's selection is internal to the vendored package) and one-finger hold-then-drag as a left-button mouse drag (sidebar/pane resize by touch), with a visual ring since iPads have no haptics. Sidebar *taps* always worked; the ask was resizing. Two reviews, all findings applied. ADR 0016 amended. The trace facility (`-kelpie.key-trace YES`) now logs mouse reports too — launch with `xcrun devicectl device process launch --device <id> --terminate-existing TME.Kelpie -- -kelpie.key-trace YES`.
 - Since round 4, builds and installs are run by sonnet-runner sub-agents at Anthony's request ("we hit a safeguard, use a sub agent").
-- The latest Release build (round 6, reviewed) is installed on the iPad. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
+- Round 6b (2026-09-11): two device fixes — the hold cue was stretched to the whole screen because the vendored `UITerminalView` sets every sublayer's frame to its bounds (any subview added to `HeelerTerminalView` must be a full-bounds container with the real content as an inner subview — a load-bearing quirk, see `TerminalHoldCueView`); touch selection is now clamped to the pane's box-drawing borders around the anchor so it no longer spans the sidebar.
+- The latest Release build (round 6b) is installed on the iPad. Untested on the device: the disc-sized hold cue and the pane-bounded selection. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
 
 ## What Anthony will bring
 
@@ -38,6 +39,10 @@ Record his feedback in `KelpieVault/Feedback log.md` under "Round 2 feedback" be
 - `Packages/GhosttyTerminal` is vendored; never edit it, override its `open` members from `HeelerTerminalView` (see `docs/adr/0016-ipad-pointer-input.md`).
 - Unit tests compile but could not be executed this round (simulator). If a simulator ever boots, the test recipe is the build recipe with `test` and an iPhone destination.
 - Working pattern that suited this project: `/delegate` with Sonnet scouts for code maps, an Opus builder given a complete spec, an Opus reviewer in a fresh context, then a Fable-written spec and triage. Specs and reviews from both rounds are archived in `KelpieVault/Archive/`.
+
+## If starting a new session
+
+Context in the long session that did rounds 3–6 was at ~45% when this was written; a new session loses nothing. Read this file, then `KelpieVault/Open items.md` (item 1g is the device checklist for round 6), `KelpieVault/Feedback log.md` (every round's verbatim feedback), and `KelpieVault/Mac vs iPad gaps.md`. Working pattern that held up: `/delegate` with Opus builders given a complete spec and strict file ownership when two run in parallel, an Opus reviewer in a fresh context, Fable triage; builds and device installs go through sonnet-runner sub-agents (Anthony asked for that after a permission safeguard). The keystroke/mouse trace (`-kelpie.key-trace YES`, pulled with `devicectl device copy from`) is the device diagnostic that has settled every "it doesn't work" so far.
 
 ## Open items, in priority order
 
