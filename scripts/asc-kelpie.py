@@ -252,8 +252,9 @@ def listing_copy():
         text = open(COPY_FILE, encoding="utf-8").read()
     except OSError:
         return {}
+    # No whatsNew: App Store Connect refuses it on a first release (409).
     fields = {"Description": "description", "Keywords": "keywords",
-              "Promotional text": "promotionalText", "What's new": "whatsNew"}
+              "Promotional text": "promotionalText"}
     out = {}
     for heading, attr in fields.items():
         m = re.search(r"\*\*" + re.escape(heading) + r"\*\*[^\n]*:\n(.*?)(?=\n\*\*|\Z)", text, re.S)
