@@ -20,7 +20,7 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 - [ ] **3. Return-to-submit in the console's Keyboard mode.** Partial fix only: Direct Input now claims first responder while a hardware keyboard is attached, which was a real gap. If Return still fails, the remaining suspect is UIKit loaning Return to the IME under the `.naturalLanguage` text-input traits the agent terminal uses — shell terminals use `.terminal` and are reported working. Needs a device to confirm.
 - [ ] **4. Deploy our own push relay.** Cloudflare Worker from `relay/` with Anthony's own APNs `.p8`, `APNS_TEAM_ID = 8JQWBQKEXX`, `APNS_TOPIC = TME.Kelpie`; point the app (or the in-app Custom Push Relay setting) and the plugin default at it. Cost ≈ zero. **Mandatory for any App Store build**; a personal build could instead have the plugin on the mini call APNs directly. Outward-facing — needs Anthony's explicit yes. Background in [[Heeler upstream]].
 - [ ] **5. TestFlight upload.** Needs his yes. `scripts/ExportOptions.plist` already carries team `8JQWBQKEXX`; `make bump && make testflight` is the upstream path.
-- [ ] **6. Rebase on Heeler upstream.** It moves daily. The conflict surface is small by design — see [[Heeler upstream#Rebase strategy]].
+- [x] **6. Rebase on Heeler upstream.** Done 2026-09-11 (round 7): 36 commits replayed onto upstream `375267c` (herdr 0.9.0 wire, muse agent kind, PR #307 paste key cap). Two `CHANGELOG.md` conflicts, nothing else; Release build clean. Pre-rebase history is kept as tag `kelpie-pre-rebase-20260911`. Still a recurring item — see [[Heeler upstream#Rebase strategy]] and `Archive/round7/rebase-summary.md`.
 - [ ] **7. Consider a pull request upstream** for the iPad input work. Anthony's call; deliberately deferred while the fork is private.
 - [ ] **8. Run the unit suite** on any machine whose CoreSimulator can install an app. Every suite is platform-independent logic.
 
@@ -37,14 +37,16 @@ From the two fresh-context reviews. The "should-fix" findings from both rounds w
 
 ### Round 2 — [[Archive/round2/review|review]]
 
-- [ ] **A full viewport read on every tap, twice.** `linkURL(at:)` does a C call plus a whole-viewport UTF-8 copy on the main thread, and runs twice per direct tap and twice per trackpad click (once in `gestureRecognizerShouldBegin`, once in the handler). A short-lived cache keyed on the surface's damage counter would collapse it to one.
-- [ ] **Wide characters and tabs shift link columns.** The detector indexes by grapheme while the grid mapper counts cells, so a CJK or wide-emoji glyph earlier in a row puts everything to its right off by one per glyph. Rare in herdr's TUI. At minimum it wants a line in the doc comment, which currently claims wrapping is "the one piece of terminal-specific knowledge".
-- [ ] **The grid mapper clamps to the grid,** so a tap in the bottom or right padding resolves to an edge cell and can open a URL that is not under the finger.
-- [ ] **`.environment(hardwareKeyboard)` is dead.** `ContentView` injects it and nothing reads `@Environment(HardwareKeyboardObserver.self)` — every consumer takes it as an explicit `let`. Should be one or the other, not both.
-- [ ] **The font default keys off idiom, not width.** `UIUserInterfaceIdiom == .pad` rather than a regular-width window, so an iPad in a compact Slide Over still starts at 12 pt. A quiet narrowing of the spec.
-- [ ] **A `UITouch` is retained strongly** in the link-claim state, where round 1's right-button equivalent is `weak`. UIKit's guidance is not to retain touch objects past the event; a stale claim is inert rather than harmful thanks to the `touches.contains` guard.
-- [ ] **`.onDisappear { notificationRouter.path = [] }`** sits on a view used both as the cover's content and as the no-host root, so adding the first Host clears the path as a side effect. Harmless today.
-- [ ] **The menu button raises opacity on hover but not on press.** The spec said "hover/press"; the menu dims the screen anyway.
+All eight taken in round 7 (2026-09-11, `98187d3`, reviewed — `Archive/round7/nits-review.md`). Kept here for the record; the font-default one was superseded rather than changed.
+
+- [x] **A full viewport read on every tap, twice.** `linkURL(at:)` does a C call plus a whole-viewport UTF-8 copy on the main thread, and runs twice per direct tap and twice per trackpad click (once in `gestureRecognizerShouldBegin`, once in the handler). A short-lived cache keyed on the surface's damage counter would collapse it to one.
+- [x] **Wide characters and tabs shift link columns.** The detector indexes by grapheme while the grid mapper counts cells, so a CJK or wide-emoji glyph earlier in a row puts everything to its right off by one per glyph. Rare in herdr's TUI. At minimum it wants a line in the doc comment, which currently claims wrapping is "the one piece of terminal-specific knowledge".
+- [x] **The grid mapper clamps to the grid,** so a tap in the bottom or right padding resolves to an edge cell and can open a URL that is not under the finger.
+- [x] **`.environment(hardwareKeyboard)` is dead.** `ContentView` injects it and nothing reads `@Environment(HardwareKeyboardObserver.self)` — every consumer takes it as an explicit `let`. Should be one or the other, not both.
+- [x] **The font default keys off idiom, not width.** *(Superseded, not changed: round 5's width ladder in `TerminalZoomSettings` runs on first layout with `initial: true`, so a Slide Over launch settles at 10 pt.)* `UIUserInterfaceIdiom == .pad` rather than a regular-width window, so an iPad in a compact Slide Over still starts at 12 pt. A quiet narrowing of the spec.
+- [x] **A `UITouch` is retained strongly** in the link-claim state, where round 1's right-button equivalent is `weak`. UIKit's guidance is not to retain touch objects past the event; a stale claim is inert rather than harmful thanks to the `touches.contains` guard.
+- [x] **`.onDisappear { notificationRouter.path = [] }`** sits on a view used both as the cover's content and as the no-host root, so adding the first Host clears the path as a side effect. Harmless today.
+- [x] **The menu button raises opacity on hover but not on press.** The spec said "hover/press"; the menu dims the screen anyway.
 
 ## Known and accepted
 
