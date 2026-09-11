@@ -10,20 +10,31 @@ import VisionKit
 /// Host is handed to `onPaired`, entering the same preflight a manually
 /// added Host does.
 struct PairingScanView: View {
+    /// Which entry the sheet opens on. The camera is the original route; the
+    /// paste entry is what the Welcome screen leads with, because copying the
+    /// code out of herdr's popup is the route that works across the room.
+    enum Entry {
+        case camera
+        case paste
+    }
+
     let onPaired: (Host) -> Void
     let onAddManually: () -> Void
     @State private var store: PairingScanStore
+    @State private var entry: Entry
     @State private var cameraAccess: CameraAccess = .undetermined
     @Environment(\.dismiss) private var dismiss
 
     init(
         catalog: HostStore,
+        entry: Entry = .camera,
         onPaired: @escaping (Host) -> Void = { _ in },
         onAddManually: @escaping () -> Void = {}
     ) {
         self.onPaired = onPaired
         self.onAddManually = onAddManually
         _store = State(initialValue: PairingScanStore(catalog: catalog))
+        _entry = State(initialValue: entry)
     }
 
     private enum CameraAccess {
@@ -38,23 +49,36 @@ struct PairingScanView: View {
                 if let code = store.pairingCode {
                     PairingCeremonyView(code: code, store: store)
                 } else {
-                    scanner
+                    switch entry {
+                    case .camera:
+                        scanner
+                    case .paste:
+                        PairingCodeEntryView(store: store) { entry = .camera }
+                    }
                 }
             }
-            .navigationTitle("Scan to Pair")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .task { await resolveCameraAccess() }
+            .task(id: entry) {
+                guard entry == .camera else { return }
+                await resolveCameraAccess()
+            }
             .onChange(of: store.pairedHost) { _, paired in
                 guard let paired else { return }
                 dismiss()
                 onPaired(paired)
             }
         }
+    }
+
+    private var navigationTitle: String {
+        if store.pairingCode != nil { return "Scan to Pair" }
+        return entry == .paste ? "Pair with a Code" : "Scan to Pair"
     }
 
     @ViewBuilder
@@ -285,7 +309,10 @@ private struct PairingCodeScanner: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
             recognizedDataTypes: [.barcode(symbologies: [.qr])],
-            qualityLevel: .fast,
+            // A Pairing Code is a dense version-11 QR (61 modules) drawn in
+            // half-block glyphs on a Mac screen; `.fast` trades the accuracy
+            // that needs for speed nobody is waiting on.
+            qualityLevel: .accurate,
             isHighlightingEnabled: true)
         scanner.delegate = context.coordinator
         return scanner
