@@ -107,6 +107,63 @@ struct TerminalTouchSelectionTests {
         #expect(TerminalTouchSelection.word(at: cell(0, 1), in: rows) == nil)
     }
 
+    private let pane = [
+        " sidebar │ the quick brown fox │ right",
+        " list    │ jumped over         │ pane ",
+        " here    │ the lazy dog        │ edge ",
+    ]
+
+    @Test func findsThePaneBordersOnBothSidesOfACell() {
+        // Columns 10 and 32 hold "│"; the pane is everything between them.
+        #expect(pane[0].count == 38)
+        #expect(
+            TerminalTouchSelection.paneBounds(around: cell(12, 1), in: pane) == 11...31)
+    }
+
+    @Test func findsAPaneBorderOnOneSideOnly() {
+        #expect(
+            TerminalTouchSelection.paneBounds(around: cell(3, 1), in: pane) == 1...9)
+        #expect(
+            TerminalTouchSelection.paneBounds(around: cell(34, 1), in: pane)
+                == 33...Int.max)
+    }
+
+    @Test func findsNoPaneBordersInPlainText() {
+        #expect(
+            TerminalTouchSelection.paneBounds(around: cell(5, 1), in: rows)
+                == 1...Int.max)
+        #expect(
+            TerminalTouchSelection.paneBounds(around: cell(1, 9), in: rows)
+                == 1...Int.max)
+    }
+
+    @Test func aWordCarriesThePaneItWasSelectedIn() {
+        let selection = TerminalTouchSelection.word(at: cell(12, 1), in: pane)
+        #expect(selection?.columnBounds == 11...31)
+        // Plain text has no pane to stay inside.
+        #expect(TerminalTouchSelection.word(at: cell(5, 1), in: rows)?.columnBounds == nil)
+    }
+
+    @Test func aMultiRowSelectionStaysInsideItsPane() {
+        let selection = TerminalTouchSelection(
+            anchor: cell(12, 1), focus: cell(20, 3), columnBounds: 11...31)
+        let spans = selection.spans(width: 38, bounds: selection.columnBounds)
+        #expect(spans.map(\.first) == [12, 11, 11])
+        #expect(spans.map(\.last) == [31, 31, 20])
+        // Column 11 is the pane's first column, a space in rows 2 and 3.
+        #expect(
+            selection.text(in: pane, bounds: selection.columnBounds)
+                == "the quick brown fox\n jumped over\n the lazy")
+    }
+
+    @Test func aHandleDraggedOutOfThePaneClampsToIt() {
+        let selection = TerminalTouchSelection(
+            anchor: cell(12, 1), focus: cell(20, 3), columnBounds: 11...31)
+        #expect(selection.clampedColumn(1) == 11)
+        #expect(selection.clampedColumn(99) == 31)
+        #expect(selection.clampedColumn(15) == 15)
+    }
+
     @Test func selectsEverythingUpToTheLastRowWithText() {
         let selection = TerminalTouchSelection.all(in: rows)
         #expect(selection?.start == cell(1, 1))

@@ -3143,7 +3143,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// polling, and nothing to keep in sync.
     func copyTouchSelection() {
         guard let selection = touchSelectionOverlay.selection else { return }
-        let text = selection.text(in: viewportTextRows())
+        let text = selection.text(
+            in: viewportTextRows(), bounds: selection.columnBounds)
         clearTouchSelection()
         guard !text.isEmpty else { return }
         UIPasteboard.general.string = text
