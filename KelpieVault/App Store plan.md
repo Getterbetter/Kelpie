@@ -8,7 +8,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 ## Answers (2026-09-11, see [[Feedback log]])
 
-1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: explained, awaiting his pick. 3 reviewer VPS: he conflated it with notifications; clarified (herdr runs on Linux, so a small VPS runs herdr itself, ~AU$8/month for the review window) — awaiting confirmation. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: four drafts sent (`Archive/round7/icons/`), draft 2 recommended, awaiting his pick. 7 `r/KelpieApp`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
+1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: **public, pushed**. 3 reviewer VPS: **yes**; runbook at `docs/guides/app-review-host.md`; provider account still his. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: draft 2 chosen and in the Icon Composer bundle (`5584d9c`). 7 `r/KelpieApp`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
 
 ## Decisions only Anthony can make (original list)
 
@@ -30,7 +30,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 ## Gates, in order
 
-1. Push the repo (item 0 in [[Open items]]) — `gh repo create Getterbetter/Kelpie --private|--public --source . --remote origin --push`.
+1. ~~Push the repo~~ Done 2026-09-11: public `https://github.com/Getterbetter/Kelpie`; the in-app privacy link resolves.
 2. ~~Deploy the relay~~ Done 2026-09-11: `https://kelpie-apns.getter-tilbury-0m.workers.dev` (Cloudflare account under his iCloud address, `workers_dev`). App and plugin defaults point at it; Heeler's old relay is on the legacy list so an existing install migrates. **Still needed: the APNs key** — `cd relay && npx wrangler secret put APNS_KEY_P8` with the `.p8` contents, and `APNS_KEY_ID` in `wrangler.toml`, then redeploy. Until then the relay answers 500 `relay_misconfigured`.
 3. Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.
 4. `make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.
