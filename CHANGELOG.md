@@ -64,8 +64,22 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   an Agent no longer needs a hardware keyboard. The text goes through the
   same paste review as ⌘V. (#307)
 
+### Changed
+
+- The Kelpie menu is a labelled capsule naming the current Host instead of a
+  dim ellipsis. It is the only way to Hosts, Agents and Settings, and a
+  pointer resting on it was the only thing that made it visible. Switch Host
+  and Hosts now come first in the menu. (Kelpie)
+
 ### Fixed
 
+- Escape and Cmd+. reach the remote client. As a text-input first responder
+  the terminal lost both to iPadOS before the key ever arrived; they are now
+  claimed as shortcuts, the way the Ctrl chords already were. (Kelpie)
+- Option+Backspace and Option+arrows do word-wise editing. The terminal sends
+  the ESC-prefixed sequences for delete word, word left, word right and
+  delete word forward, instead of a plain Backspace or cursor step, and the
+  keyboard no longer echoes the same press twice. (Kelpie)
 - New Agent now discovers agents installed through mise. The discovery PATH
   includes mise's shims directory, resolved from `MISE_DATA_DIR` or
   `XDG_DATA_HOME` when either reaches the non-interactive SSH environment,

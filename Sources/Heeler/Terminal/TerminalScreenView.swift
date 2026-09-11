@@ -1183,6 +1183,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     override func deleteBackward() {
         guard isLocalInputEnabled else { return }
 
+        // Option+Backspace has already gone out as ESC DEL. UIKit's echo of
+        // the same press would delete a second time, a plain character.
+        guard
+            !isSuppressingAltEcho(
+                forUsage: TerminalHardwareKeyMapping.Usage.deleteOrBackspace)
+        else { return }
+
         // Ghostty already synchronizes marked-text deletion with UIKit. Raw
         // terminal deletion also changes the remote document, so it must send
         // the same notifications or the software keyboard stops key repeat.
@@ -1862,26 +1869,188 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
     }
 
+    /// Combos already delivered this runloop turn, keyed by the physical key
+    /// and its modifiers. See ``claimHardwareKeyDelivery(_:)``.
+    private var claimedHardwareKeys: Set<TerminalHardwareKeyMapping.Key> = []
+    private var hardwareKeyClaimResetIsScheduled = false
+    /// Presses this view answered itself, held so their release can be kept
+    /// from `super` too.
+    private var interceptedPresses: Set<UIPress> = []
+    /// The intercepted Option combos still in flight. UIKit echoes those
+    /// through the text-input path as well, and the real bytes have already
+    /// gone out. See ``isSuppressingAltEcho(forUsage:)``.
+    private var claimedAltCombos: Set<TerminalHardwareKeyMapping.Key> = []
+
+    /// Escape and Cmd+`.` as key commands. As a `UITextInput` first responder
+    /// this view loses both to iPadOS's text machinery before `pressesBegan`
+    /// runs, exactly as it loses Ctrl chords — which the vendored package
+    /// already claims back with priority key commands. Take `super`'s list so
+    /// those Ctrl commands survive, and add these two on the same terms.
+    override var keyCommands: [UIKeyCommand]? {
+        var commands = super.keyCommands ?? []
+        commands.append(contentsOf: Self.escapeKeyCommands)
+        return commands
+    }
+
+    private static let escapeKeyCommands: [UIKeyCommand] = {
+        let entries: [(input: String, modifierFlags: UIKeyModifierFlags)] = [
+            (UIKeyCommand.inputEscape, []),
+            (".", .command),
+        ]
+        return entries.map { entry in
+            let command = UIKeyCommand(
+                input: entry.input,
+                modifierFlags: entry.modifierFlags,
+                action: #selector(handleEscapeKeyCommand(_:)))
+            command.wantsPriorityOverSystemBehavior = true
+            // Both spellings mean Escape, and this is the text the iPad's
+            // ⌘-hold shortcut HUD lists them under.
+            command.discoverabilityTitle = "Escape"
+            return command
+        }
+    }()
+
+    @objc private func handleEscapeKeyCommand(_ command: UIKeyCommand) {
+        let key =
+            command.modifierFlags.contains(.command)
+            ? TerminalHardwareKeyMapping.Key(
+                usage: TerminalHardwareKeyMapping.Usage.period, command: true)
+            : TerminalHardwareKeyMapping.Key(usage: TerminalHardwareKeyMapping.Usage.escape)
+        sendHardwareKey(key)
+    }
+
     /// ⌘+ / ⌘- would otherwise reach Ghostty's own font-size keybinds, which
     /// leaves the global setting stale. Handle them here and swallow both the
     /// press and its release so Ghostty never sees the shortcut.
+    ///
+    /// The same pass answers the combos ``TerminalHardwareKeyMapping`` owns:
+    /// Ghostty's encoder would send the wrong bytes for them, so the app
+    /// sends its own and keeps the press away from `super`.
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         var forwarded: Set<UIPress> = []
         for press in presses {
-            guard let step = Self.zoomShortcutStep(for: press) else {
-                forwarded.insert(press)
+            if let step = Self.zoomShortcutStep(for: press) {
+                zoom(to: appliedFontSize + step)
                 continue
             }
-            zoom(to: appliedFontSize + step)
+            guard !interceptHardwareKey(press) else { continue }
+            forwarded.insert(press)
         }
         guard !forwarded.isEmpty else { return }
         super.pressesBegan(forwarded, with: event)
     }
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        let forwarded = presses.filter { Self.zoomShortcutStep(for: $0) == nil }
+        let forwarded = forwardablePresses(presses)
         guard !forwarded.isEmpty else { return }
-        super.pressesEnded(Set(forwarded), with: event)
+        super.pressesEnded(forwarded, with: event)
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let forwarded = forwardablePresses(presses)
+        guard !forwarded.isEmpty else { return }
+        super.pressesCancelled(forwarded, with: event)
+    }
+
+    /// Answers a press this view owns the bytes for. Returns whether it did,
+    /// in which case `super` must see neither the press nor its release.
+    private func interceptHardwareKey(_ press: UIPress) -> Bool {
+        guard let key = Self.hardwareKey(for: press),
+            TerminalHardwareKeyMapping.bytes(for: key) != nil
+        else { return false }
+
+        interceptedPresses.insert(press)
+        if key.option {
+            // An Option combo is the one case UIKit also echoes through the
+            // text-input path; remember it so that echo can be swallowed.
+            claimedAltCombos.insert(key)
+            scheduleHardwareKeyClaimReset()
+        }
+        sendHardwareKey(key)
+        return true
+    }
+
+    /// Drops the presses this view answered itself — `super` never saw them
+    /// begin, so a release for one is a release for a press it has no record
+    /// of — along with the zoom shortcuts it already swallowed.
+    private func forwardablePresses(_ presses: Set<UIPress>) -> Set<UIPress> {
+        var forwarded: Set<UIPress> = []
+        for press in presses {
+            if interceptedPresses.remove(press) != nil {
+                if let key = Self.hardwareKey(for: press) {
+                    claimedAltCombos.remove(key)
+                }
+                continue
+            }
+            guard Self.zoomShortcutStep(for: press) == nil else { continue }
+            forwarded.insert(press)
+        }
+        return forwarded
+    }
+
+    /// Sends the app-owned bytes for `key` straight to the remote PTY, on the
+    /// same raw route the mouse reports take.
+    private func sendHardwareKey(_ key: TerminalHardwareKeyMapping.Key) {
+        guard isLocalInputEnabled,
+            let bytes = TerminalHardwareKeyMapping.bytes(for: key),
+            claimHardwareKeyDelivery(key)
+        else { return }
+        terminalSession.sendInput(bytes)
+    }
+
+    /// Whether this delivery path gets to send the combo. On some iPadOS
+    /// versions one physical press arrives both as a key command and in
+    /// `pressesBegan`; whichever runs first wins and the other stays silent.
+    /// The package's `claimControlKeyDelivery` does the same for Ctrl chords,
+    /// but it is internal to the package and not callable from here.
+    private func claimHardwareKeyDelivery(_ key: TerminalHardwareKeyMapping.Key) -> Bool {
+        let claim = Self.claimKey(for: key)
+        guard !claimedHardwareKeys.contains(claim) else { return false }
+        claimedHardwareKeys.insert(claim)
+        scheduleHardwareKeyClaimReset()
+        return true
+    }
+
+    /// Escape and Cmd+`.` send the same byte and iPadOS may spell either press
+    /// as the other, so the two share one claim.
+    private static func claimKey(
+        for key: TerminalHardwareKeyMapping.Key
+    ) -> TerminalHardwareKeyMapping.Key {
+        guard key.usage == TerminalHardwareKeyMapping.Usage.period else { return key }
+        return TerminalHardwareKeyMapping.Key(usage: TerminalHardwareKeyMapping.Usage.escape)
+    }
+
+    /// Claims expire at the end of the runloop turn, before a held key can
+    /// physically repeat. The alt-echo set is not reset here: UIKit's
+    /// `deleteBackward` for a hardware press can land a turn later (the
+    /// text-input system round-trips the keyboard daemon), so that set is
+    /// cleared per press, in `forwardablePresses`, exactly as the package
+    /// keeps its own `keyHandled` flag alive until `pressesEnded`.
+    private func scheduleHardwareKeyClaimReset() {
+        guard !hardwareKeyClaimResetIsScheduled else { return }
+        hardwareKeyClaimResetIsScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            hardwareKeyClaimResetIsScheduled = false
+            claimedHardwareKeys.removeAll()
+        }
+    }
+
+    /// Whether an intercepted Option combo on `usage` is still in flight, so
+    /// its `UITextInput` echo has to be swallowed.
+    private func isSuppressingAltEcho(forUsage usage: UInt16) -> Bool {
+        claimedAltCombos.contains { $0.usage == usage }
+    }
+
+    private static func hardwareKey(for press: UIPress) -> TerminalHardwareKeyMapping.Key? {
+        guard let key = press.key else { return nil }
+        let modifierFlags = key.modifierFlags
+        return TerminalHardwareKeyMapping.Key(
+            usage: UInt16(truncatingIfNeeded: key.keyCode.rawValue),
+            control: modifierFlags.contains(.control),
+            option: modifierFlags.contains(.alternate),
+            shift: modifierFlags.contains(.shift),
+            command: modifierFlags.contains(.command))
     }
 
     private static func zoomShortcutStep(for press: UIPress) -> Float? {
