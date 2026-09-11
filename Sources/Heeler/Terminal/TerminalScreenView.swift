@@ -889,10 +889,32 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// would answer by opening the link on the Mac — until it moves far enough
     /// to be a drag-selection instead, at which point the sequence is replayed
     /// to Ghostty and handed back.
-    private var claimedLinkTouch: (touch: UITouch, match: TerminalLinkDetector.Match, origin: CGPoint)?
+    private var claimedLinkTouch: ClaimedLinkTouch?
     /// Past this, a pointer press that began on a URL is a selection drag, not
     /// a click on the link.
     private static let linkClaimMovementThreshold: CGFloat = 8
+
+    /// The claimed press, the link it began on, and where it began.
+    private struct ClaimedLinkTouch {
+        /// Weak, exactly as ``claimedRightButtonTouch`` is: UIKit asks that a
+        /// touch object not be retained past the event that delivered it. The
+        /// `touches.contains` guard is what identifies the sequence; this
+        /// reference only carries it there.
+        weak var touch: UITouch?
+        /// Resolved once, when the press began, and reused on release rather
+        /// than read out of the viewport a second time.
+        let match: TerminalLinkDetector.Match
+        let origin: CGPoint
+    }
+
+    /// The link resolved for the touch sequence in progress, or `nil` before
+    /// its first ask. Boxed because "resolved to nothing" and "not resolved
+    /// yet" are different answers. See ``linkMatchForPress(at:)``.
+    private var pressLinkMatch: ResolvedLinkMatch?
+
+    private struct ResolvedLinkMatch {
+        let match: TerminalLinkDetector.Match?
+    }
 
     /// A one-finger hold that has not yet ended. It is a right click until the
     /// finger travels far enough to be a drag, at which point `lastCell` is
@@ -1781,6 +1803,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         if rightClickGesture.state == .possible {
             didReportRightClickForTouch = false
         }
+        // A new press resolves its link afresh.
+        pressLinkMatch = nil
         var forwarded = touches
         if let claimed = rightButtonTouchToClaim(in: touches, with: event) {
             claimedRightButtonTouch = claimed
@@ -1789,9 +1813,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             // this touch.
             if !isFirstResponder { becomeFirstResponder() }
             forwarded.remove(claimed)
-        } else if let claimed = linkTouchToClaim(in: touches, with: event) {
+        } else if let claimed = linkTouchToClaim(in: touches, with: event),
+            let touch = claimed.touch
+        {
             claimedLinkTouch = claimed
-            forwarded.remove(claimed.touch)
+            forwarded.remove(touch)
         }
         responderGate.directTouchesBegan(Self.directTouchCount(in: touches))
         guard !forwarded.isEmpty else { return }
@@ -1800,17 +1826,19 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         var forwarded = touches.subtracting(claimedRightButtonTouch.map { [$0] } ?? [])
-        if let claimed = claimedLinkTouch, touches.contains(claimed.touch) {
-            if Self.distance(claimed.touch.location(in: self), claimed.origin)
+        if let claimed = claimedLinkTouch, let touch = claimed.touch,
+            touches.contains(touch)
+        {
+            if Self.distance(touch.location(in: self), claimed.origin)
                 > Self.linkClaimMovementThreshold
             {
                 // A drag, not a click on the link. Ghostty never saw the
                 // press, so replay it before handing the rest over: its
                 // pointer selection starts from that `.began`.
                 claimedLinkTouch = nil
-                super.touchesBegan([claimed.touch], with: event)
+                super.touchesBegan([touch], with: event)
             } else {
-                forwarded.remove(claimed.touch)
+                forwarded.remove(touch)
             }
         }
         guard !forwarded.isEmpty else { return }
@@ -1877,13 +1905,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private func linkTouchToClaim(
         in touches: Set<UITouch>,
         with event: UIEvent?
-    ) -> (touch: UITouch, match: TerminalLinkDetector.Match, origin: CGPoint)? {
+    ) -> ClaimedLinkTouch? {
         guard event?.buttonMask.contains(.primary) == true,
             let touch = touches.first(where: { $0.type == .indirectPointer })
         else { return nil }
         let origin = touch.location(in: self)
-        guard let match = linkMatch(at: origin) else { return nil }
-        return (touch, match, origin)
+        guard let match = linkMatchForPress(at: origin) else { return nil }
+        return ClaimedLinkTouch(touch: touch, match: match, origin: origin)
     }
 
     private static func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
@@ -1896,18 +1924,20 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         in touches: Set<UITouch>,
         opening: Bool
     ) -> Set<UITouch> {
-        guard let claimed = claimedLinkTouch, touches.contains(claimed.touch) else {
-            return touches
-        }
+        guard let claimed = claimedLinkTouch, let touch = claimed.touch,
+            touches.contains(touch)
+        else { return touches }
         claimedLinkTouch = nil
-        let ended = claimed.touch.location(in: self)
+        // The link the press began on is the link it opens. The release is a
+        // few points from the press at most, and resolving it again would copy
+        // the whole viewport out of libghostty a second time.
         if opening,
-            Self.distance(ended, claimed.origin) <= Self.linkClaimMovementThreshold,
-            linkMatch(at: ended) == claimed.match
+            Self.distance(touch.location(in: self), claimed.origin)
+                <= Self.linkClaimMovementThreshold
         {
             open(claimed.match)
         }
-        return touches.subtracting([claimed.touch])
+        return touches.subtracting([touch])
     }
 
     private static func directTouchCount(in touches: Set<UITouch>) -> Int {
@@ -1936,7 +1966,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 || keyboardActivationRegion.contains(location)
                 // A link is worth a tap wherever it is, including the plain
                 // shell's output area, which none of the above answers.
-                || linkMatch(at: location) != nil
+                || linkMatchForPress(at: location) != nil
         }
         if gestureRecognizer === doubleTapGesture {
             // A word is worth selecting wherever it is, in any mode.
@@ -2183,18 +2213,15 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 : TerminalKeyboardTapTarget.minimumHeight)
     }
 
-    /// The http/https URL the cell under `point` is part of, if any. Read
-    /// from the viewport rather than asked of libghostty, which has no such
-    /// query on iOS. See ``TerminalLinkDetector``.
-    func linkURL(at point: CGPoint) -> URL? {
-        if case .url(let url)? = linkMatch(at: point) { return url }
-        return nil
-    }
-
-    /// The URL or absolute Host path the cell under `point` is part of.
+    /// The URL or absolute Host path the cell under `point` is part of, if
+    /// any. Read from the viewport rather than asked of libghostty, which has
+    /// no such query on iOS. See ``TerminalLinkDetector``.
     func linkMatch(at point: CGPoint) -> TerminalLinkDetector.Match? {
         let mapper = gridPointMapper
-        guard let cell = mapper.cell(at: point),
+        // Strictly inside the grid: the clamping mapper would answer a tap in
+        // the bottom or right padding with an edge cell, and open a URL that
+        // is not under the finger.
+        guard let cell = mapper.strictCell(at: point),
             let text = terminalSession.readViewportText()
         else { return nil }
         let match = TerminalLinkDetector.match(
@@ -2203,6 +2230,21 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         // A path is only a link on a screen that can open one; elsewhere the
         // tap must fall through to its click and keyboard behaviour.
         if case .hostPath? = match, onHostPathTap == nil { return nil }
+        return match
+    }
+
+    /// ``linkMatch(at:)`` for the press in progress, answered once.
+    ///
+    /// Resolving a link copies the whole viewport out of libghostty on the
+    /// main thread, and one press asks more than once: the tap recognizer's
+    /// `gestureRecognizerShouldBegin` and the handler that follows for a
+    /// finger, the claim and its release for a trackpad click. The first
+    /// answer of a touch sequence is kept and reused by the rest of it; the
+    /// next `touchesBegan` drops it.
+    private func linkMatchForPress(at point: CGPoint) -> TerminalLinkDetector.Match? {
+        if let resolved = pressLinkMatch { return resolved.match }
+        let match = linkMatch(at: point)
+        pressLinkMatch = ResolvedLinkMatch(match: match)
         return match
     }
 
@@ -3180,7 +3222,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     func handleTap(at location: CGPoint) {
         // A URL takes the tap whole: no click for herdr to answer by opening
         // the link on the Mac, and no keyboard on the way out.
-        if let match = linkMatch(at: location) {
+        if let match = linkMatchForPress(at: location) {
             open(match)
             return
         }

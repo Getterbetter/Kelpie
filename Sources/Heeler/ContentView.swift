@@ -45,7 +45,6 @@ struct ContentView: View {
             activity: app.activity,
             hardwareKeyboard: hardwareKeyboard
         )
-        .environment(hardwareKeyboard)
         .environment(\.sceneWindow, window)
         .environment(
             \.agentSceneRouting,

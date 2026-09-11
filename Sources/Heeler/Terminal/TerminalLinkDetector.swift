@@ -12,9 +12,15 @@ import Foundation
 /// step further on — the file the agent just wrote is on the Host, and the
 /// person who wants to look at it is holding an iPad.
 ///
-/// Deliberately pure. Wrapped URLs are the one piece of terminal-specific
-/// knowledge: a URL that fills a row to its last cell continues on the next
-/// one, and nothing in the text says so.
+/// Deliberately pure. Wrapped URLs are the terminal-specific knowledge it does
+/// carry: a URL that fills a row to its last cell continues on the next one,
+/// and nothing in the text says so.
+///
+/// Cell width is the piece it does not. Rows are indexed by grapheme here
+/// while the grid mapper counts cells, so a wide glyph — a CJK character, a
+/// two-cell emoji — or a tab earlier in the row shifts every link to its right
+/// by a column per glyph. Rare in herdr's TUI, and a cell-width map is not
+/// worth its cost until it is not.
 enum TerminalLinkDetector {
     /// What the cell under a tap belongs to.
     enum Match: Equatable {
