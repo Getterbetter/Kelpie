@@ -48,7 +48,7 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **Option+Backspace works.**
 - **The host capsule works** — "great stuff".
 - **Escape and Cmd+. still do not work** (first round-3 build). Fixed the same day: **"escape works, thank you."** His Magic Keyboard **has no Escape key**, so Cmd+. is the only Escape he has — and iPadOS delivers Cmd+. as a *press* with the period keycode, the Command modifier stripped and `UIKeyInputEscape` as its characters, which the first build did not recognise.
-- Asked to be talked through the onboarding proposal.
+- Asked to be talked through the onboarding proposal. Then: **happy with the scope. Lead with the plugin and pairing, manual SSH as an option they can dive into. Fix the QR if possible**, though copying the pair code was very clean as long as iCloud clipboard works; otherwise the user can type it in or use the QR.
 - Testing: the iPad is plugged into the Mac with Enable UI Automation on, so Claude can drive it.
 
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
