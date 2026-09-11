@@ -137,5 +137,5 @@ Store or TestFlight build.
 ## Contact
 
 For questions about this policy, use the support channel at
-<https://www.reddit.com/r/KelpieApp/> <!-- TODO: confirm subreddit name --> and
+<https://www.reddit.com/r/KelpieConsole/> <!-- TODO: confirm subreddit name --> and
 do not include sensitive information.
