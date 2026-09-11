@@ -57,6 +57,8 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
+- Tip jar: three consumable In-App Purchases to thank the developer, from
+  Settings and the Kelpie menu. (Kelpie)
 - Muse appears in Start Agent when the Host has `muse` on PATH. Notifications
   and Live Activities name it Muse, and the Heeler plugin accepts `muse`
   sidebar row overrides. (#297)
@@ -100,6 +102,8 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Changed
 
+- Kelpie is iPad-only from 1.0: no iPhone installs, and it does not appear as
+  "Designed for iPad" on Mac or Vision. (Kelpie)
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
   dim ellipsis. It is the only way to Hosts, Agents and Settings, and a
   pointer resting on it was the only thing that made it visible. Switch Host

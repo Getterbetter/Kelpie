@@ -24,6 +24,9 @@ struct ContentView: View {
     @State private var liveActivities: HostLiveActivityCoordinator
     @State private var activity: AppActivityCoordinator
     @State private var hardwareKeyboard = HardwareKeyboardObserver()
+    /// Owned here with the other client stores so the three products stay
+    /// loaded across every presentation of the tip jar sheet.
+    @State private var tipJar = TipJarStore()
     @Environment(\.scenePhase) private var scenePhase
 
     /// `hostStore`, `console`, and `activity` are injectable so a test can
@@ -112,7 +115,8 @@ struct ContentView: View {
             bannerStore: bannerStore,
             liveActivities: liveActivities,
             activity: activity,
-            hardwareKeyboard: hardwareKeyboard
+            hardwareKeyboard: hardwareKeyboard,
+            tipJar: tipJar
         )
         // Automatic input mode is a function of this one fact, so it is
         // pushed from the single observer rather than read in three places.
