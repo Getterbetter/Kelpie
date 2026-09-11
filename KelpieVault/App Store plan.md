@@ -6,7 +6,11 @@ note: The path from the round-7 build to a free Kelpie on the App Store — what
 
 Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo-recon.md`, `Archive/round7/appstore-apple-rules.md`). Anthony's brief: free app, donate-to-the-dev maybe later, no TestFlight testing, a subreddit for feedback. Record his answers in [[Feedback log]].
 
-## Decisions only Anthony can make
+## Answers (2026-09-11, see [[Feedback log]])
+
+1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: explained, awaiting his pick. 3 reviewer VPS: he conflated it with notifications; clarified (herdr runs on Linux, so a small VPS runs herdr itself, ~AU$8/month for the review window) — awaiting confirmation. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: four drafts sent (`Archive/round7/icons/`), draft 2 recommended, awaiting his pick. 7 `r/KelpieApp`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
+
+## Decisions only Anthony can make (original list)
 
 1. **iPad-only or universal?** The project still targets iPhone and iPad (`TARGETED_DEVICE_FAMILY: "1,2"`). Universal means iPhone 6.9" screenshots and an iPhone layout nobody has run; the root screen is herdr's full TUI, which is unusable at phone width. *Recommendation: iPad-only for 1.0* (device family 2, opt out of "Designed for iPad" on Mac and Vision). One line in `project.yml`.
 2. **Where the code lives, and public or private.** The privacy policy URL must be publicly reachable. The builder pointed the in-app links at `https://github.com/Getterbetter/Kelpie` and `…/blob/kelpie/PRIVACY.md`. That only works if the repo is pushed there *and public*. An Apache-2.0 fork is naturally public; a private repo needs a separate public page (GitHub Pages site, or a one-file public repo). *Recommendation: public repo; it also satisfies Apache's "state your changes" expectation via the commit history.*
@@ -19,6 +23,8 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 ## Done locally (round 7b, no gate needed)
 
+- Round 7c: iPad-only on all three targets; StoreKit 2 tip jar (`TME.Kelpie.tip.small|medium|large`) from Settings and the Kelpie menu, `Kelpie.storekit` on the scheme for local testing — confirm once in Xcode (Edit Scheme → Run → Options) that the StoreKit configuration is picked up, then buy a test tip on the iPad.
+
 - Visible rebrand leftovers fixed (camera usage string, extension display names, Settings and privacy links), `NOTICE` added, Heeler credited on the Acknowledgements screen, `PRIVACY.md` rewritten for Kelpie, `NSLocalNetworkUsageDescription` added, relay config topic set to `TME.Kelpie`, `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`, version reset to 1.0.0 (1). Detail in `Archive/round7/appstore-build.md`.
 - Internal identifiers deliberately left: Keychain service names and access groups (changing them orphans keys on the iPad), the logger subsystem, module/target/scheme names.
 
@@ -26,7 +32,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 1. Push the repo (item 0 in [[Open items]]) — `gh repo create Getterbetter/Kelpie --private|--public --source . --remote origin --push`.
 2. Create the APNs key and deploy the relay (`relay/`, Wrangler), then point `NotificationRelayEndpoint.swift` and the plugin default at it.
-3. Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking).
+3. Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.
 4. `make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.
 5. Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running.
 6. Submit for review with the notes and video from decision 3.
