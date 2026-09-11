@@ -112,7 +112,8 @@ def call(method, path, body=None):
             raw = r.read()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
-        print(f"HTTP {e.code} {method} {path}\n{e.read().decode()[:2000]}", file=sys.stderr)
+        if e.code != 404:
+            print(f"HTTP {e.code} {method} {path}\n{e.read().decode()[:2000]}", file=sys.stderr)
         raise
 
 
@@ -372,7 +373,12 @@ def step_iap(product_id, reference_name, name, description, usd, territories):
     # availability in every territory
     availability = None
     if not iap_id.startswith("<"):
+        availability = None
+    try:
         availability = get(f"/v2/inAppPurchases/{iap_id}/inAppPurchaseAvailability").get("data")
+    except urllib.error.HTTPError as e:
+        if e.code != 404:  # a new IAP has no availability record yet
+            raise
     if availability:
         unchanged(f"{product_id} availability already configured")
     else:
