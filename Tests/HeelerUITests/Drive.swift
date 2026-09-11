@@ -148,9 +148,32 @@ final class Drive: XCTestCase {
             attachTree(app, named: "tree")
         case "allow":
             tapSystemAlert(argument.isEmpty ? "Allow" : argument)
+        case "field":
+            focusField(argument, in: app)
         default:
-            XCTFail("unknown step '\(step)' — steps are shot, wait:, menu, menu:, tap:, toggle:, type:, key:, back, swipe:, dump, allow[:label]")
+            XCTFail("unknown step '\(step)' — steps are shot, wait:, menu, menu:, tap:, toggle:, field:, type:, key:, back, swipe:, dump, allow[:label]")
         }
+    }
+
+    /// Taps a text or secure field whose placeholder starts with `prefix`,
+    /// so a following `type:` lands in it. Fields carry placeholders, not
+    /// labels, so `tap:` cannot find them.
+    private func focusField(_ prefix: String, in app: XCUIApplication) {
+        let plain = app.textFields.matching(
+            NSPredicate(format: "placeholderValue BEGINSWITH[c] %@", prefix)).firstMatch
+        if plain.waitForExistence(timeout: 3) {
+            plain.tap()
+            settle(0.4)
+            return
+        }
+        let secure = app.secureTextFields.matching(
+            NSPredicate(format: "placeholderValue BEGINSWITH[c] %@", prefix)).firstMatch
+        if secure.waitForExistence(timeout: 3) {
+            secure.tap()
+            settle(0.4)
+            return
+        }
+        XCTFail("field:\(prefix): no text field whose placeholder starts with '\(prefix)'")
     }
 
     /// Taps a button on a system permission alert (notifications, camera,

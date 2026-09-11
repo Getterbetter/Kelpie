@@ -8,7 +8,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 ## Answers (2026-09-11, see [[Feedback log]])
 
-1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: **public, pushed**. 3 reviewer VPS: **yes**; runbook at `docs/guides/app-review-host.md`; provider account still his. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: draft 2 chosen and in the Icon Composer bundle (`5584d9c`). 7 `r/KelpieApp`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
+1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: **public, pushed**. 3 reviewer VPS: **yes**; runbook at `docs/guides/app-review-host.md`; provider account still his. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: draft 2 chosen and in the Icon Composer bundle (`5584d9c`). 7 `r/KelpieConsole`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
 
 ## Decisions only Anthony can make (original list)
 
@@ -18,7 +18,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 4. **Push notifications in 1.0.** As forked, push cannot work: the shared relay's APNs topic is Heeler's bundle id, so it can never deliver to `TME.Kelpie`. Either deploy Kelpie's own relay (Cloudflare Worker from `relay/`, free tier; needs an APNs auth key `.p8` created in the developer portal and a Cloudflare account — both his logins) or ship 1.0 with notifications off and say so. *Recommendation: deploy the relay; it is the whole reason Heeler's console was kept.* Gate: outward-facing.
 5. **App name and subtitle.** "Kelpie" has no exact collision on the App Store today. Keep "herdr" out of the *name* (4.1(c), not his mark); put it in the subtitle, e.g. "Kelpie — herdr console for iPad". Thirty characters each.
 6. **The icon.** Still Heeler's dog (`Sources/Heeler/AppIcon.icon/Assets/heeler-side-profile.png`). A Kelpie is the Australian working dog, so the theme continues. He supplies one, or we draft options.
-7. **Subreddit name.** Placeholder everywhere is `r/KelpieApp`. Support URL and the privacy policy contact both point at it.
+7. **Subreddit name.** Placeholder everywhere is `r/KelpieConsole`. Support URL and the privacy policy contact both point at it.
 8. **Donate later.** Outside the US storefront an in-app donation must be an In-App Purchase (consumable tip, 3.1.1). External Ko-fi/Sponsors links are US-only. A subreddit link is fine anywhere. Nothing in 1.0.
 
 ## Done locally (round 7b, no gate needed)
