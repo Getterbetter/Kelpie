@@ -159,16 +159,13 @@ struct HerdrClientRootView: View {
         .onDisappear { notificationRouter.path = [] }
     }
 
-    /// Small on purpose: it sits over the empty right end of herdr's own tab
-    /// strip, and herdr needs those columns more than this does.
+    /// Still sized to sit over the empty right end of herdr's own tab strip,
+    /// but labelled: this is the only way to Hosts, Agents and Settings, and
+    /// it has to be findable without a pointer resting on it. Naming the
+    /// current Host earns the width — it says which machine is on screen as
+    /// well as where to go to change it.
     private var menuButton: some View {
         Menu {
-            Button("Agents", systemImage: "rectangle.on.rectangle") {
-                presentConsole()
-            }
-            Button("Hosts", systemImage: "server.rack") {
-                hostSheet = HostSheet(hostID: nil)
-            }
             if hosts.hosts.count > 1 {
                 Menu("Switch Host", systemImage: "arrow.left.arrow.right") {
                     Picker(
@@ -183,6 +180,13 @@ struct HerdrClientRootView: View {
                     }
                 }
             }
+            Button("Hosts", systemImage: "server.rack") {
+                hostSheet = HostSheet(hostID: nil)
+            }
+            Divider()
+            Button("Agents", systemImage: "rectangle.on.rectangle") {
+                presentConsole()
+            }
             Button("Settings", systemImage: "gearshape") {
                 isShowingSettings = true
             }
@@ -190,20 +194,38 @@ struct HerdrClientRootView: View {
                 commands.reconnect()
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.system(size: 24))
-                .frame(width: 36, height: 36)
-                .contentShape(.circle)
+            Label(menuHostName, systemImage: "server.rack")
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                // The capsule hugs the name; the cap lives in `menuHostName`
+                // because a `maxWidth` frame in this overlay would stretch
+                // the capsule to that width, and a `fixedSize` would let a
+                // long name spill past the material.
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
+                .contentShape(Capsule())
         }
         .foregroundStyle(.primary)
-        // Resting at just over half opacity so it reads as chrome over
-        // herdr's own tab strip; a pointer brings it fully up, and a press
-        // opens the menu over a dimmed screen anyway.
-        .opacity(isHovering ? 1 : 0.55)
+        // Near-opaque at rest: the material capsule already separates it from
+        // whatever herdr is drawing underneath, and a pointer is not the only
+        // way this screen gets used.
+        .opacity(isHovering ? 1 : 0.92)
         .onHover { isHovering = $0 }
         .hoverEffect(.highlight)
         .padding(12)
         .accessibilityLabel("Kelpie Menu")
+        .accessibilityHint("Hosts, agents and settings")
+    }
+
+    /// The primary Host's name, capped so the capsule stays a chip over the
+    /// right end of herdr's tab strip rather than a bar across it.
+    private var menuHostName: String {
+        let name = primaryHost.host(in: hosts.hosts)?.displayName ?? "Kelpie"
+        let cap = 24
+        guard name.count > cap else { return name }
+        return String(name.prefix(cap - 1)) + "…"
     }
 
     private func reconnectHost(_ id: Host.ID) async {
