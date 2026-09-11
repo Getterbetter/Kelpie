@@ -82,7 +82,7 @@ targets:
         PRODUCT_MODULE_NAME: Heeler
         # Home-screen name; the App Store listing is "Kelpie for herdr".
         INFOPLIST_KEY_CFBundleDisplayName: Kelpie
-        MARKETING_VERSION: "1.0.0"
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         # Scan to Pair (#62) reads the Pairing Code QR from the computer screen.
         INFOPLIST_KEY_NSCameraUsageDescription: "Kelpie uses the camera to scan the Pairing Code shown on your computer, so you can add that machine without typing anything."
@@ -165,7 +165,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.NotificationService
-        MARKETING_VERSION: "1.0.0"
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         # Match the containing app's iPad-only device family.
         TARGETED_DEVICE_FAMILY: "2"
@@ -213,7 +213,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.Widgets
-        MARKETING_VERSION: "1.0.0"
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         # Match the containing app's iPad-only device family.
         TARGETED_DEVICE_FAMILY: "2"
