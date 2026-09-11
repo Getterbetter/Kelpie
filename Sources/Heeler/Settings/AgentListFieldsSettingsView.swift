@@ -533,7 +533,7 @@ enum AgentListFieldsCopy {
         "This Host's rows are replaced with its herdr fields and saved right away."
     static let rowSlots =
         "Row 1 and Row 2 start from herdr's sidebar fields; Sync from plugin refills them. "
-        + "Row 3 is Heeler's own row. Any row can use herdr and Heeler fields. "
+        + "Row 3 is Kelpie's own row. Any row can use herdr and Kelpie fields. "
         + "The status badge always ends Row 1."
 }
 

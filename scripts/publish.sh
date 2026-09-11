@@ -23,8 +23,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 CHANGELOG="CHANGELOG.md"
 PROJECT_YML="project.yml"
 XCODEPROJ="Heeler.xcodeproj"
-DEFAULT_BRANCH="main"
-REMOTE="origin"
+# The fork publishes from a different remote and branch than upstream, so
+# both are overridable: PUBLISH_REMOTE=origin PUBLISH_BRANCH=kelpie make publish.
+DEFAULT_BRANCH="${PUBLISH_BRANCH:-main}"
+REMOTE="${PUBLISH_REMOTE:-origin}"
 
 VERSION="${VERSION:-}"
 DRY_RUN="${DRY_RUN:-}"

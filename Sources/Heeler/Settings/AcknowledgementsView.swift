@@ -56,7 +56,7 @@ struct AcknowledgementsView: View {
                 }
             } footer: {
                 Text(
-                    "Heeler redistributes these components. Each licence is reproduced in full.")
+                    "Kelpie redistributes these components. Each licence is reproduced in full.")
             }
         }
         .overlay {

@@ -377,7 +377,7 @@ final class ComposerStagingStore {
                     Failure(
                         medium: medium,
                         message:
-                            "\(medium.displayName) upload paused when Heeler moved to the background.",
+                            "\(medium.displayName) upload paused when Kelpie moved to the background.",
                         isRetryable: preparedSource != nil))
             case .user, .none:
                 discardRetainedPreparedSource()
@@ -443,7 +443,7 @@ final class ComposerStagingStore {
         case ImagePreparationError.localStorageFailed:
             Failure(
                 medium: medium,
-                message: "Heeler couldn't prepare the image in protected local storage.",
+                message: "Kelpie couldn't prepare the image in protected local storage.",
                 isRetryable: false)
         case FilePreparationError.selectionUnavailable:
             Failure(
@@ -458,7 +458,7 @@ final class ComposerStagingStore {
         case FilePreparationError.localStorageFailed:
             Failure(
                 medium: medium,
-                message: "Heeler couldn't prepare the file in protected local storage.",
+                message: "Kelpie couldn't prepare the file in protected local storage.",
                 isRetryable: false)
         default:
             Failure(

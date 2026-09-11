@@ -7,13 +7,15 @@
 #
 # See README.md for the full deploy walkthrough.
 
-name = "herdr-push-relay"
+name = "kelpie-apns"
 main = "src/worker.js"
 compatibility_date = "2026-07-01"
 workers_dev = false
 
+# TODO(app-store): bybee.dev is the upstream Heeler developer's domain.
+# Replace this hostname with Anthony's own before deploying the Kelpie relay.
 [[routes]]
-pattern = "heeler-apns.bybee.dev"
+pattern = "kelpie-apns.bybee.dev"
 custom_domain = true
 
 # Transitional. A herdr server whose plugin predates the rename still posts to
@@ -26,9 +28,9 @@ pattern = "herdr-apns.bybee.dev"
 custom_domain = true
 
 [vars]
-APNS_TEAM_ID = "9VM4RM39R3"
-APNS_KEY_ID = "RQQ8PA9A6G"
-APNS_TOPIC = "dev.bybee.heeler"
+APNS_TEAM_ID = "8JQWBQKEXX"
+APNS_KEY_ID = "TODO-create-an-APNs-key-in-the-developer-portal"
+APNS_TOPIC = "TME.Kelpie"
 # Live Activity pushes use `${APNS_TOPIC}.push-type.liveactivity`
 # (suffix-derived; no extra var).
 # RATE_LIMIT_IP_PER_MIN = "120"                  # optional override
