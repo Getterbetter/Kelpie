@@ -87,9 +87,13 @@ file, no unit, no service (verified against `https://herdr.dev/install.sh`);
 config and the API socket live in `~/.config/herdr/`. The Heeler plugin needs
 Node 20+, and installs **from this repository**:
 
+Ubuntu 24.04's own `nodejs` package is **18.19.1**, below the plugin's
+`engines.node >= 20`, so take Node from NodeSource instead:
+
 ```bash
-sudo apt -y install nodejs npm     # or nodesource for a current Node
-node --version                     # >= 20
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt -y install nodejs         # npm ships with it
+node --version                     # >= 20 (22.x as of this writing)
 herdr plugin install Getterbetter/Kelpie/plugin --ref kelpie --yes
 herdr plugin list --plugin heeler
 ```
