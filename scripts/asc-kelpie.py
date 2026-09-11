@@ -5,6 +5,10 @@
     python3 scripts/asc-kelpie.py --dry-run  # the same
     python3 scripts/asc-kelpie.py --apply    # actually writes
 
+    # asset modes — run on their own, not alongside the metadata steps
+    python3 scripts/asc-kelpie.py --screenshots <dir>        # the 13-inch iPad set
+    python3 scripts/asc-kelpie.py --iap-screenshots [<png>]  # the tip IAP review shot
+
 Reads current state first and plans a write only where a value differs or an
 object is missing, so it is safe to re-run. It touches: app info categories,
 the en-US app info localization (subtitle, privacy policy URL), the age rating
@@ -12,21 +16,31 @@ declaration, the 1.0 App Store version and its en-US localization (support and
 marketing URLs), and the three consumable tip IAPs with their en-US
 localization, USD price and territory availability.
 
-It never submits anything for review, never uploads screenshots, and never
-touches the app name, description, keywords, promotional text or what's new.
-GETs always run; every mutation goes through plan(), which only prints unless
---apply is given.
+--screenshots <dir> uploads every NN-*.png in <dir>, in name order, into the
+en-US APP_IPAD_PRO_3GEN_129 screenshot set (the 13-inch iPad slot, 2752x2064
+landscape or 2064x2752 portrait), creating the set if it is missing and
+skipping any file whose fileName the set already holds.
+--iap-screenshots uploads one PNG as the App Review screenshot of each of the
+three tip IAPs, skipping any IAP that already has one; the path defaults to
+captures/tip-sheet.png beside this script's repo root.
+
+It never submits anything for review and never touches the app name,
+description, keywords, promotional text or what's new. GETs always run; every
+mutation goes through plan(), which only prints unless --apply is given.
 
 Key 6T785PX2FV, issuer 69a6de91-…, p8 in ~/.appstoreconnect/private_keys;
 JWT minted by ~/Developer/Weights/scripts/asc-jwt.swift (never printed).
 """
 
 import copy
+import glob
+import hashlib
 import json
 import re
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -57,6 +71,27 @@ TIPS = [
      "A large thank-you to the developer. Unlocks nothing.", "9.99"),
 ]
 
+# The IAP resource ids as created in App Store Connect (2026-09-11). The asset
+# modes resolve ids by productId at runtime; these are the expected answers and
+# the script says so if the lookup disagrees.
+KNOWN_IAP_IDS = {
+    "TME.Kelpie.tip.small": "6811007778",
+    "TME.Kelpie.tip.medium": "6811012254",
+    "TME.Kelpie.tip.large": "6811012255",
+}
+
+# ScreenshotDisplayType for the 13-inch iPad slot. Verified 2026-09-11 against
+# Apple's live ScreenshotDisplayType enum (developer.apple.com .../tutorials/
+# data/documentation/appstoreconnectapi/screenshotdisplaytype.json): the only
+# large-iPad cases are APP_IPAD_PRO_129 and APP_IPAD_PRO_3GEN_129 — there is no
+# newer 13-inch case. Apple kept the 12.9-inch 3rd-gen name when the 13-inch
+# sizes (2064x2752 / 2752x2064) joined the 12.9-inch ones in the same slot.
+IPAD_13_DISPLAY_TYPE = "APP_IPAD_PRO_3GEN_129"
+IPAD_13_SIZES = {(2752, 2064), (2064, 2752), (2732, 2048), (2048, 2732)}
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_IAP_SCREENSHOT = os.path.join(REPO_ROOT, "captures", "tip-sheet.png")
+
 # Age rating declaration attribute types, read from Apple's AgeRatingDeclaration
 # schema (developer.apple.com, 2026-09-11). Enum attributes take NONE; boolean
 # attributes take false. Anything not in either list is deliberately left out —
@@ -80,10 +115,34 @@ SKIPPED_AGE_ATTRS = [
     "developerAgeRatingInfoUrl",
 ]
 
-APPLY = "--apply" in sys.argv[1:]
-for arg in sys.argv[1:]:
-    if arg not in ("--apply", "--dry-run"):
-        sys.exit(f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply]")
+USAGE = (f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply] "
+         f"[--screenshots <dir>] [--iap-screenshots [<png>]]")
+
+APPLY = False
+SCREENSHOTS_DIR = None
+IAP_SCREENSHOT = None
+IAP_SCREENSHOTS_MODE = False
+_args = list(sys.argv[1:])
+while _args:
+    arg = _args.pop(0)
+    if arg == "--apply":
+        APPLY = True
+    elif arg == "--dry-run":
+        pass
+    elif arg == "--screenshots":
+        if not _args:
+            sys.exit(USAGE)
+        SCREENSHOTS_DIR = _args.pop(0)
+    elif arg == "--iap-screenshots":
+        IAP_SCREENSHOTS_MODE = True
+        # The optional path argument: anything that is not the next flag.
+        if _args and not _args[0].startswith("--"):
+            IAP_SCREENSHOT = _args.pop(0)
+    else:
+        sys.exit(USAGE)
+if IAP_SCREENSHOTS_MODE and IAP_SCREENSHOT is None:
+    IAP_SCREENSHOT = DEFAULT_IAP_SCREENSHOT
+ASSET_MODE = SCREENSHOTS_DIR is not None or IAP_SCREENSHOTS_MODE
 
 planned = []
 applied = []
@@ -124,7 +183,10 @@ def get(path):
 def _short(body):
     """Abbreviate long id arrays so a dry run stays readable."""
     b = copy.deepcopy(body)
-    rels = b.get("data", {}).get("relationships", {})
+    data = b.get("data")
+    if not isinstance(data, dict):   # a relationships PATCH body is a list
+        return b
+    rels = data.get("relationships", {})
     for name, rel in rels.items():
         items = rel.get("data")
         if isinstance(items, list) and len(items) > 8:
@@ -392,9 +454,214 @@ def step_iap(product_id, reference_name, name, description, usd, territories):
              f"{product_id} available in all {len(territories)} territories")
 
 
+# --- Asset uploads -------------------------------------------------------
+#
+# Ported from ~/Developer/Weights/scripts/asc-screenshots.py (2026-09-06):
+# reserve the asset, PUT every part the reserve response names, then commit
+# with the file's MD5. The reserve is the gated call — under a dry run it,
+# and the parts and the commit it would lead to, are printed and none is made.
+
+def png_size(path):
+    """(width, height, colourType) from the IHDR, or None if it is not a PNG.
+    Colour type 4 or 6 means an alpha channel, which ASC rejects."""
+    with open(path, "rb") as f:
+        head = f.read(33)
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        return None
+    return (int.from_bytes(head[16:20], "big"),
+            int.from_bytes(head[20:24], "big"), head[25])
+
+
+def put_parts(operations, blob, label):
+    """PUT each reserved part to Apple's asset store. curl, not urllib:
+    urllib's default headers make the object store answer 400 Invalid request
+    (hit on Weights, 2026-09-06)."""
+    for op in operations:
+        chunk = blob[op["offset"]:op["offset"] + op["length"]]
+        tmp = f"/tmp/asc-kelpie-chunk-{os.getpid()}-{op['offset']}"
+        with open(tmp, "wb") as f:
+            f.write(chunk)
+        cmd = ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+               "-X", op["method"], "--data-binary", f"@{tmp}"]
+        for h in op["requestHeaders"]:
+            cmd += ["-H", f"{h['name']}: {h['value']}"]
+        cmd += [op["url"]]
+        code = subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
+        os.remove(tmp)
+        if not code.startswith("2"):
+            sys.exit(f"{label}: part PUT failed HTTP {code}")
+
+
+def upload_asset(reserve_path, reserve_body, resource, path, what):
+    blob = open(path, "rb").read()
+    digest = hashlib.md5(blob).hexdigest()
+    r = plan("POST", reserve_path, reserve_body, f"{what} (reserve, {len(blob)} bytes)")
+    if r is None:
+        print("        then PUT every uploadOperations part from that response "
+              "to Apple's asset store")
+        print(f"        then PATCH /v1/{resource}/<new {resource} id>")
+        print('        {"data":{"type":"%s","id":"<new id>","attributes":'
+              '{"uploaded":true,"sourceFileChecksum":"%s"}}}' % (resource, digest))
+        return None
+    asset_id = r["data"]["id"]
+    put_parts(r["data"]["attributes"]["uploadOperations"], blob, os.path.basename(path))
+    call("PATCH", f"/v1/{resource}/{asset_id}", {"data": {
+        "type": resource, "id": asset_id,
+        "attributes": {"uploaded": True, "sourceFileChecksum": digest}}})
+    state = None
+    for _ in range(40):
+        state = get(f"/v1/{resource}/{asset_id}")["data"]["attributes"]["assetDeliveryState"]["state"]
+        if state == "COMPLETE":
+            break
+        if state == "FAILED":
+            sys.exit(f"{os.path.basename(path)}: delivery FAILED")
+        time.sleep(3)
+    print(f"      uploaded {os.path.basename(path)} -> {asset_id} {state}")
+    return asset_id
+
+
+def editable_version_id():
+    versions = get(f"/v1/apps/{APP_ID}/appStoreVersions?limit=50")["data"]
+    editable = [v for v in versions if v["attributes"]["platform"] == PLATFORM
+                and v["attributes"]["appStoreState"] not in
+                ("READY_FOR_SALE", "REPLACED_WITH_NEW_VERSION")]
+    if not editable:
+        sys.exit(f"no editable {PLATFORM} App Store version; run the metadata pass first")
+    v = editable[0]
+    print(f"      App Store version {v['attributes']['versionString']} {v['id']} "
+          f"({v['attributes']['appStoreState']})")
+    return v["id"]
+
+
+def step_screenshots(version_id, directory):
+    files = sorted(glob.glob(os.path.join(directory, "[0-9][0-9]-*.png")))
+    if not files:
+        sys.exit(f"no NN-*.png files in {directory}")
+
+    locs = get(f"/v1/appStoreVersions/{version_id}/appStoreVersionLocalizations")["data"]
+    loc = next((l for l in locs if l["attributes"]["locale"] == LOCALE), None)
+    if loc is None:
+        sys.exit(f"no {LOCALE} version localization on {version_id}; run the metadata pass first")
+    print(f"      {LOCALE} version localization {loc['id']}")
+
+    sets = get(f"/v1/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets"
+               f"?include=appScreenshots&limit=50")
+    included = {x["id"]: x for x in sets.get("included", [])}
+    existing = next((s for s in sets["data"]
+                     if s["attributes"]["screenshotDisplayType"] == IPAD_13_DISPLAY_TYPE), None)
+    have = {}
+    if existing is None:
+        body = {"data": {"type": "appScreenshotSets",
+                         "attributes": {"screenshotDisplayType": IPAD_13_DISPLAY_TYPE},
+                         "relationships": {"appStoreVersionLocalization": {
+                             "data": {"type": "appStoreVersionLocalizations", "id": loc["id"]}}}}}
+        r = plan("POST", "/v1/appScreenshotSets", body,
+                 f"{IPAD_13_DISPLAY_TYPE} screenshot set (create)")
+        set_id = new_id(r, "appScreenshotSets")
+    else:
+        set_id = existing["id"]
+        for rel in existing["relationships"]["appScreenshots"]["data"]:
+            attrs = included.get(rel["id"], {}).get("attributes", {})
+            have[attrs.get("fileName")] = (attrs.get("assetDeliveryState") or {}).get("state")
+        unchanged(f"{IPAD_13_DISPLAY_TYPE} screenshot set exists ({set_id}, {len(have)} files)")
+
+    for path in files:
+        name = os.path.basename(path)
+        size = png_size(path)
+        if size is None:
+            sys.exit(f"{name} is not a PNG")
+        width, height, colour_type = size
+        if (width, height) not in IPAD_13_SIZES:
+            print(f"NOTE  {name} is {width}x{height}; not a {IPAD_13_DISPLAY_TYPE} size, "
+                  f"App Store Connect will reject it")
+        if colour_type in (4, 6):
+            print(f"NOTE  {name} carries an alpha channel; App Store Connect rejects that")
+        if name in have:
+            unchanged(f"screenshot {name} already in the set ({have[name]})")
+            continue
+        body = {"data": {"type": "appScreenshots",
+                         "attributes": {"fileName": name, "fileSize": os.path.getsize(path)},
+                         "relationships": {"appScreenshotSet": {
+                             "data": {"type": "appScreenshotSets", "id": set_id}}}}}
+        upload_asset("/v1/appScreenshots", body, "appScreenshots", path,
+                     f"screenshot {name} -> {IPAD_13_DISPLAY_TYPE}")
+
+    # Re-assert the order by file name, so NN- prefixes decide the sequence.
+    if APPLY:
+        rows = sorted((x["attributes"]["fileName"], x["id"]) for x in
+                      get(f"/v1/appScreenshotSets/{set_id}/appScreenshots?limit=50")["data"])
+    else:
+        rows = [(n, f"<{n} id>") for n in
+                sorted(set(list(have) + [os.path.basename(p) for p in files]))]
+    body = {"data": [{"type": "appScreenshots", "id": i} for _, i in rows]}
+    plan("PATCH", f"/v1/appScreenshotSets/{set_id}/relationships/appScreenshots", body,
+         "screenshot order: " + " ".join(n for n, _ in rows))
+
+
+def step_iap_screenshots(path):
+    if not os.path.exists(path):
+        sys.exit(f"IAP review screenshot not found: {path}")
+    size = png_size(path)
+    if size is None:
+        sys.exit(f"{path} is not a PNG")
+    print(f"      review screenshot {path} ({size[0]}x{size[1]}, "
+          f"{os.path.getsize(path)} bytes)")
+    if size[2] in (4, 6):
+        print(f"NOTE  {os.path.basename(path)} carries an alpha channel; "
+              f"App Store Connect rejects that")
+
+    for product_id, *_ in TIPS:
+        found = get(f"/v1/apps/{APP_ID}/inAppPurchasesV2"
+                    f"?filter%5BproductId%5D={product_id}&limit=10")["data"]
+        if not found:
+            print(f"NOTE  IAP {product_id} does not exist yet; run the metadata pass first")
+            continue
+        iap_id = found[0]["id"]
+        expected = KNOWN_IAP_IDS.get(product_id)
+        if expected and expected != iap_id:
+            print(f"NOTE  {product_id} resolved to {iap_id}, not the recorded {expected}")
+        try:
+            shot = get(f"/v2/inAppPurchases/{iap_id}/appStoreReviewScreenshot").get("data")
+        except urllib.error.HTTPError as e:
+            if e.code != 404:  # an IAP with no review screenshot answers 404
+                raise
+            shot = None
+        if shot:
+            unchanged(f"{product_id} ({iap_id}) already has a review screenshot "
+                      f"({shot['attributes'].get('fileName')})")
+            continue
+        body = {"data": {"type": "inAppPurchaseAppStoreReviewScreenshots",
+                         "attributes": {"fileName": os.path.basename(path),
+                                        "fileSize": os.path.getsize(path)},
+                         "relationships": {"inAppPurchaseV2": {
+                             "data": {"type": "inAppPurchases", "id": iap_id}}}}}
+        upload_asset("/v1/inAppPurchaseAppStoreReviewScreenshots", body,
+                     "inAppPurchaseAppStoreReviewScreenshots", path,
+                     f"{product_id} ({iap_id}) review screenshot {os.path.basename(path)}")
+
+
+def summary():
+    print(f"\nSummary — {len(planned) if not APPLY else len(applied)} "
+          f"{'planned' if not APPLY else 'applied'}, {len(already)} already set")
+    for w in (planned if not APPLY else applied):
+        print(f"  {'->' if not APPLY else 'ok'} {w}")
+    for w in already:
+        print(f"  == {w}")
+    if not APPLY:
+        print("  nothing was written; re-run with --apply to execute")
+
+
 def main():
     print(f"asc-kelpie — app {APP_ID} (Kelpie Console) — "
           f"{'APPLY: writing to App Store Connect' if APPLY else 'DRY RUN: no writes'}")
+
+    if ASSET_MODE:
+        if SCREENSHOTS_DIR is not None:
+            step_screenshots(editable_version_id(), SCREENSHOTS_DIR)
+        if IAP_SCREENSHOTS_MODE:
+            step_iap_screenshots(IAP_SCREENSHOT)
+        summary()
+        return
 
     app_infos = get(f"/v1/apps/{APP_ID}/appInfos?include=primaryCategory,secondaryCategory")["data"]
     editable = [a for a in app_infos
@@ -414,14 +681,7 @@ def main():
     for product_id, reference_name, name, description, usd in TIPS:
         step_iap(product_id, reference_name, name, description, usd, territories)
 
-    print(f"\nSummary — {len(planned) if not APPLY else len(applied)} "
-          f"{'planned' if not APPLY else 'applied'}, {len(already)} already set")
-    for w in (planned if not APPLY else applied):
-        print(f"  {'->' if not APPLY else 'ok'} {w}")
-    for w in already:
-        print(f"  == {w}")
-    if not APPLY:
-        print("  nothing was written; re-run with --apply to execute")
+    summary()
 
 
 if __name__ == "__main__":

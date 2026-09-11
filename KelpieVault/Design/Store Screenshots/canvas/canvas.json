@@ -1,0 +1,48 @@
+{
+  "artboards": [
+    {
+      "file": "01-hero.dc.html",
+      "title": "1 \u00b7 herdr's console, full screen on your iPad",
+      "x": 0,
+      "y": 0,
+      "w": 2752,
+      "h": 2064
+    },
+    {
+      "file": "02-split-panes.dc.html",
+      "title": "2 \u00b7 Split panes. Keyboard, trackpad or touch.",
+      "x": 2912,
+      "y": 0,
+      "w": 2752,
+      "h": 2064
+    },
+    {
+      "file": "03-menu.dc.html",
+      "title": "3 \u00b7 Hosts, agents and settings, one tap away",
+      "x": 5824,
+      "y": 0,
+      "w": 2752,
+      "h": 2064
+    },
+    {
+      "file": "04-real-terminal.dc.html",
+      "title": "4 \u00b7 A real terminal for real tools",
+      "x": 8736,
+      "y": 0,
+      "w": 2752,
+      "h": 2064
+    }
+  ],
+  "annotations": [
+    {
+      "id": "capture-note",
+      "x": 0,
+      "y": -420,
+      "w": 1400,
+      "text": "13-inch iPad landscape set (APP_IPAD_PRO_3GEN_129), 2752x2064, sRGB, no alpha.\nThis canvas is the reference; compositor.swift is the production path (it uses the real system font, which an HTML export substitutes away).\nSources: raw/*.png are the on-device captures, portrait files holding the landscape UI a quarter turn over; compositor.swift uprights them.\nDesign ruling 2026-09-11: near-black ground, one short white caption above, the capture as a rounded-corner card. No device bezel, no other decoration.\nnotifications.png is NOT usable (it shows a private address). tip-sheet.png is the IAP review screenshot, uploaded by scripts/asc-kelpie.py --iap-screenshots."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
