@@ -187,6 +187,39 @@ struct TerminalModeTracker {
             + encoding.report(button: .left, column: column, row: row, isRelease: true)
     }
 
+    /// The press half of a left click, for a drag that has not finished yet.
+    ///
+    /// A press, a run of motion reports and a release is how a pointer drag
+    /// reaches a TUI: herdr resizes its sidebar and its pane borders from
+    /// exactly this, and the press and the release on their own say nothing
+    /// about the path between them. Same contract as
+    /// ``remoteClickSequence(column:row:)``.
+    func remoteLeftPressSequence(column: Int, row: Int) -> Data? {
+        guard tracksMouse else { return nil }
+        return mouseEncoding.report(button: .left, column: column, row: row)
+    }
+
+    /// One step of a left-button drag: the pointer moving with the button
+    /// held, which is button-event tracking's `32`.
+    ///
+    /// Sent whenever the finger crosses into another cell, whichever tracking
+    /// mode is on. Motion belongs to DECSET 1002/1003, but the tracker only
+    /// knows which modes are enabled, not which the application will act on —
+    /// and herdr enables both, so a report it did not ask for is a better
+    /// trade than a drag that reports nothing.
+    func remoteLeftDragSequence(column: Int, row: Int) -> Data? {
+        guard tracksMouse else { return nil }
+        return mouseEncoding.report(
+            button: .left, column: column, row: row, isMotion: true)
+    }
+
+    /// The release half of a left click, ending a drag at its final cell.
+    func remoteLeftReleaseSequence(column: Int, row: Int) -> Data? {
+        guard tracksMouse else { return nil }
+        return mouseEncoding.report(
+            button: .left, column: column, row: row, isRelease: true)
+    }
+
     /// A full right-button click on a 1-based cell. Same contract as
     /// ``remoteClickSequence(column:row:)``: nil unless the remote application
     /// asked for mouse tracking. herdr opens its context menu on the press and

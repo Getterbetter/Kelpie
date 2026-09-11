@@ -82,6 +82,16 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   in Quick Look with a share button for saving it to Files. The copy is
   deleted when the preview closes. (Kelpie)
 
+- Touch text selection with handles: double-tap a word, drag the handles to
+  extend, then Copy from the menu or with Cmd+C. Selection is drawn by Kelpie
+  over the terminal grid, so it works even while herdr tracks the mouse.
+  (Kelpie)
+
+- Long-press and drag with a finger acts as a mouse drag, so herdr's sidebar
+  and pane borders can be resized by touch; a long-press without moving still
+  opens herdr's menu, on release. A translucent disc follows the finger while
+  the hold is live, because an iPad cannot feel the haptic. (Kelpie)
+
 ### Changed
 
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
