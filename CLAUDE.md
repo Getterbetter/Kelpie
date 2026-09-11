@@ -1,5 +1,7 @@
 # Kelpie
 
+**Start here:** read `resume.md` at the repo root for the current state and open items, then the Obsidian vault in `KelpieVault/` (home note `Kelpie.md`). Record Anthony's feedback in `KelpieVault/Feedback log.md` before acting on it.
+
 Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; nothing is pushed anywhere.
 
 ## The root screen
