@@ -88,12 +88,16 @@ targets:
         # Heeler so Swift sources and imports keep working unchanged.
         PRODUCT_NAME: Kelpie
         PRODUCT_MODULE_NAME: Heeler
-        # Home-screen name; the App Store listing is "Heeler for herdr".
+        # Home-screen name; the App Store listing is "Kelpie for herdr".
         INFOPLIST_KEY_CFBundleDisplayName: Kelpie
-        MARKETING_VERSION: "0.1.6"
-        CURRENT_PROJECT_VERSION: "18"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
         # Scan to Pair (#62) reads the Pairing Code QR from the computer screen.
-        INFOPLIST_KEY_NSCameraUsageDescription: "Heeler uses the camera to scan the Pairing Code shown on your computer, so you can add that machine without typing anything."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Kelpie uses the camera to scan the Pairing Code shown on your computer, so you can add that machine without typing anything."
+        # A Host reached by a .local/mDNS name or a LAN address makes iOS ask
+        # for local-network access; without this key the connection is denied
+        # with no prompt.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Kelpie connects to your computer over SSH, which may be on your local network."
         # Only exempt encryption is used (standard SSH algorithms via the
         # HeelerSSH package's libssh2/OpenSSL, OS-provided CryptoKit);
         # declaring it here keeps every TestFlight upload from stalling on the
@@ -155,15 +159,15 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # App Store validation (code 90360) requires a display name on
         # every embedded appex; never user-visible for this extension.
-        CFBundleDisplayName: Heeler Notification Service
+        CFBundleDisplayName: Kelpie Notification Service
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.NotificationService
-        MARKETING_VERSION: "0.1.6"
-        CURRENT_PROJECT_VERSION: "18"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
         # Match the containing app's iPhone + iPad device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 
@@ -204,14 +208,14 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # App Store validation (code 90360) requires a display name on
         # every embedded appex. Also the counts-only lock-screen fallback.
-        CFBundleDisplayName: Heeler
+        CFBundleDisplayName: Kelpie
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.Widgets
-        MARKETING_VERSION: "0.1.6"
-        CURRENT_PROJECT_VERSION: "18"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
         # Match the containing app's iPhone + iPad device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 

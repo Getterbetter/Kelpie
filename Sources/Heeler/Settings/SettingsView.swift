@@ -58,7 +58,7 @@ struct SettingsView: View {
     static let agentListDestination = SettingsAgentListDestination.fields
     @Environment(\.dismiss) private var dismiss
 
-    static let repositoryURL = URL(string: "https://github.com/ZingerLittleBee/Heeler")
+    static let repositoryURL = URL(string: KelpieLinks.repository)
 
     /// Semantic identity of the About → Acknowledgements route.
     ///

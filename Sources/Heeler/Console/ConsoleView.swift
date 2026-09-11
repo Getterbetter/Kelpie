@@ -767,7 +767,7 @@ struct MissingAgentPresentation: Equatable {
             cause = .hostSuspended
             title = "Connection Paused"
             systemImage = "pause.circle"
-            message = named("The connection is paused until Heeler becomes active.")
+            message = named("The connection is paused until Kelpie becomes active.")
         case .connecting:
             if let standingFailure {
                 (cause, title, systemImage, message) = applyFailed(standingFailure)
