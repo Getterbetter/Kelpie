@@ -21,6 +21,20 @@
                ReferencedContainer = "container:Heeler.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B28FF2872BC94F0086675154"
+               BuildableName = "HeelerUITests.xctest"
+               BlueprintName = "HeelerUITests"
+               ReferencedContainer = "container:Heeler.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -44,17 +58,6 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9806EA6C63028F1217417282"
-               BuildableName = "HeelerTests.xctest"
-               BlueprintName = "HeelerTests"
-               ReferencedContainer = "container:Heeler.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "YES"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "B28FF2872BC94F0086675154"
                BuildableName = "HeelerUITests.xctest"
                BlueprintName = "HeelerUITests"
@@ -66,8 +69,8 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "HEELER_SSH_E2E_REQUIRED"
-            value = "$(HEELER_SSH_E2E_REQUIRED)"
+            key = "KELPIE_DRIVE_STEPS"
+            value = "$(KELPIE_DRIVE_STEPS)"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
@@ -92,11 +95,6 @@
             ReferencedContainer = "container:Heeler.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
-      <StoreKitConfigurationFileReference
-         identifier = "../../Sources/Heeler/Kelpie.storekit">
-      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

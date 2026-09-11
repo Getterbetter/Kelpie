@@ -347,6 +347,7 @@
 		DB28307A5B8386139CA7EDEE /* TerminalKeyboardInset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF0F9F0EDF8757DC1D275D2 /* TerminalKeyboardInset.swift */; };
 		DB3815F790623647C0050290 /* PairingScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45DB60007029322902FD1AFF /* PairingScanStore.swift */; };
 		DC580B52C0F6509F92BB289C /* PinnedAgentsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 768235F2FBD7790800281BC3 /* PinnedAgentsStoreTests.swift */; };
+		DD33CF5152A0245B89170332 /* Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C7B5E16EEB713B8D04C97E8 /* Drive.swift */; };
 		DDD5A27BA1126296E5AF7EAA /* PinnedAgentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2437B1D6B97638031514C0F /* PinnedAgentsStore.swift */; };
 		DE020395E7459D508F0CC401 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC98A5038CD109556BE903F /* NotificationSettingsView.swift */; };
 		DED05CBB7CDC71B3D92B7B36 /* AttachUserMessageIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9AF5C6F7066900959E7E10 /* AttachUserMessageIndexTests.swift */; };
@@ -415,6 +416,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 134E6CD1AC1396155DAB93E2;
 			remoteInfo = HeelerWidgets;
+		};
+		3C035DAE006EB5C2FB02C978 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7FF105579DBE63944F1D14F9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 081A3B29EFF2C7B2FCAA3248;
+			remoteInfo = Heeler;
 		};
 		A74B2C2F551B71BBD490EF6C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -497,6 +505,7 @@
 		233075006FC2C8907BBFF40F /* GitBranchNameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchNameTests.swift; sourceTree = "<group>"; };
 		239FD696B72E804AE3D85D72 /* ComposerStagingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerStagingStoreTests.swift; sourceTree = "<group>"; };
 		247FF74AD248F26A072EA263 /* TerminalKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalKeyboard.swift; sourceTree = "<group>"; };
+		24902CC237DF3242D41BA771 /* HeelerUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HeelerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		276B4E744F8A3BF386189D8A /* AgentComposerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentComposerStore.swift; sourceTree = "<group>"; };
 		2782D0CCB8DD0CC97AF6932C /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
 		29723E2E7A65ABAF27698733 /* AgentActivityContentBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActivityContentBuilder.swift; sourceTree = "<group>"; };
@@ -665,6 +674,7 @@
 		962BDE6D5BFCD443EC3B5FF4 /* SnippetStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetStoreTests.swift; sourceTree = "<group>"; };
 		96A41E40939438986DE30402 /* TransportConnector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportConnector.swift; sourceTree = "<group>"; };
 		9A430D16838A39772ED0AA73 /* AgentStatusPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStatusPalette.swift; sourceTree = "<group>"; };
+		9C7B5E16EEB713B8D04C97E8 /* Drive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Drive.swift; sourceTree = "<group>"; };
 		9C7D28071688F3A69201EEE7 /* HerdrHostPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HerdrHostPath.swift; sourceTree = "<group>"; };
 		9CFA2284DB622A6EB63D2F85 /* HerdrWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HerdrWire.swift; sourceTree = "<group>"; };
 		9D527BEA887638F9A064FC8F /* TipJarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipJarTests.swift; sourceTree = "<group>"; };
@@ -1057,6 +1067,7 @@
 			isa = PBXGroup;
 			children = (
 				11AC34F8912DA80C6DF2524F /* HeelerTests */,
+				840DABB66FB70FE5F5ABB557 /* HeelerUITests */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1180,6 +1191,7 @@
 			children = (
 				59A749D2AF2390BCACBADED3 /* HeelerNotificationService.appex */,
 				FBA937EDF831047EA33892F9 /* HeelerTests.xctest */,
+				24902CC237DF3242D41BA771 /* HeelerUITests.xctest */,
 				AD69BB4579A415BE96578319 /* HeelerWidgets.appex */,
 				68BA23A46C7FAD65D531CA10 /* Kelpie.app */,
 			);
@@ -1247,6 +1259,14 @@
 				ACD367936A5F42F20E8CBB3B /* sidebar-layout-v1.json */,
 			);
 			path = "test-vectors";
+			sourceTree = "<group>";
+		};
+		840DABB66FB70FE5F5ABB557 /* HeelerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9C7B5E16EEB713B8D04C97E8 /* Drive.swift */,
+			);
+			path = HeelerUITests;
 			sourceTree = "<group>";
 		};
 		8993721F91CDBE79CE1A76F1 /* Fonts */ = {
@@ -1533,6 +1553,24 @@
 			productReference = FBA937EDF831047EA33892F9 /* HeelerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		B28FF2872BC94F0086675154 /* HeelerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2565A4E50D867EE59843A2F /* Build configuration list for PBXNativeTarget "HeelerUITests" */;
+			buildPhases = (
+				A258CC6F6168C91099BB0F1E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F1F850F10AFF0F3033ABB28B /* PBXTargetDependency */,
+			);
+			name = HeelerUITests;
+			packageProductDependencies = (
+			);
+			productName = HeelerUITests;
+			productReference = 24902CC237DF3242D41BA771 /* HeelerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		DFFB82C74B73FA5CBCE6D5D2 /* HeelerNotificationService */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B35C77F8E63871E19A34092D /* Build configuration list for PBXNativeTarget "HeelerNotificationService" */;
@@ -1571,6 +1609,11 @@
 						DevelopmentTeam = 8JQWBQKEXX;
 						ProvisioningStyle = Automatic;
 					};
+					B28FF2872BC94F0086675154 = {
+						DevelopmentTeam = 8JQWBQKEXX;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 081A3B29EFF2C7B2FCAA3248;
+					};
 					DFFB82C74B73FA5CBCE6D5D2 = {
 						DevelopmentTeam = 8JQWBQKEXX;
 						ProvisioningStyle = Automatic;
@@ -1599,6 +1642,7 @@
 				DFFB82C74B73FA5CBCE6D5D2 /* HeelerNotificationService */,
 				134E6CD1AC1396155DAB93E2 /* HeelerWidgets */,
 				9806EA6C63028F1217417282 /* HeelerTests */,
+				B28FF2872BC94F0086675154 /* HeelerUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -1875,6 +1919,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A258CC6F6168C91099BB0F1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD33CF5152A0245B89170332 /* Drive.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E444292D962D3F9441577CA7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2052,6 +2104,11 @@
 			target = 081A3B29EFF2C7B2FCAA3248 /* Heeler */;
 			targetProxy = A74B2C2F551B71BBD490EF6C /* PBXContainerItemProxy */;
 		};
+		F1F850F10AFF0F3033ABB28B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 081A3B29EFF2C7B2FCAA3248 /* Heeler */;
+			targetProxy = 3C035DAE006EB5C2FB02C978 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -2132,6 +2189,25 @@
 			};
 			name = Debug;
 		};
+		665BCFA54441159D90F6F629 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 8JQWBQKEXX;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = TME.Kelpie.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = Heeler;
+			};
+			name = Debug;
+		};
 		695280A562542F7F6A66CD3A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2180,6 +2256,25 @@
 				PRODUCT_BUNDLE_IDENTIFIER = TME.Kelpie.Widgets;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		82D04E8245D7F7A7D99FA24B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 8JQWBQKEXX;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = TME.Kelpie.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = Heeler;
 			};
 			name = Release;
 		};
@@ -2396,6 +2491,15 @@
 			buildConfigurations = (
 				3DC71A3F1BBEF4D1FC720AE5 /* Debug */,
 				80730AF7989416D314D8E7A3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2565A4E50D867EE59843A2F /* Build configuration list for PBXNativeTarget "HeelerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				665BCFA54441159D90F6F629 /* Debug */,
+				82D04E8245D7F7A7D99FA24B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
