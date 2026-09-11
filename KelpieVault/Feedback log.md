@@ -31,9 +31,21 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 
 ### Liked
 
+*(none recorded yet)*
+
 ### Disliked
 
-### Notes
+- **Escape does not reach herdr.** Neither Escape nor Cmd+. on the Magic Keyboard passes through to the herdr client. He asked what else still needs to be mapped.
+- **Option+Backspace has never deleted the whole word** in terminal sessions for him, on any build. It should, if that is possible.
+
+### Notes — things to think about (2026-09-11)
+
+- **Onboarding.** There are no instructions for a new user on how to connect to their herdr instance.
+- **Reaching Hosts from inside herdr.** The herdr view is full screen and he could not see a way to get to Hosts to connect to another device. His suggestion: perhaps it just needs a button somewhere.
+
+### What round 3 did about it (2026-09-11, commit `77cabda`)
+
+Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
 
 ---
 

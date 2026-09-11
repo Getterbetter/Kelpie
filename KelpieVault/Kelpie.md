@@ -22,6 +22,7 @@ Named for the Australian kelpie, a herding dog — a sibling to Heeler.
 | [[Heeler upstream]] | The fork's parent: author, licence, differences, rebase and push relay |
 | [[Build and deploy]] | The exact commands that work on this Mac, and the two quirks |
 | [[Pairing and setup]] | Mini-side and iPad-side setup, the clipboard trick |
+| [[Onboarding proposal]] | First-run Welcome screen proposal (round 3, not built) |
 | [[Testing status]] | What is verified, what is only compiled, what nobody has seen run |
 | [[Open items]] | The checklist, including reviewer nits not yet taken |
 | [[Changelog]] | The 17 Kelpie commits, by round |
