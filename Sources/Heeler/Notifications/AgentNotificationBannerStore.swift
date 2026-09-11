@@ -6,7 +6,10 @@ import Observation
 /// lands and the exact push-renderer copy, so in-app and APNs wording cannot
 /// drift.
 struct AgentNotificationBanner: Equatable, Sendable {
-    let target: AgentNotificationTarget
+    /// Where a tap lands. Nil for a banner with nowhere to go — a desktop
+    /// notification the remote terminal asked for names no pane, and the tap
+    /// only dismisses it.
+    let target: AgentNotificationTarget?
     let alert: AgentNotificationAlert
 }
 
@@ -79,6 +82,20 @@ final class AgentNotificationBannerStore {
             guard previous != nil, status == .blocked || status == .done else { continue }
             scheduleHold(for: agent, status: status)
         }
+    }
+
+    /// A notification the terminal itself asked for (OSC 9 / OSC 777, via
+    /// `TerminalDesktopNotificationRelay`). None of the Agent-transition
+    /// gates apply: herdr already decided this was worth saying, there is no
+    /// status to de-flap, and there is no pane to suppress it for. It shares
+    /// the banner slot, so the newest message wins.
+    func present(_ notification: TerminalDesktopNotification) {
+        banner = AgentNotificationBanner(
+            target: nil,
+            alert: AgentNotificationAlert(
+                title: notification.title, body: notification.body))
+        playSound()
+        armDismissal()
     }
 
     func dismiss() {

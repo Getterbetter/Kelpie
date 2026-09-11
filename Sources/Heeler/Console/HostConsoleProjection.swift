@@ -256,6 +256,20 @@ final class HostConsoleProjection {
         }
     }
 
+    /// The staging pair's opposite number: a Host file read back onto the
+    /// iPad. Late-bound through the same live session handle, for the same
+    /// reason the stagers are.
+    func fileDownloader() -> HostFileDownloader {
+        let session = session
+        return { remotePath, reporter in
+            try await session.withTransport { transport in
+                try await transport.downloadFile(remotePath: remotePath) { progress in
+                    await reporter.report(progress)
+                }
+            }
+        }
+    }
+
     @discardableResult
     func startAgent(_ request: AgentLaunchRequest) async throws -> Agent {
         let agent = try await session.withTransport { transport in

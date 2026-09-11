@@ -46,6 +46,12 @@ struct HerdrClientRootView: View {
     @State private var isSelectingPhoto = false
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var isSelectingFile = false
+    @State private var isPromptingForHostFile = false
+    /// This window's width, read from the root itself rather than the screen
+    /// so Split View, Slide Over and Stage Manager all report through one
+    /// place. Drives the terminal's *default* font size and the menu's
+    /// compact form; 0 until the first layout.
+    @State private var windowWidth: CGFloat = 0
 
     private struct HostSheet: Identifiable {
         let id = UUID()
@@ -85,9 +91,36 @@ struct HerdrClientRootView: View {
                 manualReconnectInFlightHostIDs: manualReconnectInFlightHostIDs,
                 retryConnection: { await reconnectHost($0) })
         }
+        // A background reader, not a GeometryReader wrapping the content: the
+        // reader would take over the root's sizing, and all that is wanted
+        // here is the number.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.width, initial: true) { _, width in
+                        windowDidResize(to: width)
+                    }
+            }
+        }
         .onChange(of: hosts.hosts) { _, hosts in
             primaryHost.hostsDidChange(hosts)
         }
+    }
+
+    /// The one place the window's width lands. The zoom settings keep the
+    /// user's own offset and only move the default underneath it, so a
+    /// resize can never wipe a chosen zoom.
+    private func windowDidResize(to width: CGFloat) {
+        guard width > 0 else { return }
+        windowWidth = width
+        terminal.zoom.windowWidthDidChange(width)
+    }
+
+    /// Under this width the menu drops its Host name and shows as an icon
+    /// alone: a Slide Over panel has no room for a chip that wide, and the
+    /// name is the part herdr's own tab strip can spare.
+    private var isCompactWidth: Bool {
+        windowWidth > 0 && windowWidth < TerminalZoomSettings.mediumWidthThreshold
     }
 
     private static func initialAction(
@@ -158,6 +191,9 @@ struct HerdrClientRootView: View {
             // The security scope is opened by `FilePreparer`, exactly as it is
             // for the Agent terminal's own importer.
             commands.stage(urls.map { .file($0) })
+        }
+        .hostFilePathPrompt(isPresented: $isPromptingForHostFile) { path in
+            commands.openHostFile(path)
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(
@@ -272,11 +308,18 @@ struct HerdrClientRootView: View {
             Button("Attach File…", systemImage: "doc") {
                 isSelectingFile = true
             }
+            // The other direction: a file the agent wrote on the Host,
+            // fetched and shown here. The terminal's own path taps land in
+            // the same viewer; this is the way in when the path has scrolled
+            // off, or was never printed.
+            Button("Open File on Host…", systemImage: "doc.text.magnifyingglass") {
+                isPromptingForHostFile = true
+            }
             Button("Reconnect", systemImage: "arrow.clockwise") {
                 commands.reconnect()
             }
         } label: {
-            Label(menuHostName, systemImage: "server.rack")
+            menuLabel
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
                 // The capsule hugs the name; the cap lives in `menuHostName`
@@ -299,6 +342,19 @@ struct HerdrClientRootView: View {
         .padding(12)
         .accessibilityLabel("Kelpie Menu")
         .accessibilityHint("Hosts, agents and settings")
+    }
+
+    /// The same capsule either way: a narrow window keeps the icon and drops
+    /// the Host name, because the accessibility label on the menu already
+    /// says what this is and herdr's tab strip needs the columns back.
+    @ViewBuilder
+    private var menuLabel: some View {
+        let label = Label(menuHostName, systemImage: "server.rack")
+        if isCompactWidth {
+            label.labelStyle(.iconOnly)
+        } else {
+            label
+        }
     }
 
     /// The primary Host's name, capped so the capsule stays a chip over the
@@ -329,7 +385,16 @@ final class HerdrClientCommands {
     /// the same reason `store` is: the menu outlives every Host switch.
     weak var media: HerdrMediaStagingStore?
 
+    /// The Host file viewer for the Host on screen. Weak like the rest: the
+    /// menu outlives every Host switch.
+    weak var files: HostFileViewerStore?
+
     func reconnect() { store?.reconnect() }
+
+    /// Fetches one Host file and previews it. The menu's "Open File on
+    /// Host…" calls this; so should a tap on a path in the terminal, once
+    /// the terminal view forwards one (`TerminalLinkDetector.Match.hostPath`).
+    func openHostFile(_ path: String) { files?.open(path) }
 
     func stage(_ items: [MediaIntakeItem]) { media?.stage(items) }
 
@@ -354,6 +419,7 @@ private struct HerdrClientHostView: View {
     @State private var store: HerdrClientStore
     @State private var keyboardControl: TerminalKeyboardControl
     @State private var media: HerdrMediaStagingStore
+    @State private var files: HostFileViewerStore
 
     init(
         host: Host,
@@ -380,6 +446,8 @@ private struct HerdrClientHostView: View {
         let keyboardControl = TerminalKeyboardControl()
         _store = State(initialValue: store)
         _keyboardControl = State(initialValue: keyboardControl)
+        _files = State(
+            initialValue: HostFileViewerStore(download: console.fileDownloader(for: host.id)))
         // The Client's draft is the pane itself: a staged path is typed in,
         // through the same route a text paste takes, with the bracketed-paste
         // mode the live surface reports.
@@ -400,6 +468,7 @@ private struct HerdrClientHostView: View {
             terminal: terminal,
             activity: activity,
             hardwareKeyboard: hardwareKeyboard,
+            onHostPathTap: { path in commands.openHostFile(path) },
             keyboardControl: keyboardControl,
             media: media
         )
@@ -413,9 +482,11 @@ private struct HerdrClientHostView: View {
         // old store's channel has to close with it, or the Host it was
         // holding refuses the next attach. `rejoin()` is a no-op unless a
         // spurious disappear/appear pair actually left it.
+        .hostFileViewer(files)
         .onAppear {
             commands.store = store
             commands.media = media
+            commands.files = files
             store.rejoin()
         }
         .onDisappear { store.leave() }

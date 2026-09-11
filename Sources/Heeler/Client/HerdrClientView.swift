@@ -15,6 +15,8 @@ struct HerdrClientView: View {
     let terminal: TerminalSettings
     let activity: AppActivityCoordinator
     let hardwareKeyboard: HardwareKeyboardObserver
+    /// A tapped absolute path on the Host, for the file viewer the screen above owns.
+    let onHostPathTap: (String) -> Void
     /// Owned by the view above so the media store built alongside `store` can
     /// read the live bracketed-paste mode from the same handle this screen
     /// drives the keyboard with.
@@ -31,6 +33,7 @@ struct HerdrClientView: View {
             store.viewDidResize(cols: cols, rows: rows)
         }
         screen.onSend = { store.send($0) }
+        screen.onHostPathTap = { onHostPathTap($0) }
         screen.onScroll = { sequence, rows in
             store.scroll(sequence, rows: rows)
         }

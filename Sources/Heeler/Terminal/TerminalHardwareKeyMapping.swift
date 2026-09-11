@@ -61,6 +61,28 @@ enum TerminalHardwareKeyMapping {
         static let deleteForward: UInt16 = 0x4C
         static let rightArrow: UInt16 = 0x4F
         static let leftArrow: UInt16 = 0x50
+        static let downArrow: UInt16 = 0x51
+        static let upArrow: UInt16 = 0x52
+    }
+
+    /// Home, End, Page Up and Page Down in their legacy/xterm spellings.
+    ///
+    /// The Magic Keyboard has no such keys. iPadOS translates Fn+arrow into
+    /// the real HID usages — `keyboardHome` (0x4A), `keyboardEnd` (0x4D),
+    /// `keyboardPageUp` (0x4B), `keyboardPageDown` (0x4E) — which Ghostty's
+    /// own table already encodes, so those are deliberately *not* intercepted
+    /// here. Command+arrow is the fallback for the keyboards and layouts where
+    /// the OS does not translate: it is what macOS Terminal has always meant
+    /// by Home/End/Page Up/Page Down, so it costs no new habit.
+    ///
+    /// A client that had negotiated the Kitty keyboard protocol would prefer
+    /// the CSI u forms, but herdr still accepts these legacy ones (verified
+    /// for ESC in round 3), which is why the raw bytes are safe to write.
+    private enum Navigation {
+        static let home = Data([0x1B, 0x5B, 0x48])
+        static let end = Data([0x1B, 0x5B, 0x46])
+        static let pageUp = Data([0x1B, 0x5B, 0x35, 0x7E])
+        static let pageDown = Data([0x1B, 0x5B, 0x36, 0x7E])
     }
 
     /// The bytes the app sends for combinations UIKit or Ghostty would
@@ -84,13 +106,21 @@ enum TerminalHardwareKeyMapping {
             guard isAltEditingChord(key) else { return nil }
             return Data([0x1B, 0x7F])
         case Usage.leftArrow:
-            // ESC b: word left.
+            // ESC b: word left. Cmd+← is Home instead.
+            if isCommandNavigationChord(key) { return Navigation.home }
             guard isAltEditingChord(key) else { return nil }
             return Data([0x1B, 0x62])
         case Usage.rightArrow:
-            // ESC f: word right.
+            // ESC f: word right. Cmd+→ is End instead.
+            if isCommandNavigationChord(key) { return Navigation.end }
             guard isAltEditingChord(key) else { return nil }
             return Data([0x1B, 0x66])
+        case Usage.upArrow:
+            guard isCommandNavigationChord(key) else { return nil }
+            return Navigation.pageUp
+        case Usage.downArrow:
+            guard isCommandNavigationChord(key) else { return nil }
+            return Navigation.pageDown
         case Usage.deleteForward:
             // ESC d: delete word forward. Fn+Delete on the Magic Keyboard.
             guard isAltEditingChord(key) else { return nil }
@@ -105,5 +135,12 @@ enum TerminalHardwareKeyMapping {
     /// spelling to choose between.
     private static func isAltEditingChord(_ key: Key) -> Bool {
         key.option && !key.control && !key.command
+    }
+
+    /// Command alone. Shift is excluded here, unlike the Option chords:
+    /// Shift+Cmd+arrow is a selection in every editor that has one, and the
+    /// legacy forms above cannot express it — Ghostty's encoder keeps it.
+    private static func isCommandNavigationChord(_ key: Key) -> Bool {
+        key.command && !key.control && !key.option && !key.shift
     }
 }
