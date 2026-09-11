@@ -51,6 +51,12 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - Asked to be talked through the onboarding proposal. Then: **happy with the scope. Lead with the plugin and pairing, manual SSH as an option they can dive into. Fix the QR if possible**, though copying the pair code was very clean as long as iCloud clipboard works; otherwise the user can type it in or use the QR.
 - Testing: the iPad is plugged into the Mac with Enable UI Automation on, so Claude can drive it.
 
+### Round 3b feedback (2026-09-11)
+
+- **The Welcome screen looks good.**
+- **He will not test the QR code**: it is a free app, someone else will test it. (So the plugin-on-the-mini step in [[Open items]] is not needed for him.)
+- **Wanted next: bringing media into herdr from the iPad** — files, photos, etc. — by drag and drop, or ideally by copy and paste. Fine to do here or in a new session.
+
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
 Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
