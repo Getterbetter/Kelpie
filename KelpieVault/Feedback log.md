@@ -79,6 +79,12 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **Selection handles appear**, but tapping a handle to drag it makes the selection disappear.
 - **Long-press-then-drag does not respond to touch**; the sidebar still resizes with the mouse. *Second try with the trace on:* **dragging worked** — but "there is no tap because there's no haptic on an iPad; might need another way to signal" that the hold has registered.
 
+### Round 6 feedback (2026-09-11, second build)
+
+- **Selection handles can be dragged now**, but a multi-line selection spans over the sidebar, "which isn't ideal compared to when highlighting by text" (herdr's own selection stays inside the pane).
+- **A huge blue box covers most of the screen** on the long-press hold (both when resizing and when holding without moving) — "wasn't a ring". The hold cue is mis-sized.
+- Context at 45%; asked whether a new session is needed and, if so, to update `resume.md`.
+
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
 Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
