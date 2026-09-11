@@ -9,7 +9,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 - Round 2 (2026-09-11): herdr's own TUI is the root screen (full-screen terminal running `herdr` over SSH), Heeler's console demoted behind a floating `ellipsis.circle` menu (Agents, Hosts, Switch host, Settings, Reconnect), automatic keyboard mode from hardware-keyboard presence, tappable URLs opening in the default browser, 12pt default font on iPad. Reviewed, six fixes applied (commit `58199a7`).
 - Round 3 (2026-09-11, commit `77cabda`): from round-2 feedback. Escape and Cmd+. now reach herdr (claimed as priority `UIKeyCommand`s on `HeelerTerminalView`; iPadOS's text-input system consumed them), Option+Backspace / Option+arrows / Option+Fn+Delete send ESC-prefixed word keys (`TerminalHardwareKeyMapping`, unit-tested), and the floating menu is a labelled host capsule with Switch Host and Hosts first. Reviewed, three fixes applied. Onboarding is a proposal in `KelpieVault/Onboarding proposal.md`, not built.
 - Round 3b (2026-09-11, same day): Cmd+. fixed for real (`5afab42`) — his Magic Keyboard has no Escape key, and iPadOS delivers Cmd+. as a press with `UIKeyInputEscape` characters; confirmed on the device. `TerminalKeyTrace` (off unless launched with `-kelpie.key-trace YES`) is the keystroke trace that found it; pull it with `devicectl device copy from`. Welcome screen + paste-first pairing + QR fixes built and reviewed (five fixes applied), commit after `5afab42`. Option+Backspace and the host capsule confirmed working by Anthony.
-- The latest Release build is installed on the iPad. Not yet seen on the device: the Welcome screen (via Setup Guide in the menu) and the paste-first pairing flow.
+- Round 4 (2026-09-11): photos and files into a herdr pane — paste incl. Cmd+V, drop, Attach Photo/File in the menu → SFTP staging (upstream's) → path typed into the pane. Reviewed, six fixes applied. Also written, not built: `KelpieVault/Mac vs iPad gaps.md` (ranked gap list) and `KelpieVault/Window size workshop.md` (Split View / Slide Over / Stage Manager options; two questions for Anthony).
+- The latest Release build (round 4) is installed on the iPad. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
 
 ## What Anthony will bring
 
@@ -37,7 +38,7 @@ Record his feedback in `KelpieVault/Feedback log.md` under "Round 2 feedback" be
 
 ## Open items, in priority order
 
-1. Confirm round 3 on the iPad (list in `KelpieVault/Open items.md`), then decide on the onboarding proposal.
+1. Device checks for rounds 3–4 (list in `KelpieVault/Open items.md`), then the compact-widths round once Anthony answers the window-size questions.
 2. Return-to-submit in the console's Keyboard mode (partial fix, needs device confirmation).
 3. Own push relay: deploy `relay/` as a Cloudflare Worker with Anthony's APNs key and point the app at it. Outward-facing, needs his explicit yes. Required for any App Store build.
 4. TestFlight upload (needs his yes; `scripts/ExportOptions.plist` already carries team 8JQWBQKEXX).
