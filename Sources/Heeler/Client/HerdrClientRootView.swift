@@ -35,6 +35,10 @@ struct HerdrClientRootView: View {
     /// cover is presented. See ``presentConsole()``.
     @State private var isPreparingConsole = false
     @State private var isShowingSettings = false
+    @State private var isShowingSetupGuide = false
+    /// The add-Host route the Setup Guide asked for, opened once that sheet
+    /// is gone: two sheets must never overlap.
+    @State private var pendingHostAction: HostListView.InitialAction?
     @State private var hostSheet: HostSheet?
     @State private var manualReconnectInFlightHostIDs: Set<Host.ID> = []
     @State private var isHovering = false
@@ -42,20 +46,53 @@ struct HerdrClientRootView: View {
     private struct HostSheet: Identifiable {
         let id = UUID()
         let hostID: Host.ID?
+        var initialAction: HostListView.InitialAction?
     }
 
     var body: some View {
-        Group {
+        // A ZStack, not a Group: modifiers on a Group distribute to whichever
+        // branch is live, and the Host sheet below must survive the swap from
+        // Welcome to the client that a successful pairing causes mid-sheet.
+        ZStack {
             if let host = primaryHost.host(in: hosts.hosts) {
                 client(for: host)
             } else {
-                // Onboarding is the Console's own empty state, unchanged:
-                // "No Hosts", with Add Host opening the same sheet.
-                consoleScreen(onClose: nil)
+                // With no Host there is nothing to attach to, and the Mac is
+                // where the work is: the Welcome screen says what to run there
+                // and leads with pasting the Pairing Code.
+                WelcomeView(hosts: hosts, presentation: .root) { action in
+                    hostSheet = HostSheet(
+                        hostID: nil, initialAction: Self.initialAction(for: action))
+                }
             }
+        }
+        // On the Group, not inside `client(for:)`: the same sheet serves the
+        // Welcome screen, and pairing a Host from it swaps the branch
+        // underneath without tearing the sheet down mid-preflight.
+        .sheet(item: $hostSheet) { destination in
+            // HostListView brings its own NavigationStack.
+            HostListView(
+                store: hosts,
+                initialHostID: destination.hostID,
+                initialAction: destination.initialAction,
+                connectionStatuses: console.hostStatuses,
+                standingFailures: console.hostStandingFailures,
+                latencies: console.hostLatencies,
+                manualReconnectInFlightHostIDs: manualReconnectInFlightHostIDs,
+                retryConnection: { await reconnectHost($0) })
         }
         .onChange(of: hosts.hosts) { _, hosts in
             primaryHost.hostsDidChange(hosts)
+        }
+    }
+
+    private static func initialAction(
+        for action: WelcomeView.Action
+    ) -> HostListView.InitialAction {
+        switch action {
+        case .pasteCode: .paste
+        case .scanCode: .scan
+        case .addManually: .addManually
         }
     }
 
@@ -80,16 +117,21 @@ struct HerdrClientRootView: View {
         .fullScreenCover(isPresented: $isShowingConsole) {
             consoleScreen(onClose: { isShowingConsole = false })
         }
-        .sheet(item: $hostSheet) { destination in
-            // HostListView brings its own NavigationStack.
-            HostListView(
-                store: hosts,
-                initialHostID: destination.hostID,
-                connectionStatuses: console.hostStatuses,
-                standingFailures: console.hostStandingFailures,
-                latencies: console.hostLatencies,
-                manualReconnectInFlightHostIDs: manualReconnectInFlightHostIDs,
-                retryConnection: { await reconnectHost($0) })
+        .sheet(
+            isPresented: $isShowingSetupGuide,
+            onDismiss: {
+                // The same two-sheet hand-off HostListView uses for its
+                // manual fallback: open the second only once the first is
+                // fully gone.
+                guard let pending = pendingHostAction else { return }
+                pendingHostAction = nil
+                hostSheet = HostSheet(hostID: nil, initialAction: pending)
+            }
+        ) {
+            WelcomeView(hosts: hosts, presentation: .sheet) { action in
+                pendingHostAction = Self.initialAction(for: action)
+                isShowingSetupGuide = false
+            }
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView(
@@ -109,6 +151,8 @@ struct HerdrClientRootView: View {
             guard !path.isEmpty else { return }
             hostSheet = nil
             isShowingSettings = false
+            isShowingSetupGuide = false
+            pendingHostAction = nil
             presentConsole()
         }
     }
@@ -189,6 +233,9 @@ struct HerdrClientRootView: View {
             }
             Button("Settings", systemImage: "gearshape") {
                 isShowingSettings = true
+            }
+            Button("Setup Guide", systemImage: "questionmark.circle") {
+                isShowingSetupGuide = true
             }
             Button("Reconnect", systemImage: "arrow.clockwise") {
                 commands.reconnect()
