@@ -28,6 +28,10 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 - Visible rebrand leftovers fixed (camera usage string, extension display names, Settings and privacy links), `NOTICE` added, Heeler credited on the Acknowledgements screen, `PRIVACY.md` rewritten for Kelpie, `NSLocalNetworkUsageDescription` added, relay config topic set to `TME.Kelpie`, `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`, version reset to 1.0.0 (1). Detail in `Archive/round7/appstore-build.md`.
 - Internal identifiers deliberately left: Keychain service names and access groups (changing them orphans keys on the iPad), the logger subsystem, module/target/scheme names.
 
+## Status at 2026-09-12 (round 8)
+
+Done: repo public; relay deployed and keyed; ASC record filled by `scripts/asc-kelpie.py`; build 1 uploaded (VALID); review host up with staged demo; store panels rendered; driver lane for the iPad. Left: Anthony runs `--apply --screenshots`, `--apply --iap-screenshots`, `--apply --attach-build --review-details … --review-attachment`, then `--submit` on his word. After approval: tear down the Hetzner server. Known: the App Store Connect key is App Manager, so cloud signing fails — use the created App Store profiles (manual signing, `scratchpad/…/signing/ExportOptions-manual.plist` pattern) or Xcode's signed-in account (Anthony signed in on 2026-09-12).
+
 ## Gates, in order
 
 1. ~~Push the repo~~ Done 2026-09-11: public `https://github.com/Getterbetter/Kelpie`; the in-app privacy link resolves.
