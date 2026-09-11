@@ -720,11 +720,24 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Whether the touch sequence in progress already went out as a right
     /// click. Its release is not a tap.
     private var didReportRightClickForTouch = false
+    /// The tap count of the direct touch sequence in progress. A one-tap
+    /// recognizer fires on the *second* tap of a double tap as well, and that
+    /// tap is a word selection: herdr would read two reports as a double
+    /// click, and a tap on a link would open it twice.
+    private var directTouchTapCount = 0
     /// When the last bell was felt. A TUI that rings on every rejected
     /// keystroke would otherwise buzz continuously.
     private var lastBellFeedbackTime: CFTimeInterval?
     /// The shortest gap between two bell haptics.
     private static let bellFeedbackInterval: CFTimeInterval = 0.3
+    /// A one-finger hold in progress, and what it has decided to be. See
+    /// ``handleHerdrRightClickGesture(_:)``.
+    private var heldPointerDrag: HeldPointerDrag?
+
+    /// The disc drawn under a held finger. The hold's haptic is silent on an
+    /// iPad, which has no Taptic Engine.
+    private let holdCue = TerminalHoldCueView()
+
     /// The pointer touch this view took over for a right click, if any.
     private weak var claimedRightButtonTouch: UITouch?
     /// A primary-button pointer touch that began on a URL, with the URL and
@@ -738,6 +751,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// a click on the link.
     private static let linkClaimMovementThreshold: CGFloat = 8
 
+    /// A one-finger hold that has not yet ended. It is a right click until the
+    /// finger travels far enough to be a drag, at which point `lastCell` is
+    /// set and the left button is down.
+    private struct HeldPointerDrag {
+        let origin: CGPoint
+        let originCell: (column: Int, row: Int)
+        /// The cell the last report named, or nil while the hold is still a
+        /// right click in waiting.
+        var lastCell: (column: Int, row: Int)?
+    }
+
     private lazy var touchScrollGesture = UIPanGestureRecognizer(
         target: self,
         action: #selector(handleHerdrTouchScrollGesture(_:)))
@@ -749,6 +773,16 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private lazy var tapGesture = UITapGestureRecognizer(
         target: self,
         action: #selector(handleHerdrTap(_:)))
+
+    private lazy var doubleTapGesture = UITapGestureRecognizer(
+        target: self,
+        action: #selector(handleHerdrDoubleTapGesture(_:)))
+
+    /// Kelpie's own text selection, drawn over the grid. See
+    /// ``TerminalTouchSelection`` for why the app owns it rather than Ghostty.
+    private let touchSelectionOverlay = TerminalSelectionOverlayView()
+
+    private lazy var selectionEditMenu = UIEditMenuInteraction(delegate: self)
 
     private lazy var rightClickGesture = UILongPressGestureRecognizer(
         target: self,
@@ -969,6 +1003,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard responderGate.mayResignFirstResponder else { return false }
         let resigned = super.resignFirstResponder()
         if resigned {
+            clearTouchSelection()
             onFirstResponderChange?()
         }
         return resigned
@@ -1039,6 +1074,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             self?.reliableInputDidBegin()
         }
         installTouchScrolling()
+        installTouchSelection()
         installZoom()
         installMediaDrop()
         #if !targetEnvironment(macCatalyst)
@@ -1240,6 +1276,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     func setLocalInputEnabled(_ isEnabled: Bool) {
         guard isLocalInputEnabled != isEnabled else { return }
+        if !isEnabled {
+            // Still enabled here, so the release actually goes out: a paused
+            // pane must not be left holding the left button down.
+            releaseHeldPointerDrag(at: nil)
+            holdCue.hide()
+        }
         isLocalInputEnabled = isEnabled
         if !isEnabled {
             cancelKeyboardTransitionLayoutDeferral()
@@ -1442,7 +1484,21 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
     }
 
+    /// ⌘C, and the system Copy item, take the touch selection when there is
+    /// one. Ghostty's own `copy(_:)` reads its pointer selection, which a
+    /// finger can never make, so it stays the fallback for a trackpad.
+    @IBAction override func copy(_ sender: Any?) {
+        guard touchSelectionOverlay.selection != nil else {
+            super.copy(sender)
+            return
+        }
+        copyTouchSelection()
+    }
+
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(copy(_:)), touchSelectionOverlay.selection != nil {
+            return true
+        }
         if action == #selector(handleEscapeKeyCommand(_:)) {
             let answer = super.canPerformAction(action, withSender: sender)
             TerminalKeyTrace.log("canPerformAction escape -> \(answer)")
@@ -1469,6 +1525,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     override func layoutSubviews() {
         guard !defersLayoutForKeyboardTransition else { return }
         super.layoutSubviews()
+        // Ghostty adds its own layers as the surface attaches, so the overlay
+        // is put back on top rather than assumed to have stayed there.
+        touchSelectionOverlay.frame = bounds
+        bringSubviewToFront(touchSelectionOverlay)
+        if holdCue.superview === self { bringSubviewToFront(holdCue) }
+        touchSelectionOverlay.refresh()
         reloadInputViewsAfterWindowResize()
     }
 
@@ -1476,6 +1538,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         super.didMoveToWindow()
         if window == nil {
             stopTouchScrollMomentum()
+            clearTouchSelection()
+            // A hold cannot survive the view leaving its window: without this
+            // the button stays down remotely and `heldPointerDrag` refuses
+            // touch scrolling for ever.
+            releaseHeldPointerDrag(at: nil)
+            holdCue.hide(animated: false)
             responderGate.invalidateTouches()
         } else {
             inheritKeyboard()
@@ -1483,6 +1551,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // A finger anywhere but on a handle dismisses the selection. A touch
+        // that hit-tests to a handle still arrives here through the responder
+        // chain, so it is the touch's *view* that decides, not its location.
+        if touches.contains(where: {
+            $0.type == .direct && !touchSelectionOverlay.owns($0.view)
+        }) {
+            clearTouchSelection()
+        }
+        if let tapCount = touches.filter({ $0.type == .direct }).map(\.tapCount).max() {
+            directTouchTapCount = tapCount
+        }
         if rightClickGesture.state == .possible {
             didReportRightClickForTouch = false
         }
@@ -1623,6 +1702,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         _ gestureRecognizer: UIGestureRecognizer
     ) -> Bool {
         if gestureRecognizer === touchScrollGesture {
+            // A held finger belongs to the hold — a right click or a mouse
+            // drag — and never to a scroll. UIKit's own arbitration already
+            // prevents the pan once the long press has begun; this says so.
+            guard heldPointerDrag == nil else { return false }
             let velocity = touchScrollGesture.velocity(in: self)
             return abs(velocity.y) > abs(velocity.x)
         }
@@ -1638,6 +1721,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 // A link is worth a tap wherever it is, including the plain
                 // shell's output area, which none of the above answers.
                 || linkMatch(at: location) != nil
+        }
+        if gestureRecognizer === doubleTapGesture {
+            // A word is worth selecting wherever it is, in any mode.
+            return true
         }
         if gestureRecognizer === rightClickGesture {
             return modeTracker.tracksMouse
@@ -1673,6 +1760,19 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard !modeTracker.tracksMouse else { return nil }
         return super.contextMenuInteraction(
             interaction, configurationForMenuAtLocation: location)
+    }
+
+    /// A finger on a selection handle belongs to the overlay alone. The
+    /// handles are subviews, so hit-testing already keeps the touch out of
+    /// `touchesBegan`, but this view's recognizers see every touch in their
+    /// subtree — and a drag of a handle must not also scroll or click.
+    func gestureRecognizer(
+        _: UIGestureRecognizer,
+        shouldReceive touch: UITouch
+    ) -> Bool {
+        guard touch.type == .direct else { return true }
+        return !touchSelectionOverlay.containsHandle(
+            at: touch.location(in: touchSelectionOverlay))
     }
 
     func gestureRecognizer(
@@ -1949,6 +2049,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     @discardableResult
     func scrollTouch(translationY: CGFloat) -> Int {
+        clearTouchSelection()
         let rows = touchScrollAccumulator.rows(
             for: translationY,
             pointsPerRow: max(8, terminalCellSize.height))
@@ -2016,6 +2117,33 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         rightClickGesture.numberOfTouchesRequired = 1
         textSelectionGesture.numberOfTouchesRequired = 2
+
+        doubleTapGesture.allowedTouchTypes = [directTouch]
+        doubleTapGesture.numberOfTapsRequired = 2
+        doubleTapGesture.numberOfTouchesRequired = 1
+        doubleTapGesture.cancelsTouchesInView = false
+        doubleTapGesture.delegate = self
+        addGestureRecognizer(doubleTapGesture)
+    }
+
+    /// The selection overlay and the menu that acts on it.
+    ///
+    /// The overlay is an ordinary subview above the Ghostty surface: it draws
+    /// the highlight and the handles, and answers touches only on the handles.
+    private func installTouchSelection() {
+        touchSelectionOverlay.frame = bounds
+        touchSelectionOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        touchSelectionOverlay.gridMetrics = { [weak self] in
+            self?.gridPointMapper
+                ?? TerminalGridPointMapper(
+                    viewSize: .zero, cellSize: .zero, columns: 0, rows: 0, scale: 1)
+        }
+        touchSelectionOverlay.onDragFinished = { [weak self] selection in
+            guard selection != nil else { return }
+            self?.presentSelectionEditMenu()
+        }
+        addSubview(touchSelectionOverlay)
+        addInteraction(selectionEditMenu)
     }
 
     #if !targetEnvironment(macCatalyst)
@@ -2131,6 +2259,20 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             } else {
                 TerminalKeyTrace.log("pressesBegan type=\(press.type.rawValue) no key")
             }
+            // ⌘C races UIKit's editing shortcut exactly as ⌘V does, and
+            // whichever path runs first wins. Answer it here while the touch
+            // selection still exists — the blanket clear below would
+            // otherwise empty it before `copy(_:)` ever saw it — and swallow
+            // both the press and its release so Ghostty never sees ⌘C it
+            // would encode for the PTY.
+            if Self.isCopyShortcut(press), touchSelectionOverlay.selection != nil {
+                copyTouchSelection()
+                interceptedPresses.insert(press)
+                continue
+            }
+            // Typing replaces what is on the grid; a selection of cells does
+            // not survive it.
+            clearTouchSelection()
             if let step = Self.zoomShortcutStep(for: press) {
                 zoom(to: appliedFontSize + step)
                 continue
@@ -2278,6 +2420,15 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     /// Bare ⌘V. Any other modifier is somebody else's shortcut.
     private static func isPasteShortcut(_ press: UIPress) -> Bool {
+        isCommandShortcut(press, character: "v")
+    }
+
+    /// Bare ⌘C, on the same terms.
+    private static func isCopyShortcut(_ press: UIPress) -> Bool {
+        isCommandShortcut(press, character: "c")
+    }
+
+    private static func isCommandShortcut(_ press: UIPress, character: String) -> Bool {
         guard let key = press.key else { return false }
         let modifiers = key.modifierFlags
         guard modifiers.contains(.command),
@@ -2285,7 +2436,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             !modifiers.contains(.alternate),
             !modifiers.contains(.shift)
         else { return false }
-        return key.charactersIgnoringModifiers.lowercased() == "v"
+        return key.charactersIgnoringModifiers.lowercased() == character
     }
 
     private static func zoomShortcutStep(for press: UIPress) -> Float? {
@@ -2299,28 +2450,219 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     @objc private func handleHerdrTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended, !didReportRightClickForTouch else { return }
+        // The first tap of a pair still clicks, exactly as today; the second
+        // belongs to the double tap's word selection.
+        guard directTouchTapCount < 2 else { return }
         handleTap(at: gesture.location(in: self))
     }
 
-    /// A hold is the touch spelling of a right click: herdr opens its context
-    /// menu on the press, and the next tap activates a row.
+    /// A hold is the touch spelling of a right click — and, if the finger then
+    /// moves, of a mouse drag.
+    ///
+    /// A trackpad can press a border and drag it; a finger had no way to say
+    /// that, so herdr's sidebar and pane borders could not be resized by touch
+    /// at all (ADR 0016 gave the hold to the right click alone). The hold now
+    /// decides on movement: past half a cell it becomes a left-button press at
+    /// the cell it started on, a motion report per cell crossed, and a release
+    /// where the finger lifts — the same three things a trackpad drag sends.
+    ///
+    /// The trade is that a hold that does **not** move now sends its right
+    /// click on release rather than on the press, so herdr's context menu
+    /// appears when the finger lifts. Nothing else can tell the two apart: the
+    /// right click has to be withheld until the hold is known not to be a drag.
+    /// The haptic still fires on the press, so the hold itself is acknowledged
+    /// at the moment it is recognized.
     @objc private func handleHerdrRightClickGesture(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began else { return }
-        guard rightClickTouch(at: gesture.location(in: self)) else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        // The hold is spent. Releasing it must not also arrive as a left
-        // click, which herdr would read as picking a menu row.
-        didReportRightClickForTouch = true
+        let location = gesture.location(in: self)
+        switch gesture.state {
+        case .began:
+            guard isLocalInputEnabled, modeTracker.tracksMouse,
+                let cell = gridPointMapper.cell(at: location)
+            else {
+                TerminalKeyTrace.log(
+                    "hold began ignored input=\(isLocalInputEnabled) tracksMouse=\(modeTracker.tracksMouse)")
+                return
+            }
+            heldPointerDrag = HeldPointerDrag(
+                origin: location, originCell: cell, lastCell: nil)
+            TerminalKeyTrace.log("hold began col=\(cell.column) row=\(cell.row)")
+            // Silent on an iPad, which is why the cue is drawn as well.
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            holdCue.show(at: location, in: self)
+            // However this hold ends, its release is not a left click: herdr
+            // would read that as picking a row out of the menu it just opened.
+            didReportRightClickForTouch = true
+        case .changed:
+            holdCue.move(to: location)
+            guard isLocalInputEnabled, var held = heldPointerDrag else { return }
+            defer { heldPointerDrag = held }
+            if held.lastCell == nil {
+                guard Self.distance(location, held.origin) > pointerDragSlop,
+                    let press = modeTracker.remoteLeftPressSequence(
+                        column: held.originCell.column, row: held.originCell.row)
+                else { return }
+                terminalSession.sendInput(press)
+                TerminalKeyTrace.log(
+                    "drag press col=\(held.originCell.column) row=\(held.originCell.row)")
+                held.lastCell = held.originCell
+            }
+            guard let cell = gridPointMapper.cell(at: location),
+                let last = held.lastCell, cell != last,
+                let motion = modeTracker.remoteLeftDragSequence(
+                    column: cell.column, row: cell.row)
+            else { return }
+            terminalSession.sendInput(motion)
+            TerminalKeyTrace.log("drag motion col=\(cell.column) row=\(cell.row)")
+            held.lastCell = cell
+        case .ended:
+            holdCue.hide()
+            guard let held = heldPointerDrag else { return }
+            guard held.lastCell != nil else {
+                heldPointerDrag = nil
+                // The finger never moved: the hold was a right click after all.
+                let reported = rightClickTouch(at: held.origin)
+                TerminalKeyTrace.log(
+                    "hold right click col=\(held.originCell.column) row=\(held.originCell.row) sent=\(reported)")
+                return
+            }
+            releaseHeldPointerDrag(at: gridPointMapper.cell(at: location))
+        case .cancelled, .failed:
+            holdCue.hide()
+            releaseHeldPointerDrag(at: nil)
+        default:
+            break
+        }
     }
 
-    /// Two fingers reach the selection sheet while one finger is spoken for.
-    @objc private func handleHerdrTextSelectionGesture(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began,
-            let text = terminalSession.readViewportText()
+    /// Ends a hold, letting the left button up wherever it was last reported
+    /// (or at `cell`, when the finger's final position is known). A button
+    /// left down would leave herdr dragging for ever.
+    private func releaseHeldPointerDrag(at cell: (column: Int, row: Int)?) {
+        guard let held = heldPointerDrag else { return }
+        heldPointerDrag = nil
+        guard isLocalInputEnabled, let last = held.lastCell else { return }
+        let target = cell ?? last
+        guard let release = modeTracker.remoteLeftReleaseSequence(
+            column: target.column, row: target.row)
         else { return }
+        terminalSession.sendInput(release)
+        TerminalKeyTrace.log("drag release col=\(target.column) row=\(target.row)")
+    }
+
+    /// How far a held finger has to travel before the hold is a drag rather
+    /// than a right click.
+    ///
+    /// It has to clear the recognizer's own `allowableMovement` of 10 pt: a
+    /// finger may drift that far during the half-second press without failing
+    /// the hold, and a menu hold that drifts must not come out as a left drag
+    /// of a cell or two. A row's height, and never less than 12 pt.
+    private var pointerDragSlop: CGFloat {
+        max(terminalCellSize.height, 12)
+    }
+
+    /// Two fingers reach text selection while one finger is spoken for.
+    ///
+    /// The hold now makes the same handle selection a double tap does. The
+    /// read-only sheet stays as the fallback for a hold that lands on
+    /// whitespace: there is no word to select there, and the sheet is the one
+    /// way to reach the whole viewport when the grid has nothing under the
+    /// fingers.
+    @objc private func handleHerdrTextSelectionGesture(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
 
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if selectWord(at: gesture.location(in: self)) { return }
+        guard let text = terminalSession.readViewportText() else { return }
         TerminalTextSelectionPresenter.present(text: text, anchorRange: nil, from: self)
+    }
+
+    /// A double tap selects the word under the finger.
+    ///
+    /// The single-tap recognizer deliberately does **not** `require(toFail:)`
+    /// this one. A terminal click has to land the moment the finger lifts, and
+    /// waiting out the double-tap interval to find out whether a second tap is
+    /// coming would put that delay on every tap herdr answers. So the first tap
+    /// of the pair sends its click exactly as it does today, and that is
+    /// accepted: it is a click at the cell the user was pointing at anyway.
+    @objc private func handleHerdrDoubleTapGesture(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        guard selectWord(at: gesture.location(in: self)) else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// The touch selection currently drawn over the grid, if any.
+    var touchSelection: TerminalTouchSelection? {
+        touchSelectionOverlay.selection
+    }
+
+    /// Selects the word under `point`, and returns whether there was one.
+    /// A double tap on whitespace does nothing at all.
+    @discardableResult
+    private func selectWord(at point: CGPoint) -> Bool {
+        guard let cell = gridPointMapper.cell(at: point) else { return false }
+        let selection = TerminalTouchSelection.word(
+            at: TerminalGridCell(column: cell.column, row: cell.row),
+            in: viewportTextRows())
+        guard let selection else { return false }
+        show(selection)
+        return true
+    }
+
+    private func show(_ selection: TerminalTouchSelection) {
+        touchSelectionOverlay.selection = selection.normalized
+        bringSubviewToFront(touchSelectionOverlay)
+        presentSelectionEditMenu()
+    }
+
+    /// Drops the selection and its menu. Anything that moves the grid or takes
+    /// input calls this: the selection names cells, and a cell that now holds
+    /// something else was never what the user picked.
+    func clearTouchSelection() {
+        // A drag of a handle is the selection being used, not abandoned —
+        // whoever asked (a stray recognizer of the edit menu's, a forwarded
+        // touch) does not get to end it mid-gesture.
+        guard !touchSelectionOverlay.isDraggingHandle else { return }
+        guard touchSelectionOverlay.selection != nil else { return }
+        touchSelectionOverlay.selection = nil
+        selectionEditMenu.dismissMenu()
+    }
+
+    private func presentSelectionEditMenu() {
+        guard touchSelectionOverlay.selection != nil else { return }
+        let anchor = touchSelectionOverlay.lastSpanRect ?? bounds
+        selectionEditMenu.dismissMenu()
+        selectionEditMenu.presentEditMenu(
+            with: UIEditMenuConfiguration(
+                identifier: nil,
+                sourcePoint: CGPoint(x: anchor.midX, y: anchor.maxY)))
+    }
+
+    /// The viewport as rows of text, the way the selection and the link
+    /// detector both read it.
+    private func viewportTextRows() -> [String] {
+        guard let text = terminalSession.readViewportText() else { return [] }
+        return text.components(separatedBy: "\n")
+    }
+
+    /// Copies the selected cells' current contents.
+    ///
+    /// The text is read now rather than remembered from when the selection was
+    /// made: the grid repaints constantly, and the honest answer to "copy
+    /// this" is whatever those cells hold at the moment Copy is tapped. No
+    /// polling, and nothing to keep in sync.
+    func copyTouchSelection() {
+        guard let selection = touchSelectionOverlay.selection else { return }
+        let text = selection.text(in: viewportTextRows())
+        clearTouchSelection()
+        guard !text.isEmpty else { return }
+        UIPasteboard.general.string = text
+    }
+
+    /// Everything the viewport currently holds, from its first cell to the end
+    /// of its last row with text on it.
+    func selectAllTouchSelection() {
+        guard let selection = TerminalTouchSelection.all(in: viewportTextRows()) else { return }
+        show(selection)
     }
 
     #if !targetEnvironment(macCatalyst)
@@ -2491,6 +2833,9 @@ extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
     /// tap-to-cell mapping and touch-scroll row heights don't fall back to the
     /// 8×16 default.
     func terminalDidResize(_ size: TerminalGridMetrics) {
+        // Every cell moves; the selection's coordinates no longer mean what
+        // they meant when it was made.
+        clearTouchSelection()
         terminalGridSize = (Int(size.columns), Int(size.rows))
         hasTerminalGridMetrics = true
         guard size.cellWidthPixels > 0, size.cellHeightPixels > 0 else { return }
@@ -2509,6 +2854,27 @@ extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
 
     func terminalDidDetachSurface() {
         removeOrphanedSurfaceLayers()
+    }
+}
+
+/// The menu over a touch selection. Copy takes the cells' text to the
+/// pasteboard; Select All grows the selection to the whole viewport. Neither
+/// sends anything to the PTY — the selection is drawn by Kelpie and lives
+/// entirely on this side of the wire.
+extension HeelerTerminalView: @MainActor UIEditMenuInteractionDelegate {
+    func editMenuInteraction(
+        _: UIEditMenuInteraction,
+        menuFor _: UIEditMenuConfiguration,
+        suggestedActions _: [UIMenuElement]
+    ) -> UIMenu? {
+        UIMenu(children: [
+            UIAction(title: "Copy") { [weak self] _ in
+                self?.copyTouchSelection()
+            },
+            UIAction(title: "Select All") { [weak self] _ in
+                self?.selectAllTouchSelection()
+            },
+        ])
     }
 }
 

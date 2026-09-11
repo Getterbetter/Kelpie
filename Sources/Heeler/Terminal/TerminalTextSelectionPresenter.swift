@@ -1,6 +1,14 @@
 import GhosttyTerminal
 import UIKit
 
+/// The read-only sheet of the whole viewport.
+///
+/// It is no longer the main way to select terminal text: a double tap, or a
+/// two-finger hold, selects a word in place and gives it iPadOS handles (see
+/// ``TerminalTouchSelection``). The sheet stays as the fallback for a hold
+/// that lands where there is no word, and as the destination for Ghostty's own
+/// selection request, because it is the one path that offers the entire
+/// viewport at once.
 @MainActor
 enum TerminalTextSelectionPresenter {
     static func present(_ request: TerminalTextSelectionRequest, from sourceView: UIView) {
