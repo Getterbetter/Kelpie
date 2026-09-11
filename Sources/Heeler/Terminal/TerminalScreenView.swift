@@ -138,6 +138,7 @@ struct TerminalScreenView: UIViewRepresentable {
     /// Pasted or dropped image and file providers, handed over for staging
     /// onto the Host. Text never arrives here — it pastes as text.
     var onStageItems: (([NSItemProvider]) -> Void)?
+    var onHostPathTap: ((String) -> Void)?
     /// Asked exactly once, as the surface is created: does this terminal
     /// inherit the keyboard from the one it replaced? Asking through a
     /// closure rather than a stored flag keeps the answer tied to the
@@ -180,6 +181,7 @@ struct TerminalScreenView: UIViewRepresentable {
             fontFamily: fontFamily)
         view.onOpenLink = { url in openURL(url) }
         view.onStageItems = onStageItems
+        view.onHostPathTap = onHostPathTap
         // Only here, never in updateUIView: the intent belongs to this
         // terminal's first appearance, not to every state change after it.
         view.raisesKeyboardWhenReady = claimsKeyboard?() ?? false
@@ -278,6 +280,7 @@ struct TerminalScreenView: UIViewRepresentable {
         // output already schedules a snapshot in `receive`.
         view.onOpenLink = { url in openURL(url) }
         view.onStageItems = onStageItems
+        view.onHostPathTap = onHostPathTap
     }
 }
 
@@ -356,6 +359,16 @@ final class TerminalSessionCallbackBridge {
     private var finishesSizeReportDeferralThrough: UInt64?
     private var suppressesDuplicateSize: (columns: Int, rows: Int)?
     private var lastNotifiedGridReportPhase = TerminalGridReportPhase.live
+    /// The last size a burst of bounds-driven reports arrived at, waiting for
+    /// the burst to go quiet. See ``coalesceSizeReport(_:)``.
+    private var coalescedSize: (columns: Int, rows: Int)?
+    private var sizeCoalescingTask: Task<Void, Never>?
+    /// Invalidates a trailing report whose window was restarted or cancelled.
+    private var sizeCoalescingGeneration: UInt64 = 0
+    /// How long a burst of bounds-driven resizes must be quiet before its last
+    /// size is reported. A Split View divider drag emits one per layout pass;
+    /// 80ms is short enough to feel immediate and long enough to swallow them.
+    private static let sizeCoalescingWindow = Duration.milliseconds(80)
 
     /// Derived from the deferral bookkeeping rather than tracked alongside it,
     /// so the phase callers observe cannot drift from the one the reports obey.
@@ -405,6 +418,10 @@ final class TerminalSessionCallbackBridge {
         // its Task happens to run after the handoff begins.
         discardsResizeReportsThrough = max(
             discardsResizeReportsThrough, resizeSequence.current())
+        // A trailing report still waiting is the last layout before this
+        // freeze, and the freeze has no way to learn it: send it now rather
+        // than lose it. Coalescing may only ever delay the final size.
+        flushCoalescedSizeReport()
         defersSizeReports = true
         deferredSize = nil
         finishesSizeReportDeferralThrough = nil
@@ -430,6 +447,7 @@ final class TerminalSessionCallbackBridge {
     func cancelSizeReportDeferral() {
         discardsResizeReportsThrough = max(
             discardsResizeReportsThrough, resizeSequence.current())
+        flushCoalescedSizeReport()
         defersSizeReports = false
         deferredSize = nil
         finishesSizeReportDeferralThrough = nil
@@ -479,8 +497,12 @@ final class TerminalSessionCallbackBridge {
     /// returns `nil` when the freeze never learned a grid to forward — the
     /// next ordinary report speaks for it then.
     private func forwardDeferredSize() -> TerminalGridSize? {
-        guard let deferredSize else { return nil }
+        // A freeze that measured nothing still forwards a trailing size left
+        // over from before it, if one is somehow still waiting: the Host must
+        // never be left holding the leading edge of a burst.
+        guard let deferredSize = deferredSize ?? coalescedSize else { return nil }
         self.deferredSize = nil
+        cancelCoalescedSizeReport()
         guard let onSizeChanged else { return nil }
         onSizeChanged(deferredSize.columns, deferredSize.rows)
         // The surface delegate supplied the settled grid synchronously. The
@@ -508,7 +530,63 @@ final class TerminalSessionCallbackBridge {
                 return
             }
         }
-        onSizeChanged?(size.columns, size.rows)
+        coalesceSizeReport(size)
+    }
+
+    /// Reports a bounds-driven size change on the leading edge of a burst and
+    /// then only once it goes quiet.
+    ///
+    /// Dragging a Split View divider re-lays the terminal out dozens of times,
+    /// and each report is a serialized SSH round trip that makes the remote TUI
+    /// redraw whole. The first change still goes out at once — a single resize
+    /// must stay instant — and everything inside the quiet window collapses
+    /// into the last size, which is the one the drag settled on.
+    ///
+    /// Keyboard-driven changes never arrive here: they are held by the
+    /// freeze and forwarded by ``forwardDeferredSize()``, which reports
+    /// directly.
+    private func coalesceSizeReport(_ size: (columns: Int, rows: Int)) {
+        if sizeCoalescingTask == nil {
+            onSizeChanged?(size.columns, size.rows)
+        } else {
+            coalescedSize = size
+        }
+        scheduleCoalescedSizeReport()
+    }
+
+    private func scheduleCoalescedSizeReport() {
+        sizeCoalescingGeneration &+= 1
+        let generation = sizeCoalescingGeneration
+        sizeCoalescingTask?.cancel()
+        sizeCoalescingTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.sizeCoalescingWindow)
+            guard !Task.isCancelled, let self,
+                generation == sizeCoalescingGeneration
+            else { return }
+            sizeCoalescingTask = nil
+            guard let pending = coalescedSize else { return }
+            coalescedSize = nil
+            onSizeChanged?(pending.columns, pending.rows)
+        }
+    }
+
+    /// Sends a waiting trailing report now and ends the burst. Used wherever
+    /// the coalescing window is about to be torn down — a freeze beginning or
+    /// being cancelled — so no size is ever dropped on the floor.
+    private func flushCoalescedSizeReport() {
+        let pending = coalescedSize
+        cancelCoalescedSizeReport()
+        guard let pending else { return }
+        onSizeChanged?(pending.columns, pending.rows)
+    }
+
+    /// Ends the coalescing window, discarding any trailing report. Only for
+    /// callers that have already delivered or superseded that size.
+    private func cancelCoalescedSizeReport() {
+        sizeCoalescingGeneration &+= 1
+        sizeCoalescingTask?.cancel()
+        sizeCoalescingTask = nil
+        coalescedSize = nil
     }
 
     func paste(_ text: String, bracketed: Bool) {
@@ -561,6 +639,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Image and file providers this terminal accepted from a paste or a
     /// drop. Staging them is the owner's business, not the surface's.
     var onStageItems: (([NSItemProvider]) -> Void)?
+    var onHostPathTap: ((String) -> Void)?
     /// Whether a paste has already been answered in this run-loop turn.
     private var hasClaimedPasteThisTurn = false
     /// Raises the keyboard once this surface reaches a window. An Agent switch
@@ -641,6 +720,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Whether the touch sequence in progress already went out as a right
     /// click. Its release is not a tap.
     private var didReportRightClickForTouch = false
+    /// When the last bell was felt. A TUI that rings on every rejected
+    /// keystroke would otherwise buzz continuously.
+    private var lastBellFeedbackTime: CFTimeInterval?
+    /// The shortest gap between two bell haptics.
+    private static let bellFeedbackInterval: CFTimeInterval = 0.3
     /// The pointer touch this view took over for a right click, if any.
     private weak var claimedRightButtonTouch: UITouch?
     /// A primary-button pointer touch that began on a URL, with the URL and
@@ -649,7 +733,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// would answer by opening the link on the Mac — until it moves far enough
     /// to be a drag-selection instead, at which point the sequence is replayed
     /// to Ghostty and handed back.
-    private var claimedLinkTouch: (touch: UITouch, url: URL, origin: CGPoint)?
+    private var claimedLinkTouch: (touch: UITouch, match: TerminalLinkDetector.Match, origin: CGPoint)?
     /// Past this, a pointer press that began on a URL is a selection drag, not
     /// a click on the link.
     private static let linkClaimMovementThreshold: CGFloat = 8
@@ -1334,19 +1418,28 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     /// Hands on the providers this terminal cannot type — the image and file
-    /// ones. Reading the providers is the owner's job; the surface only sorts.
+    /// ones. Staging them is the owner's job; the surface only sorts, and
+    /// starts their loads.
+    ///
+    /// The loads have to begin here, synchronously: a drop's providers stop
+    /// working the moment `performDrop` returns, and the owner reads them a
+    /// turn later. ``MediaIntake/beginLoading(_:)`` issues every request now
+    /// and the owner's `loadItems` joins that same load.
     private func stageMedia(from itemProviders: [NSItemProvider]) {
         guard let onStageItems else { return }
-        let media = itemProviders.filter { provider in
-            switch MediaIntake.classify(
-                typeIdentifiers: provider.registeredTypeIdentifiers)
-            {
-            case .image, .file: true
-            case .text, .unsupported: false
-            }
-        }
+        let media = itemProviders.filter(Self.isStageable)
         guard !media.isEmpty else { return }
+        MediaIntake.beginLoading(media)
         onStageItems(media)
+    }
+
+    private static func isStageable(_ provider: NSItemProvider) -> Bool {
+        switch MediaIntake.classify(
+            typeIdentifiers: provider.registeredTypeIdentifiers)
+        {
+        case .image, .file: true
+        case .text, .unsupported: false
+        }
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
@@ -1489,13 +1582,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private func linkTouchToClaim(
         in touches: Set<UITouch>,
         with event: UIEvent?
-    ) -> (touch: UITouch, url: URL, origin: CGPoint)? {
+    ) -> (touch: UITouch, match: TerminalLinkDetector.Match, origin: CGPoint)? {
         guard event?.buttonMask.contains(.primary) == true,
             let touch = touches.first(where: { $0.type == .indirectPointer })
         else { return nil }
         let origin = touch.location(in: self)
-        guard let url = linkURL(at: origin) else { return nil }
-        return (touch, url, origin)
+        guard let match = linkMatch(at: origin) else { return nil }
+        return (touch, match, origin)
     }
 
     private static func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
@@ -1515,9 +1608,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         let ended = claimed.touch.location(in: self)
         if opening,
             Self.distance(ended, claimed.origin) <= Self.linkClaimMovementThreshold,
-            linkURL(at: ended) == claimed.url
+            linkMatch(at: ended) == claimed.match
         {
-            onOpenLink?(claimed.url)
+            open(claimed.match)
         }
         return touches.subtracting([claimed.touch])
     }
@@ -1544,7 +1637,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 || keyboardActivationRegion.contains(location)
                 // A link is worth a tap wherever it is, including the plain
                 // shell's output area, which none of the above answers.
-                || linkURL(at: location) != nil
+                || linkMatch(at: location) != nil
         }
         if gestureRecognizer === rightClickGesture {
             return modeTracker.tracksMouse
@@ -1764,13 +1857,31 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// from the viewport rather than asked of libghostty, which has no such
     /// query on iOS. See ``TerminalLinkDetector``.
     func linkURL(at point: CGPoint) -> URL? {
+        if case .url(let url)? = linkMatch(at: point) { return url }
+        return nil
+    }
+
+    /// The URL or absolute Host path the cell under `point` is part of.
+    func linkMatch(at point: CGPoint) -> TerminalLinkDetector.Match? {
         let mapper = gridPointMapper
         guard let cell = mapper.cell(at: point),
             let text = terminalSession.readViewportText()
         else { return nil }
-        return TerminalLinkDetector.url(
+        let match = TerminalLinkDetector.match(
             inViewport: text, column: cell.column, row: cell.row,
             width: mapper.columns)
+        // A path is only a link on a screen that can open one; elsewhere the
+        // tap must fall through to its click and keyboard behaviour.
+        if case .hostPath? = match, onHostPathTap == nil { return nil }
+        return match
+    }
+
+    /// A URL opens on the iPad; a path opens in the Host file viewer.
+    private func open(_ match: TerminalLinkDetector.Match) {
+        switch match {
+        case .url(let url): onOpenLink?(url)
+        case .hostPath(let path): onHostPathTap?(path)
+        }
     }
 
     /// Reports a touch as a left click when the remote application asked for
@@ -2235,8 +2346,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     func handleTap(at location: CGPoint) {
         // A URL takes the tap whole: no click for herdr to answer by opening
         // the link on the Mac, and no keyboard on the way out.
-        if let url = linkURL(at: location) {
-            onOpenLink?(url)
+        if let match = linkMatch(at: location) {
+            open(match)
             return
         }
         switch tapAction(at: location) {
@@ -2351,8 +2462,23 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
 extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
     TerminalSurfaceTextSelectionRequestDelegate, TerminalSurfaceLifecycleDelegate,
-    TerminalSurfaceGridResizeDelegate
+    TerminalSurfaceGridResizeDelegate, TerminalSurfaceBellDelegate
 {
+    /// A bell the iPad can feel. There is no terminal audio here and a visual
+    /// flash would fight the agent's own redraw, so BEL becomes a light impact
+    /// — the same vocabulary the long-press right click already uses, one step
+    /// softer. Throttled, because a TUI rejecting keystrokes rings per press.
+    func terminalDidRingBell() {
+        let now = CACurrentMediaTime()
+        if let last = lastBellFeedbackTime,
+            now - last < Self.bellFeedbackInterval
+        {
+            return
+        }
+        lastBellFeedbackTime = now
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     func terminalDidRequestOpenURL(_ url: String, kind _: TerminalOpenURLKind) {
         guard let url = TerminalLinkPolicy.url(for: url) else { return }
         onOpenLink?(url)
@@ -2394,12 +2520,14 @@ extension HeelerTerminalView: UIDropInteractionDelegate {
         _: UIDropInteraction,
         canHandle session: any UIDropSession
     ) -> Bool {
+        // A PDF, a text file or an archive from Files conforms to
+        // `public.data`, never to `public.file-url`, so the narrower list
+        // refused them before the proposal was ever made.
         isLocalInputEnabled
             && onStageItems != nil
-            && session.hasItemsConforming(toTypeIdentifiers: [
-                UTType.image.identifier,
-                UTType.fileURL.identifier,
-            ])
+            && session.hasItemsConforming(
+                toTypeIdentifiers: MediaIntake.acceptedDropTypeIdentifiers)
+            && session.items.contains { Self.isStageable($0.itemProvider) }
     }
 
     func dropInteraction(

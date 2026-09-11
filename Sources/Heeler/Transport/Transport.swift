@@ -165,6 +165,20 @@ protocol Transport: Sendable {
         progress: @escaping @Sendable (AttachmentStageProgress) async -> Void
     ) async throws -> StagedFile
 
+    /// Downloads one Host file into app-private temporary storage so the iPad
+    /// can show it — the return leg of staging, for looking at what the agent
+    /// just wrote. `remotePath` is absolute, or `~`-relative against the
+    /// Host's home. Concrete transports own the size cap
+    /// (`HostFileDownloadError.maximumByteCount`), the local destination, and
+    /// the mapping from SFTP status to `HostFileDownloadError`.
+    ///
+    /// The caller owns the returned file and deletes it when done; nothing
+    /// prunes it otherwise.
+    func downloadFile(
+        remotePath: String,
+        progress: @escaping @Sendable (AttachmentStageProgress) async -> Void
+    ) async throws -> URL
+
     /// Reads the Notification Registration file (v1, `plugin/README.md`)
     /// from the Heeler plugin's config dir on this Host; nil when no
     /// device has registered yet. Throws
@@ -294,6 +308,72 @@ extension Transport {
     ) async throws -> WorktreeRemovedResponse {
         throw TransportError.channelFailed(
             detail: "This transport cannot remove worktrees.")
+    }
+
+    /// Only the SSH transport has an SFTP subsystem to read a Host file with;
+    /// test doubles and any future non-SSH transport say so rather than
+    /// pretending to download.
+    func downloadFile(
+        remotePath: String,
+        progress: @escaping @Sendable (AttachmentStageProgress) async -> Void
+    ) async throws -> URL {
+        throw HostFileDownloadError.unsupported
+    }
+}
+
+/// Why viewing a Host file on the iPad failed. Deliberately its own error
+/// rather than a `TransportError` case: every one of these is something the
+/// person tapping can act on (pick a different file, fix permissions), and
+/// none of them says anything about the connection's health.
+enum HostFileDownloadError: Error, Equatable, Sendable {
+    /// Whole-file reads land in memory on the way to disk, and a preview is
+    /// not a sync client: 64 MB is generous for anything Quick Look renders.
+    static let maximumByteCount: Int64 = 64 * 1024 * 1024
+
+    case unsupported
+    case notConnected
+    /// The path is neither absolute nor `~`-relative, so there is nothing to
+    /// resolve it against.
+    case pathNotAbsolute
+    case notFound(path: String)
+    case permissionDenied(path: String)
+    /// The path exists but is not a readable regular file — a directory, a
+    /// device node, a broken symlink.
+    case notReadable(path: String)
+    case tooLarge(byteCount: Int64)
+    case transferFailed
+    case cancelled
+
+    /// One sentence for the alert, in the app's voice: what happened, and
+    /// what the person can do about it.
+    var message: String {
+        switch self {
+        case .unsupported:
+            "This Host cannot open files."
+        case .notConnected:
+            "The Host is not connected."
+        case .pathNotAbsolute:
+            "Enter a full path, starting with / or ~/."
+        case .notFound(let path):
+            "There is no file at \(path) on the Host."
+        case .permissionDenied(let path):
+            "The Host refused to read \(path). Check its permissions."
+        case .notReadable(let path):
+            "\(path) is not a file that can be opened — it may be a folder."
+        case .tooLarge(let byteCount):
+            """
+            That file is \(Self.describe(byteCount)). Kelpie opens files up to \
+            \(Self.describe(Self.maximumByteCount)).
+            """
+        case .transferFailed:
+            "The file could not be downloaded from the Host."
+        case .cancelled:
+            "The download was cancelled."
+        }
+    }
+
+    private static func describe(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
     }
 }
 

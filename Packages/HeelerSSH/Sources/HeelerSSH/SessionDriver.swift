@@ -1187,6 +1187,7 @@ actor SessionDriver {
     func readSFTPFileIfPresent(
         id: UInt64,
         path: String,
+        maximumByteCount: Int? = nil,
         timeout: Duration
     ) async throws -> Data? {
         guard Self.isValidSFTPPath(path) else { throw SSHError.channelFailed }
@@ -1206,6 +1207,11 @@ actor SessionDriver {
                     deadline: deadline)
                 {
                     contents.append(chunk)
+                    // Checked per chunk, not per file: a path that streams
+                    // without end reports no size to check beforehand.
+                    if let maximumByteCount, contents.count > maximumByteCount {
+                        throw SSHError.responseTooLarge(limit: maximumByteCount)
+                    }
                 }
                 try await closeSFTPFileWithinUse(
                     sftpID: id,

@@ -76,6 +76,30 @@ struct TerminalMouseReportingTests {
         #expect(tracker.remoteRightClickSequence(column: 4, row: 2) == nil)
     }
 
+    /// A drag is a press, motion reports while the button is held, and a
+    /// release. Motion sets bit 5 of the button code — left-drag is 0 + 32.
+    @Test func motionReportsCarryTheHeldButton() {
+        #expect(
+            TerminalMouseEncoding.sgr.report(
+                button: .left, column: 20, row: 10, isMotion: true)
+                == Data("\u{1B}[<32;20;10M".utf8))
+        #expect(
+            TerminalMouseEncoding.sgr.report(
+                button: .right, column: 20, row: 10, isMotion: true)
+                == Data("\u{1B}[<34;20;10M".utf8))
+        // Legacy biases the same code by 32: 0 + 32 motion + 32 bias = 64.
+        #expect(
+            TerminalMouseEncoding.legacy.report(
+                button: .left, column: 1, row: 1, isMotion: true)
+                == Data([0x1B, 0x5B, 0x4D, 64, 33, 33]))
+        // A release is a release: legacy still reports button 3, and the
+        // motion flag has no place on it.
+        #expect(
+            TerminalMouseEncoding.legacy.report(
+                button: .left, column: 1, row: 1, isRelease: true, isMotion: true)
+                == Data([0x1B, 0x5B, 0x4D, 35, 33, 33]))
+    }
+
     @Test func bracketedPasteFollowsDECSET2004() {
         var tracker = TerminalModeTracker()
         #expect(!tracker.usesBracketedPaste)

@@ -286,6 +286,10 @@ actor HeelerSSHTransport: Transport {
     /// protocol 20.
     static let generatedProtocolVersion = 20
     static let maximumResponseBytes = 1_048_576
+    /// A file download is not a request: the per-request deadline is sized
+    /// for an RPC round trip, and 64 MB over a domestic uplink is minutes.
+    /// Still bounded — a wedged read has to end somewhere.
+    static let downloadTimeout = Duration.seconds(300)
     static let maxConcurrentForwardingChannels =
         SSHChannelAdmission.Limits.production.ordinaryForwarding
     static let maxConcurrentExecChannels =
@@ -1272,6 +1276,161 @@ actor HeelerSSHTransport: Transport {
                 remoteFilename: file.remoteFilename),
             progress: progress)
         return try StagedFile(path: path)
+    }
+
+    /// The return leg of staging: one Host file read over the same SFTP
+    /// subsystem an upload uses, into app-private temporary storage for
+    /// Quick Look.
+    ///
+    /// Whole-file, because `SSHSFTPClient` exposes a complete read and no
+    /// range read, and because a preview needs the whole thing anyway — hence
+    /// the 64 MB cap, checked against the Host's own `stat` before a byte
+    /// moves. Progress is therefore two edges, not a stream.
+    func downloadFile(
+        remotePath: String,
+        progress: @escaping @Sendable (AttachmentStageProgress) async -> Void
+    ) async throws -> URL {
+        let path = try await resolvedHostFilePath(remotePath)
+        guard connected, await connection.isConnected else {
+            throw HostFileDownloadError.notConnected
+        }
+        await progress(AttachmentStageProgress(transferredBytes: 0, totalBytes: 0))
+        do {
+            return try await channelAdmission.withChannel(.ordinarySession) {
+                try await self.performDownload(path: path, progress: progress)
+            }
+        } catch let error as HostFileDownloadError {
+            throw error
+        } catch is CancellationError {
+            throw HostFileDownloadError.cancelled
+        } catch {
+            throw Task.isCancelled
+                ? HostFileDownloadError.cancelled : HostFileDownloadError.transferFailed
+        }
+    }
+
+    /// `~` and `~/…` resolve against the Host's home, which the transport
+    /// already resolves once per connection for the socket path. Everything
+    /// else has to be absolute: a relative path has no cwd to be relative to.
+    private func resolvedHostFilePath(_ remotePath: String) async throws -> String {
+        let path = remotePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { throw HostFileDownloadError.pathNotAbsolute }
+        if path.hasPrefix("/") { return path }
+        guard path == "~" || path.hasPrefix("~/") else {
+            throw HostFileDownloadError.pathNotAbsolute
+        }
+        let home: String
+        do {
+            home = try await remoteHomeDirectory()
+        } catch {
+            throw HostFileDownloadError.transferFailed
+        }
+        let base = home.hasSuffix("/") ? String(home.dropLast()) : home
+        return path == "~" ? base : base + String(path.dropFirst(1))
+    }
+
+    private func performDownload(
+        path: String,
+        progress: @escaping @Sendable (AttachmentStageProgress) async -> Void
+    ) async throws -> URL {
+        let sftp: SSHSFTPClient
+        do {
+            sftp = try await connection.openSFTP(timeout: requestTimeout)
+        } catch SSHError.sftpUnavailable {
+            throw HostFileDownloadError.transferFailed
+        } catch {
+            if Task.isCancelled { throw HostFileDownloadError.cancelled }
+            throw HostFileDownloadError.transferFailed
+        }
+        let operationID = UUID()
+        // Tracked with the staging clients so `close()` tears a download's
+        // subsystem down with the connection rather than leaking it.
+        imageStageClients[operationID] = sftp
+
+        do {
+            let attributes = try await sftp.attributes(at: path, timeout: requestTimeout)
+            // A `stat` that reports no size at all is not a regular file this
+            // can preview — and it is exactly the shape (a FIFO, a `/dev`
+            // node) whose read never ends. Refuse before opening it.
+            guard let size = attributes.size else {
+                throw HostFileDownloadError.notReadable(path: path)
+            }
+            let total = Int64(clamping: size)
+            guard total > 0 || attributes.permissions != nil else {
+                throw HostFileDownloadError.notReadable(path: path)
+            }
+            guard total <= HostFileDownloadError.maximumByteCount else {
+                throw HostFileDownloadError.tooLarge(byteCount: total)
+            }
+            // The size above is the Host's word, not a promise: the read
+            // carries the same budget and stops the moment it is passed, so a
+            // lying stat costs one cap's worth of memory rather than a
+            // 300-second unbounded read.
+            let contents: Data?
+            do {
+                contents = try await sftp.readFileIfPresent(
+                    at: path,
+                    maximumByteCount: Int(HostFileDownloadError.maximumByteCount),
+                    timeout: Self.downloadTimeout)
+            } catch SSHError.responseTooLarge(let limit) {
+                throw HostFileDownloadError.tooLarge(byteCount: Int64(limit))
+            }
+            guard let contents else {
+                throw HostFileDownloadError.notFound(path: path)
+            }
+            try Task.checkCancellation()
+            let destination = try Self.downloadDestination(for: path)
+            try contents.write(to: destination, options: [.atomic, .completeFileProtection])
+            imageStageClients[operationID] = nil
+            try await sftp.close(timeout: requestTimeout)
+            await progress(
+                AttachmentStageProgress(
+                    transferredBytes: Int64(contents.count),
+                    totalBytes: max(total, Int64(contents.count))))
+            return destination
+        } catch {
+            imageStageClients[operationID] = nil
+            try? await sftp.close(timeout: .seconds(2))
+            if Task.isCancelled { throw HostFileDownloadError.cancelled }
+            throw Self.downloadError(from: error, path: path)
+        }
+    }
+
+    /// SFTP status codes, as the v3 protocol numbers them: 2 is no such file,
+    /// 3 is permission denied, and 4 ("failure") is what a directory or a
+    /// special file answers an open-for-read with.
+    private static func downloadError(from error: any Error, path: String)
+        -> HostFileDownloadError
+    {
+        if let downloadError = error as? HostFileDownloadError { return downloadError }
+        guard let sshError = error as? SSHError else { return .transferFailed }
+        switch sshError {
+        case .sftpFailure(let status):
+            switch status {
+            case 2: return .notFound(path: path)
+            case 3: return .permissionDenied(path: path)
+            case 4: return .notReadable(path: path)
+            default: return .transferFailed
+            }
+        case .cancelled: return .cancelled
+        default: return .transferFailed
+        }
+    }
+
+    /// `tmp/kelpie-downloads/<uuid>/<name>`: one directory per download, so
+    /// two files of the same name never collide and the viewer can delete the
+    /// whole directory when its sheet closes.
+    private static func downloadDestination(for remotePath: String) throws -> URL {
+        let name = URL(fileURLWithPath: remotePath).lastPathComponent
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kelpie-downloads", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700])
+        return directory.appendingPathComponent(
+            name.isEmpty || name == "/" ? "file" : name, isDirectory: false)
     }
 
     private func stage(
