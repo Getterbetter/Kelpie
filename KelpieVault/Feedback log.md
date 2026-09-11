@@ -71,8 +71,13 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 ### Round 5 feedback (2026-09-11)
 
 - **Split View works well.**
-- **herdr's sidebar is either impossible to touch with a tap or not moveable with a tap; it only works with the mouse.**
+- **herdr's sidebar is either impossible to touch with a tap or not moveable with a tap; it only works with the mouse.** *Clarified after a diagnostic round:* workspace and agent taps **work fine**; the ask is **resizing the side pane by touch** (dragging its edge with a finger), which only works with the mouse. (A local test also showed herdr accepts a bare click on a sidebar row with no pointer motion.)
 - **Selecting text by touch**: a double tap selects one word and there is no way to extend it. He would like iPadOS-style selection handles. Highlighting with the trackpad or mouse is fine.
+
+### Round 6 feedback (2026-09-11, first build)
+
+- **Selection handles appear**, but tapping a handle to drag it makes the selection disappear.
+- **Long-press-then-drag does not respond to touch**; the sidebar still resizes with the mouse. *Second try with the trace on:* **dragging worked** — but "there is no tap because there's no haptic on an iPad; might need another way to signal" that the hold has registered.
 
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
