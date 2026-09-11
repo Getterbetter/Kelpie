@@ -119,9 +119,7 @@ rate-limit windows.
 
 ## Deploy
 
-The production Worker is deployed at `https://heeler-apns.bybee.dev`. Its
-custom domain is declared in `wrangler.toml`, keeping deploys on the canonical
-origin and disabling the fallback `workers.dev` route. The retired
+Kelpie's production Worker is deployed at `https://kelpie-apns.getter-tilbury-0m.workers.dev` on the free `workers.dev` address (`workers_dev = true`; no custom domain). The retired
 `herdr-apns.bybee.dev` still routes to the same Worker while deployed plugins
 migrate off it; see the comment on that route in `wrangler.toml`.
 

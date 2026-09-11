@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const DEFAULT_RELAY_URL = "https://heeler-apns.bybee.dev";
+export const DEFAULT_RELAY_URL = "https://kelpie-apns.getter-tilbury-0m.workers.dev";
 
 // Endpoints that shipped as the default before. A config still naming one is
 // treated as unset, so it migrates to DEFAULT_RELAY_URL instead of being
@@ -9,6 +9,7 @@ export const DEFAULT_RELAY_URL = "https://heeler-apns.bybee.dev";
 export const LEGACY_DEFAULT_RELAY_URLS = new Set([
   "https://herdr-push-relay.69709991236.workers.dev",
   "https://herdr-apns.bybee.dev",
+  "https://heeler-apns.bybee.dev",
 ]);
 const DEFAULT_DEBOUNCE_MS = 5000;
 const DEFAULT_ACTIVITY_DEBOUNCE_MS = 1500;

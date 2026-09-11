@@ -166,7 +166,7 @@ struct NotificationRegistrationCeremonyTests {
 
         let written = try #require(await transport.notificationConfig)
         let config = try NotificationConfigFile.decode(written)
-        #expect(config.relayURL == "https://heeler-apns.bybee.dev")
+        #expect(config.relayURL == "https://kelpie-apns.getter-tilbury-0m.workers.dev")
     }
 
     @Test func registerWithARelayURLWritesItPreservingOtherFields() async throws {
