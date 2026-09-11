@@ -55,6 +55,12 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ## [Unreleased]
 
+### Added
+
+- A Welcome screen with the Mac-side setup steps replaces the empty "No Hosts"
+  panel, and the Kelpie menu gains Setup Guide. Pasting the Pairing Code is the
+  primary way in; typing it and scanning the QR are the fallbacks. (Kelpie)
+
 ### Changed
 
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
@@ -67,6 +73,10 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - Escape and Cmd+. reach the remote client. As a text-input first responder
   the terminal lost both to iPadOS before the key ever arrived; they are now
   claimed as shortcuts, the way the Ctrl chords already were. (Kelpie)
+- The pairing QR scanner runs at accurate quality instead of fast; a Pairing
+  Code is a dense version-11 code drawn in half-block glyphs on a Mac screen.
+  The plugin no longer cuts into the QR itself when its pane is too short;
+  it says how many rows it needs and points at copying the code. (Kelpie)
 - Option+Backspace and Option+arrows do word-wise editing. The terminal sends
   the ESC-prefixed sequences for delete word, word left, word right and
   delete word forward, instead of a plain Backspace or cursor step, and the

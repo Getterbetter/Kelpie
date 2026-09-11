@@ -64,8 +64,17 @@ final class HostRemovalStore {
 /// Host management (#14): the catalog of Hosts with add/edit/remove, each
 /// row leading into that Host's onboarding checklist.
 struct HostListView: View {
+    /// An add-Host route to open on arrival, chosen by whatever presented
+    /// this list — the Welcome screen's three buttons, today.
+    enum InitialAction {
+        case scan
+        case paste
+        case addManually
+    }
+
     let store: HostStore
     private let initialHostID: Host.ID?
+    private let initialAction: InitialAction?
     private let connectionStatuses: [Host.ID: EventsSessionStatus]
     private let standingFailures: [Host.ID: TransportError]
     private let latencies: [Host.ID: Duration]
@@ -76,12 +85,17 @@ struct HostListView: View {
     @State private var removal: HostRemovalStore
     @State private var isAddingHost = false
     @State private var isScanningToPair = false
+    /// Which entry the pairing sheet opens on. Carried alongside
+    /// `isScanningToPair` so one sheet serves both routes.
+    @State private var pairingEntry: PairingScanView.Entry = .camera
     @State private var manualFallbackRequested = false
+    @State private var didRunInitialAction = false
     @State private var path: [Host.ID] = []
 
     init(
         store: HostStore,
         initialHostID: Host.ID? = nil,
+        initialAction: InitialAction? = nil,
         connectionStatuses: [Host.ID: EventsSessionStatus] = [:],
         standingFailures: [Host.ID: TransportError] = [:],
         latencies: [Host.ID: Duration] = [:],
@@ -90,6 +104,7 @@ struct HostListView: View {
     ) {
         self.store = store
         self.initialHostID = initialHostID
+        self.initialAction = initialAction
         self.connectionStatuses = connectionStatuses
         self.standingFailures = standingFailures
         self.latencies = latencies
@@ -118,7 +133,7 @@ struct HostListView: View {
                         // Scan to Pair is the primary add-Host action; the
                         // manual form is the fallback (ADR 0007).
                         Button("Scan to Pair", systemImage: "qrcode.viewfinder") {
-                            isScanningToPair = true
+                            presentPairing(entry: .camera)
                         }
                         .buttonStyle(.borderedProminent)
                         Button("Add Manually") { isAddingHost = true }
@@ -142,7 +157,7 @@ struct HostListView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Scan to Pair", systemImage: "qrcode.viewfinder") {
-                        isScanningToPair = true
+                        presentPairing(entry: .camera)
                     }
                     .disabled(store.catalogLoadError != nil)
                 }
@@ -186,7 +201,7 @@ struct HostListView: View {
             ) {
                 // A successful Pairing lands in the same onboarding preflight
                 // a manually added Host enters (session discovery included).
-                PairingScanView(catalog: store) { paired in
+                PairingScanView(catalog: store, entry: pairingEntry) { paired in
                     path.append(paired.id)
                 } onAddManually: {
                     manualFallbackRequested = true
@@ -223,6 +238,15 @@ struct HostListView: View {
             } message: {
                 Text(removal.errorMessage ?? "")
             }
+            .task {
+                guard !didRunInitialAction, let initialAction else { return }
+                didRunInitialAction = true
+                switch initialAction {
+                case .scan: presentPairing(entry: .camera)
+                case .paste: presentPairing(entry: .paste)
+                case .addManually: isAddingHost = true
+                }
+            }
             .task(id: initialHostID) {
                 guard
                     path.isEmpty,
@@ -232,6 +256,11 @@ struct HostListView: View {
                 path.append(initialHostID)
             }
         }
+    }
+
+    private func presentPairing(entry: PairingScanView.Entry) {
+        pairingEntry = entry
+        isScanningToPair = true
     }
 
     private var removalConfirmationPresented: Binding<Bool> {
