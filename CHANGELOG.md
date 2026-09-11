@@ -157,6 +157,22 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   private temp folder on the Host and its path is typed into the focused pane,
   the way herdr's own remote image paste works. (Kelpie)
 
+- Kelpie resizes with the iPad. Declaring all four orientations lets iPadOS put
+  the window in Split View, Slide Over and Stage Manager, and the terminal's
+  default font size follows the window's width — 12 pt at full width, 11 pt
+  around a half, 10 pt narrower. A zoom you chose is kept and applied on top,
+  and under 500 pt the Kelpie menu shows as an icon alone. (Kelpie)
+
+- herdr's desktop notifications arrive on the iPad. With
+  `ui.toast.delivery = "terminal"` on the Host, a notification herdr asks the
+  terminal for is shown as an in-app banner while Kelpie is open, and as a
+  notification when it is not. (Kelpie)
+
+- Open a file from the Host on the iPad. "Open File on Host…" in the Kelpie
+  menu takes a path, downloads the file over SFTP (up to 64 MB), and shows it
+  in Quick Look with a share button for saving it to Files. The copy is
+  deleted when the preview closes. (Kelpie)
+
 ### Changed
 
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
@@ -199,6 +215,18 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   height and its test measured only frame minimums, not the rendered text.
   Four three-row cards exceed ActivityKit's 160 pt limit, so four rows remain
   only for two-row layouts. (#281)
+- Files dropped on the terminal are staged again. A drop's item providers stop
+  working the moment the drop ends, and the upload only asked them for their
+  contents afterwards, so the item animated away and nothing happened.
+  Documents that are not images — PDFs, text files, archives — are now
+  accepted as well, instead of being refused as plain text. (Kelpie)
+- Cmd+arrow sends Home, End, Page Up and Page Down, for the keys the Magic
+  Keyboard does not have. (Kelpie)
+- The terminal bell is a light haptic instead of nothing at all, at most one
+  every 300 ms. (Kelpie)
+- Dragging the Split View divider no longer sends the remote terminal a resize
+  per layout pass: the first is sent immediately and the rest collapse into the
+  size the drag settles on. (Kelpie)
 
 ## [0.1.6] - 2026-09-09
 

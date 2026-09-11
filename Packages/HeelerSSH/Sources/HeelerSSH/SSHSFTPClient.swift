@@ -48,13 +48,21 @@ public final class SSHSFTPClient: Sendable {
     /// Reads one complete optional file without exposing a native read handle.
     /// A missing file is the expected `nil` case; every other SFTP status is
     /// surfaced as a path-free `SSHError`.
+    ///
+    /// `maximumByteCount` bounds the read as it runs, throwing
+    /// `SSHError.responseTooLarge` the moment the accumulated bytes exceed it.
+    /// A `stat` is not a promise — a FIFO or a `/dev` node reports nothing and
+    /// streams forever — so a caller reading an untrusted path passes a budget
+    /// rather than trusting the size it was told.
     public func readFileIfPresent(
         at path: String,
+        maximumByteCount: Int? = nil,
         timeout: Duration
     ) async throws -> Data? {
         try await driver.readSFTPFileIfPresent(
             id: id,
             path: path,
+            maximumByteCount: maximumByteCount,
             timeout: timeout)
     }
 

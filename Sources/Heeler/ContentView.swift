@@ -129,6 +129,11 @@ struct ContentView: View {
                 incomingActivityRoute = route
             }
         }
+        // Kelpie: herdr's own desktop notifications (OSC 9 / OSC 777) share
+        // the Agent Notification banner while the app is foregrounded, so the
+        // relay is handed the same store the overlay draws from. Every other
+        // start-up task lives in `HeelerAppModel.start()`.
+        .task { TerminalDesktopNotificationRelay.shared.connect(bannerStore: app.bannerStore) }
         // An existing window prefers Heeler's own links, so a Live Activity
         // tap lands in a window that is already open instead of spawning
         // one. A dragged row's activity is not a `heeler://` link, so it

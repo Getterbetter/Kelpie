@@ -237,6 +237,22 @@ final class ConsoleStore {
         }
     }
 
+    /// The download side of the same seam: `HostFileViewer` holds one of
+    /// these for as long as its sheet is up, and a Host edit underneath it
+    /// has to be followed rather than captured.
+    func fileDownloader(for hostID: Host.ID) -> HostFileDownloader {
+        { [weak self] remotePath, reporter in
+            guard let downloader = await self?.liveFileDownloader(for: hostID) else {
+                throw HostFileDownloadError.notConnected
+            }
+            return try await downloader(remotePath, reporter)
+        }
+    }
+
+    private func liveFileDownloader(for hostID: Host.ID) -> HostFileDownloader? {
+        projections[hostID]?.fileDownloader()
+    }
+
     private func liveTerminalRunner(for hostID: Host.ID) -> TerminalSessionRunner? {
         projections[hostID]?.terminalRunner()
     }

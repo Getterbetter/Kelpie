@@ -104,6 +104,12 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        # iPadOS only offers Split View, Slide Over and free Stage Manager
+        # resizing to apps that declare all four orientations — three of them
+        # is what pinned the window to one shape. Declared for the iPad only,
+        # so the iPhone keeps its three (upside-down on a phone is nobody's
+        # intent). `UIRequiresFullScreen` is deliberately absent: setting it
+        # would opt straight back out of multitasking.
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         # ActivityKit starts Live Activities from the app; HeelerWidgets renders them.
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
