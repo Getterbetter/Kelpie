@@ -36,6 +36,14 @@
       "notice": "GhosttyTheme-MIT.txt"
     },
     {
+      "id": "Heeler",
+      "displayName": "Heeler",
+      "version": null,
+      "source": "https://github.com/ZingerLittleBee/Heeler (Kelpie is a fork of Heeler)",
+      "spdx": "Apache-2.0",
+      "notice": "Heeler-Apache-2.0.txt"
+    },
+    {
       "id": "IBMPlexMono",
       "displayName": "IBM Plex Mono",
       "version": null,

@@ -60,6 +60,9 @@ passed explicitly.
 
 1. **Preflight.** Tooling present and `gh` authenticated; clean tree; on
    `main` and level with `origin/main`; `[Unreleased]` non-empty; the
+   release branch and remote are `PUBLISH_BRANCH` and `PUBLISH_REMOTE`
+   (defaulting to `main` and `origin`), so this fork publishes with
+   `PUBLISH_REMOTE=origin PUBLISH_BRANCH=kelpie make publish`; the
    target tag absent locally *and* on the remote — a local-only check
    passes right up until the push fails, by which time the release
    commit has already landed.

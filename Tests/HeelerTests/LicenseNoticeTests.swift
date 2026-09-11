@@ -17,6 +17,7 @@ struct LicenseNoticeInventoryTests {
     private static let requiredComponentIDs: Set<String> = [
         "Ghostty",
         "GhosttyTheme",
+        "Heeler",
         "IBMPlexMono",
         "JetBrainsMono",
         "MSDisplayLink",

@@ -348,7 +348,7 @@ private struct AgentActivityLinked<Content: View>: View {
             .buttonStyle(.plain)
             .tint(AgentActivitySemanticStyle.primary(on: surface))
             .accessibilityLabel(AgentActivityNarration.rowLabel(for: agent))
-            .accessibilityHint("Opens this Agent in Heeler")
+            .accessibilityHint("Opens this Agent in Kelpie")
         } else {
             content
                 .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .leading)

@@ -100,3 +100,9 @@ Escape and Cmd+. are now claimed as priority key commands on the terminal view (
 If he does not raise them himself, the things worth asking about: trackpad two-finger scroll inside a pane · trackpad right-click opening herdr's menu · one-finger long-press as a right click · tapping a URL, especially one that ends a line · the keyboard pad appearing when the Magic Keyboard is detached · Ctrl+B prefix · the floating menu and the Agents cover · whether Return submits in the old console's Keyboard mode.
 
 Related: [[Kelpie]] · [[Testing status]] · [[Open items]] · [[Decisions]]
+
+### App Store direction (2026-09-11)
+
+Anthony, after round 7: "The other task required is getting this into the app store. It's going to be a free app, potentially with a donate to the dev option at some point. No internal or external testing - I'll start a reddit page for it and people can post there."
+
+Read as: ship Kelpie to the App Store as a free app; no TestFlight tester groups (the upload still goes through App Store Connect, testing is just skipped); a donate option is a later version, not 1.0; the subreddit becomes the support channel. The push-to-GitHub question (item 0) is parked until he is at his desk.
