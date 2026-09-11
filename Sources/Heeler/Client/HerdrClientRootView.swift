@@ -43,6 +43,8 @@ struct HerdrClientRootView: View {
     @State private var hostSheet: HostSheet?
     @State private var manualReconnectInFlightHostIDs: Set<Host.ID> = []
     @State private var isHovering = false
+    /// True while the menu capsule is held down, from the button style below.
+    @State private var isPressed = false
     @State private var isSelectingPhoto = false
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var isSelectingFile = false
@@ -153,6 +155,11 @@ struct HerdrClientRootView: View {
         .animation(.snappy, value: bannerStore.banner)
         .fullScreenCover(isPresented: $isShowingConsole) {
             consoleScreen(onClose: { isShowingConsole = false })
+                // On the cover's own content, not inside `consoleScreen`:
+                // the Console screen is the cover's role alone, and a
+                // second use of it — as a root, as it once was — must not
+                // clear the router's path by being torn down.
+                .onDisappear { notificationRouter.path = [] }
         }
         .sheet(
             isPresented: $isShowingSetupGuide,
@@ -260,9 +267,6 @@ struct HerdrClientRootView: View {
             activity: activity,
             onClose: onClose
         )
-        // The cover owns the deep link while it is up; dropping the path on
-        // dismiss keeps the next notification a change the Console sees.
-        .onDisappear { notificationRouter.path = [] }
     }
 
     /// Still sized to sit over the empty right end of herdr's own tab strip,
@@ -336,7 +340,12 @@ struct HerdrClientRootView: View {
         // Near-opaque at rest: the material capsule already separates it from
         // whatever herdr is drawing underneath, and a pointer is not the only
         // way this screen gets used.
-        .opacity(isHovering ? 1 : 0.92)
+        .opacity(isHovering || isPressed ? 1 : 0.92)
+        // A press lifts the capsule the way a hovering pointer does. A `Menu`
+        // only routes a `ButtonStyle` to its label under `.button` menu style;
+        // the style itself only reports the press and draws the label as is.
+        .menuStyle(.button)
+        .buttonStyle(PressReportingButtonStyle { isPressed = $0 })
         .onHover { isHovering = $0 }
         .hoverEffect(.highlight)
         .padding(12)
@@ -371,6 +380,21 @@ struct HerdrClientRootView: View {
         await console.retryHost(id)
         try? await Task.sleep(for: .milliseconds(1_200))
         manualReconnectInFlightHostIDs.remove(id)
+    }
+}
+
+/// Reports its button's press state and draws nothing of its own. SwiftUI
+/// gives a `Menu` label no `isPressed` to read, and `hoverEffect` answers a
+/// pointer alone; this is the smallest thing that tells the label a finger is
+/// on it.
+private struct PressReportingButtonStyle: ButtonStyle {
+    let isPressedDidChange: (Bool) -> Void
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                isPressedDidChange(isPressed)
+            }
     }
 }
 

@@ -114,7 +114,6 @@ struct ContentView: View {
             activity: activity,
             hardwareKeyboard: hardwareKeyboard
         )
-        .environment(hardwareKeyboard)
         // Automatic input mode is a function of this one fact, so it is
         // pushed from the single observer rather than read in three places.
         .onChange(of: hardwareKeyboard.isConnected, initial: true) { _, isConnected in

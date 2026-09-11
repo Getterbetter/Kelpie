@@ -104,4 +104,22 @@ struct TerminalGridPointMapper {
         let row = Int(((point.y - origin.y) / cellSize.height).rounded(.down)) + 1
         return (min(max(column, 1), columns), min(max(row, 1), rows))
     }
+
+    /// Returns the cell under `point` only when the point is on the grid
+    /// itself — nil in the padding at the top and left, and in whatever whole
+    /// cells did not divide into on the right and bottom.
+    ///
+    /// Link resolution uses this rather than ``cell(at:)``: clamping is right
+    /// for a mouse report, where the edge cell is the honest answer to a drag
+    /// that left the grid, and wrong for a tap, where it would open a URL that
+    /// is not under the finger.
+    func strictCell(at point: CGPoint) -> (column: Int, row: Int)? {
+        guard let cell = cell(at: point) else { return nil }
+        let origin = gridOrigin
+        guard point.x >= origin.x, point.y >= origin.y,
+            point.x < origin.x + CGFloat(columns) * cellSize.width,
+            point.y < origin.y + CGFloat(rows) * cellSize.height
+        else { return nil }
+        return cell
+    }
 }
