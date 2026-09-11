@@ -7,7 +7,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 - Kelpie is a private iPadOS fork of Heeler, an SSH client for herdr. Branch `kelpie`, 18 commits on top of upstream Heeler (including the vault), remote `upstream` only, nothing pushed anywhere.
 - Round 1 (2026-09-10): rebrand, iPad target, trackpad right-click → herdr's menu, touch long-press → right-click, two-finger long-press → selection sheet, trackpad/mouse-wheel scrolling, sidebar collapse. Reviewed, two fixes applied.
 - Round 2 (2026-09-11): herdr's own TUI is the root screen (full-screen terminal running `herdr` over SSH), Heeler's console demoted behind a floating `ellipsis.circle` menu (Agents, Hosts, Switch host, Settings, Reconnect), automatic keyboard mode from hardware-keyboard presence, tappable URLs opening in the default browser, 12pt default font on iPad. Reviewed, six fixes applied (commit `58199a7`).
-- The round-2 Release build is installed on Anthony's 11-inch iPad Pro and paired with the Mac mini. He is testing it and will bring feedback.
+- Round 3 (2026-09-11, commit `77cabda`): from round-2 feedback. Escape and Cmd+. now reach herdr (claimed as priority `UIKeyCommand`s on `HeelerTerminalView`; iPadOS's text-input system consumed them), Option+Backspace / Option+arrows / Option+Fn+Delete send ESC-prefixed word keys (`TerminalHardwareKeyMapping`, unit-tested), and the floating menu is a labelled host capsule with Switch Host and Hosts first. Reviewed, three fixes applied. Onboarding is a proposal in `KelpieVault/Onboarding proposal.md`, not built.
+- The round-3 Release build is installed on Anthony's 11-inch iPad Pro. Nothing in it is device-confirmed yet.
 
 ## What Anthony will bring
 
@@ -35,7 +36,7 @@ Record his feedback in `KelpieVault/Feedback log.md` under "Round 2 feedback" be
 
 ## Open items, in priority order
 
-1. Act on round-2 feedback.
+1. Confirm round 3 on the iPad (list in `KelpieVault/Open items.md`), then decide on the onboarding proposal.
 2. Return-to-submit in the console's Keyboard mode (partial fix, needs device confirmation).
 3. Own push relay: deploy `relay/` as a Cloudflare Worker with Anthony's APNs key and point the app at it. Outward-facing, needs his explicit yes. Required for any App Store build.
 4. TestFlight upload (needs his yes; `scripts/ExportOptions.plist` already carries team 8JQWBQKEXX).
