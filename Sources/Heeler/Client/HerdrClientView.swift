@@ -15,8 +15,12 @@ struct HerdrClientView: View {
     let terminal: TerminalSettings
     let activity: AppActivityCoordinator
     let hardwareKeyboard: HardwareKeyboardObserver
+    /// Owned by the view above so the media store built alongside `store` can
+    /// read the live bracketed-paste mode from the same handle this screen
+    /// drives the keyboard with.
+    let keyboardControl: TerminalKeyboardControl
+    let media: HerdrMediaStagingStore
 
-    @State private var keyboardControl = TerminalKeyboardControl()
     @State private var keyboardMode: TerminalKeyboardMode = .text
     @State private var keyboardInset = TerminalKeyboardInset()
     @Environment(\.colorScheme) private var colorScheme
@@ -32,6 +36,14 @@ struct HerdrClientView: View {
         }
         screen.onPaste = { text, bracketed in
             store.requestPaste(text, bracketedPaste: bracketed)
+        }
+        // Pasted and dropped photos and files: uploaded to the Host, then
+        // their paths typed here.
+        let media = self.media
+        screen.onStageItems = { providers in
+            Task { @MainActor in
+                media.stage(await MediaIntake.loadItems(from: providers))
+            }
         }
         // A hardware keyboard's keys only reach the PTY through a terminal
         // that holds first responder, and holding it raises no software
@@ -93,6 +105,10 @@ struct HerdrClientView: View {
                 .allowsHitTesting(isKeysDockPresented)
                 .accessibilityHidden(!isKeysDockPresented)
             }
+            // After the keyboard inset, where the keys dock sits: an overlay
+            // applied before it aligns to the un-inset frame and ends up
+            // behind the input row.
+            .overlay(alignment: .bottom) { HerdrMediaStagingBar(media: media) }
             // Keyboard avoidance is owned by `TerminalKeyboardInset`; UIKit's
             // keyboard safe area would resize Ghostty a second time.
             .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -218,6 +234,64 @@ struct HerdrClientView: View {
                 }
             }
             .presentationDetents([.medium, .large])
+        }
+    }
+}
+
+/// The Client's staging chrome: one capsule over herdr's own surface, with
+/// whatever commands the operation allows. It reports the same states the
+/// Agent terminal's status bar does, because it reports the same store — the
+/// Client just has no Composer to hang them under.
+private struct HerdrMediaStagingBar: View {
+    let media: HerdrMediaStagingStore
+
+    /// A finished upload has already typed its path into the pane; the bar
+    /// only says so, and then gets out of the way.
+    private var completedPath: String? {
+        guard case .completed(let outcome) = media.staging.state else { return nil }
+        return outcome.path
+    }
+
+    var body: some View {
+        if let presentation = media.presentation {
+            HStack(spacing: 12) {
+                Label(presentation.title, systemImage: presentation.icon)
+                    .font(.subheadline)
+                    .lineLimit(3)
+                ForEach(presentation.commands, id: \.self) { command in
+                    button(for: command)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
+            .padding(.bottom, 16)
+            .padding(.horizontal, 16)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(presentation.accessibilityLabel)
+            .task(id: completedPath) {
+                guard completedPath != nil else { return }
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                media.perform(.dismiss)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func button(for command: ComposerStagingStore.Command) -> some View {
+        switch command {
+        case .cancel:
+            Button("Cancel", role: .cancel) { media.perform(command) }
+        case .retry:
+            Button("Retry") { media.perform(command) }
+        case .copyPath:
+            Button("Copy Path") { media.perform(command) }
+        case .dismiss:
+            Button("Dismiss", role: .cancel) { media.perform(command) }
         }
     }
 }
