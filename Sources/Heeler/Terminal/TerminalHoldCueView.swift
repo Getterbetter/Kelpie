@@ -12,6 +12,13 @@ import UIKit
 ///
 /// Purely decorative: it never takes a touch, so the hold, the drag and every
 /// recognizer underneath carry on exactly as they would without it.
+///
+/// The disc is an inner subview and this view is a transparent full-bounds
+/// container, because the vendored `UITerminalView.updateSublayerFrames()`
+/// resizes **every** sublayer of its own layer to the terminal's bounds on
+/// each layout pass — the backing layer of a subview included. A 44 pt disc
+/// added to the terminal directly was stretched to the whole screen; one more
+/// view deep, its layer is a sublayer of this container's and is left alone.
 @MainActor
 final class TerminalHoldCueView: UIView {
     static let diameter: CGFloat = 44
@@ -24,13 +31,19 @@ final class TerminalHoldCueView: UIView {
     /// re-shows rather than being removed out from under itself.
     private var isFading = false
 
+    private let disc = UIView(
+        frame: CGRect(x: 0, y: 0, width: TerminalHoldCueView.diameter,
+            height: TerminalHoldCueView.diameter))
+
     init() {
-        super.init(
-            frame: CGRect(x: 0, y: 0, width: Self.diameter, height: Self.diameter))
+        super.init(frame: .zero)
         isUserInteractionEnabled = false
-        layer.cornerRadius = Self.diameter / 2
-        layer.borderWidth = 1.5
-        alpha = 0
+        backgroundColor = .clear
+        disc.isUserInteractionEnabled = false
+        disc.layer.cornerRadius = Self.diameter / 2
+        disc.layer.borderWidth = 1.5
+        disc.alpha = 0
+        addSubview(disc)
     }
 
     @available(*, unavailable)
@@ -43,23 +56,26 @@ final class TerminalHoldCueView: UIView {
     /// happened rather than something that was always there.
     func show(at point: CGPoint, in container: UIView) {
         isFading = false
-        layer.removeAllAnimations()
+        disc.layer.removeAllAnimations()
         applyColors(from: container.tintColor)
         if superview !== container {
             removeFromSuperview()
             container.addSubview(self)
         }
         container.bringSubviewToFront(self)
-        center = point
-        alpha = 0
-        transform = CGAffineTransform(scaleX: Self.appearScale, y: Self.appearScale)
+        frame = container.bounds
+        disc.bounds = CGRect(
+            x: 0, y: 0, width: Self.diameter, height: Self.diameter)
+        disc.center = point
+        disc.alpha = 0
+        disc.transform = CGAffineTransform(scaleX: Self.appearScale, y: Self.appearScale)
         UIView.animate(
             withDuration: Self.appearDuration,
             delay: 0,
             options: [.beginFromCurrentState, .curveEaseOut]
         ) {
-            self.alpha = 1
-            self.transform = .identity
+            self.disc.alpha = 1
+            self.disc.transform = .identity
         }
     }
 
@@ -67,7 +83,7 @@ final class TerminalHoldCueView: UIView {
     /// and a lag would read as the drag itself lagging.
     func move(to point: CGPoint) {
         guard superview != nil else { return }
-        center = point
+        disc.center = point
     }
 
     /// Fades out and removes itself. `animated: false` for a teardown that
@@ -75,9 +91,9 @@ final class TerminalHoldCueView: UIView {
     func hide(animated: Bool = true) {
         guard superview != nil else { return }
         guard animated else {
-            layer.removeAllAnimations()
+            disc.layer.removeAllAnimations()
             isFading = false
-            alpha = 0
+            disc.alpha = 0
             removeFromSuperview()
             return
         }
@@ -87,7 +103,7 @@ final class TerminalHoldCueView: UIView {
             delay: 0,
             options: [.beginFromCurrentState, .curveEaseIn]
         ) {
-            self.alpha = 0
+            self.disc.alpha = 0
         } completion: { _ in
             // A hold that began again mid-fade owns the cue now.
             guard self.isFading else { return }
@@ -98,7 +114,7 @@ final class TerminalHoldCueView: UIView {
 
     private func applyColors(from tint: UIColor?) {
         let color = tint ?? .tintColor
-        backgroundColor = color.withAlphaComponent(0.35)
-        layer.borderColor = color.withAlphaComponent(0.85).cgColor
+        disc.backgroundColor = color.withAlphaComponent(0.35)
+        disc.layer.borderColor = color.withAlphaComponent(0.85).cgColor
     }
 }
