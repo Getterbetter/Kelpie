@@ -25,6 +25,9 @@ struct HerdrClientRootView: View {
     let liveActivities: HostLiveActivityCoordinator
     let activity: AppActivityCoordinator
     let hardwareKeyboard: HardwareKeyboardObserver
+    /// Passed explicitly, like `hardwareKeyboard`: the sheet is transient but
+    /// the three loaded products should outlive it.
+    let tipJar: TipJarStore
 
     @State private var primaryHost = PrimaryHostStore()
     /// The live Client's handle, set by the screen that owns it — the same
@@ -37,6 +40,7 @@ struct HerdrClientRootView: View {
     @State private var isPreparingConsole = false
     @State private var isShowingSettings = false
     @State private var isShowingSetupGuide = false
+    @State private var isShowingTipJar = false
     /// The add-Host route the Setup Guide asked for, opened once that sheet
     /// is gone: two sheets must never overlap.
     @State private var pendingHostAction: HostListView.InitialAction?
@@ -212,7 +216,13 @@ struct HerdrClientRootView: View {
                 liveActivities: liveActivities,
                 console: console,
                 hosts: hosts.hosts,
-                inputMode: inputMode)
+                inputMode: inputMode,
+                tipJar: tipJar)
+        }
+        // Presented the same way the Setup Guide is: its own sheet, never
+        // stacked on another one.
+        .sheet(isPresented: $isShowingTipJar) {
+            TipJarView(store: tipJar)
         }
         // A notification tap routes through the Console, so the Console has
         // to be on screen for it to land.
@@ -221,6 +231,7 @@ struct HerdrClientRootView: View {
             hostSheet = nil
             isShowingSettings = false
             isShowingSetupGuide = false
+            isShowingTipJar = false
             pendingHostAction = nil
             presentConsole()
         }
@@ -302,6 +313,11 @@ struct HerdrClientRootView: View {
             }
             Button("Setup Guide", systemImage: "questionmark.circle") {
                 isShowingSetupGuide = true
+            }
+            // Last of the about-the-app group, next to Settings and the Setup
+            // Guide. Kelpie is free; this buys nothing.
+            Button("Tip the Developer…", systemImage: "heart") {
+                isShowingTipJar = true
             }
             Divider()
             // Uploaded to the Host, then typed into the focused pane as a

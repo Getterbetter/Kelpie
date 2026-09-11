@@ -54,9 +54,13 @@ struct SettingsView: View {
     /// Optional so previews and tests that only care about appearance can
     /// leave it out; the Agent Input row is hidden when it is absent.
     var inputMode: AgentInputModeSettings? = nil
+    /// Optional for the same reason as `inputMode`: the About section's "Tip
+    /// the developer" row is hidden when no tip jar was handed down.
+    var tipJar: TipJarStore? = nil
 
     static let agentListDestination = SettingsAgentListDestination.fields
     @Environment(\.dismiss) private var dismiss
+    @State private var isShowingTipJar = false
 
     static let repositoryURL = URL(string: KelpieLinks.repository)
 
@@ -71,7 +75,7 @@ struct SettingsView: View {
     /// list; the Acknowledgements entry is a navigation destination, not a
     /// static label, and its id is `acknowledgementsRouteID`.
     static var aboutRows: [AboutRow] {
-        var rows: [AboutRow] = [.version, .acknowledgements]
+        var rows: [AboutRow] = [.version, .acknowledgements, .tipJar]
         if repositoryURL != nil {
             rows.append(.repository)
         }
@@ -86,6 +90,7 @@ struct SettingsView: View {
     enum AboutRow: Equatable, Identifiable {
         case version
         case acknowledgements
+        case tipJar
         case repository
         case privacyPolicy
 
@@ -93,6 +98,7 @@ struct SettingsView: View {
             switch self {
             case .version: "settings.about.version"
             case .acknowledgements: SettingsView.acknowledgementsRouteID
+            case .tipJar: "settings.about.tipJar"
             case .repository: "settings.about.repository"
             case .privacyPolicy: "settings.about.privacyPolicy"
             }
@@ -106,7 +112,7 @@ struct SettingsView: View {
         switch row {
         case .acknowledgements:
             .acknowledgements
-        case .version, .repository, .privacyPolicy:
+        case .version, .tipJar, .repository, .privacyPolicy:
             nil
         }
     }
@@ -156,6 +162,14 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            // A sheet rather than a push: the tip jar is sized to a medium
+            // detent and brings its own navigation bar, and it is the same
+            // screen the Kelpie menu presents.
+            .sheet(isPresented: $isShowingTipJar) {
+                if let tipJar {
+                    TipJarView(store: tipJar)
+                }
+            }
         }
     }
 
@@ -174,6 +188,17 @@ struct SettingsView: View {
                     Label("Acknowledgements", systemImage: "doc.text")
                 }
                 .accessibilityIdentifier(destination.rawValue)
+            }
+        case .tipJar:
+            // Hidden when no store was handed down (previews, tests), the
+            // same way the Agent Input row is.
+            if tipJar != nil {
+                Button {
+                    isShowingTipJar = true
+                } label: {
+                    Label("Tip the Developer", systemImage: "heart")
+                }
+                .accessibilityIdentifier(AboutRow.tipJar.id)
             }
         case .repository:
             if let repositoryURL = Self.repositoryURL {
