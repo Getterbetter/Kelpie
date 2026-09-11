@@ -106,3 +106,9 @@ Related: [[Kelpie]] · [[Testing status]] · [[Open items]] · [[Decisions]]
 Anthony, after round 7: "The other task required is getting this into the app store. It's going to be a free app, potentially with a donate to the dev option at some point. No internal or external testing - I'll start a reddit page for it and people can post there."
 
 Read as: ship Kelpie to the App Store as a free app; no TestFlight tester groups (the upload still goes through App Store Connect, testing is just skipped); a donate option is a later version, not 1.0; the subreddit becomes the support channel. The push-to-GitHub question (item 0) is parked until he is at his desk.
+
+### App Store plan answers (2026-09-11)
+
+Anthony, to the eight decisions in [[App Store plan]]: "1- yes 2- what does that mean? 3- is this for notifications? If it'll be really cheap, then fine. 4- how can I give you access to cloudflare 5- fine 6- draft options 7- yep 8- I'm fine with in app purchase tip if it means less piping of infra to take payments, can be in v1.0"
+
+Read as: iPad-only for 1.0 (done); public-vs-private repo needs explaining (the privacy policy URL must be a public page); he conflated 3 (a VPS so App Review can pair with a herdr host) with 4 (the push relay) — both are cheap, clarified in the session; he wants to hand over Cloudflare access (answer: `wrangler login` in his own terminal, plus an APNs key from the developer portal); name/subtitle fine; icon options wanted; `r/KelpieApp` confirmed; a StoreKit tip jar goes into 1.0.
