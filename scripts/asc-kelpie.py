@@ -9,6 +9,13 @@
     python3 scripts/asc-kelpie.py --screenshots <dir>        # the 13-inch iPad set
     python3 scripts/asc-kelpie.py --iap-screenshots [<png>]  # the tip IAP review shot
 
+    # submission modes — also on their own; any of them switches the run
+    python3 scripts/asc-kelpie.py --attach-build
+    python3 scripts/asc-kelpie.py --review-details --contact-first A --contact-last B \
+                                  --contact-phone +61... --contact-email a@b.c
+    python3 scripts/asc-kelpie.py --review-attachment [<file.mp4>]
+    python3 scripts/asc-kelpie.py --submit
+
 Reads current state first and plans a write only where a value differs or an
 object is missing, so it is safe to re-run. It touches: app info categories,
 the en-US app info localization (subtitle, privacy policy URL), the age rating
@@ -22,11 +29,20 @@ landscape or 2064x2752 portrait), creating the set if it is missing and
 skipping any file whose fileName the set already holds.
 --iap-screenshots uploads one PNG as the App Review screenshot of each of the
 three tip IAPs, skipping any IAP that already has one; the path defaults to
-captures/tip-sheet.png beside this script's repo root.
+the uprighted tip sheet in KelpieVault/Design/Store Screenshots/iap.
 
-It never submits anything for review and never touches the app name,
-description, keywords, promotional text or what's new. GETs always run; every
-mutation goes through plan(), which only prints unless --apply is given.
+--attach-build points the editable version at the newest VALID build.
+--review-details writes the App Review contact and the notes block from
+KelpieVault/App Store copy.md, with the review host's IP and password filled
+in; the password is read at run time and is never printed.
+--review-attachment uploads the reviewer demo recording to those details.
+--submit creates the review submission, adds the version and the three tip
+IAPs as items and marks it submitted — but only once a build, screenshots,
+review details and all three IAP review screenshots are actually in place.
+
+It never touches the app name, description, keywords, promotional text or
+what's new. GETs always run; every mutation goes through plan(), which only
+prints unless --apply is given.
 
 Key 6T785PX2FV, issuer 69a6de91-…, p8 in ~/.appstoreconnect/private_keys;
 JWT minted by ~/Developer/Weights/scripts/asc-jwt.swift (never printed).
@@ -90,7 +106,16 @@ IPAD_13_DISPLAY_TYPE = "APP_IPAD_PRO_3GEN_129"
 IPAD_13_SIZES = {(2752, 2064), (2064, 2752), (2732, 2048), (2048, 2732)}
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_IAP_SCREENSHOT = os.path.join(REPO_ROOT, "captures", "tip-sheet.png")
+STORE_SHOTS = os.path.join(REPO_ROOT, "KelpieVault", "Design", "Store Screenshots")
+# The uprighted 2816x1940 tip sheet, written by
+# `swift compositor.swift --upright raw/tip-sheet.png iap/tip-sheet.png`.
+DEFAULT_IAP_SCREENSHOT = os.path.join(STORE_SHOTS, "iap", "tip-sheet.png")
+DEFAULT_REVIEW_ATTACHMENT = os.path.join(STORE_SHOTS, "review", "app-review.mp4")
+
+# The reviewer demo host from docs/guides/app-review-host.md. The password is
+# not in the repo: it is read from this file at run time and never printed.
+REVIEW_HOST_IP = "5.78.158.22"
+REVIEW_HOST_SECRET = os.path.expanduser("~/Developer/kelpie-review-host.secret")
 
 # Age rating declaration attribute types, read from Apple's AgeRatingDeclaration
 # schema (developer.apple.com, 2026-09-11). Enum attributes take NONE; boolean
@@ -115,13 +140,24 @@ SKIPPED_AGE_ATTRS = [
     "developerAgeRatingInfoUrl",
 ]
 
-USAGE = (f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply] "
-         f"[--screenshots <dir>] [--iap-screenshots [<png>]]")
+USAGE = (f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply]\n"
+         f"       [--screenshots <dir>] [--iap-screenshots [<png>]]\n"
+         f"       [--attach-build] [--review-attachment [<file>]] [--submit]\n"
+         f"       [--review-details --contact-first <f> --contact-last <l>\n"
+         f"                         --contact-phone <p> --contact-email <e>]")
 
 APPLY = False
 SCREENSHOTS_DIR = None
 IAP_SCREENSHOT = None
 IAP_SCREENSHOTS_MODE = False
+ATTACH_BUILD_MODE = False
+REVIEW_DETAILS_MODE = False
+REVIEW_ATTACHMENT = None
+REVIEW_ATTACHMENT_MODE = False
+SUBMIT_MODE = False
+CONTACT = {}
+_CONTACT_FLAGS = {"--contact-first": "contactFirstName", "--contact-last": "contactLastName",
+                  "--contact-phone": "contactPhone", "--contact-email": "contactEmail"}
 _args = list(sys.argv[1:])
 while _args:
     arg = _args.pop(0)
@@ -138,15 +174,39 @@ while _args:
         # The optional path argument: anything that is not the next flag.
         if _args and not _args[0].startswith("--"):
             IAP_SCREENSHOT = _args.pop(0)
+    elif arg == "--attach-build":
+        ATTACH_BUILD_MODE = True
+    elif arg == "--review-details":
+        REVIEW_DETAILS_MODE = True
+    elif arg in _CONTACT_FLAGS:
+        if not _args:
+            sys.exit(USAGE)
+        CONTACT[_CONTACT_FLAGS[arg]] = _args.pop(0)
+    elif arg == "--review-attachment":
+        REVIEW_ATTACHMENT_MODE = True
+        if _args and not _args[0].startswith("--"):
+            REVIEW_ATTACHMENT = _args.pop(0)
+    elif arg == "--submit":
+        SUBMIT_MODE = True
     else:
         sys.exit(USAGE)
 if IAP_SCREENSHOTS_MODE and IAP_SCREENSHOT is None:
     IAP_SCREENSHOT = DEFAULT_IAP_SCREENSHOT
+if REVIEW_ATTACHMENT_MODE and REVIEW_ATTACHMENT is None:
+    REVIEW_ATTACHMENT = DEFAULT_REVIEW_ATTACHMENT
+if REVIEW_DETAILS_MODE and len(CONTACT) != 4:
+    sys.exit("--review-details needs --contact-first, --contact-last, "
+             "--contact-phone and --contact-email\n" + USAGE)
+if CONTACT and not REVIEW_DETAILS_MODE:
+    sys.exit("--contact-* only mean anything with --review-details\n" + USAGE)
 ASSET_MODE = SCREENSHOTS_DIR is not None or IAP_SCREENSHOTS_MODE
+SUBMISSION_MODE = (ATTACH_BUILD_MODE or REVIEW_DETAILS_MODE
+                   or REVIEW_ATTACHMENT_MODE or SUBMIT_MODE)
 
 planned = []
 applied = []
 already = []
+blocked = []
 
 _jwt = None
 
@@ -195,11 +255,21 @@ def _short(body):
     return b
 
 
-def plan(method, path, body, what):
-    """Print a mutation; execute it only under --apply."""
+def plan(method, path, body, what, redact=None):
+    """Print a mutation; execute it only under --apply.
+
+    redact maps attribute names to the placeholder printed in their place, so a
+    secret inside a body (the review notes carry the host password) never
+    reaches the terminal or a log. The body actually sent is untouched."""
+    shown = _short(body)
+    if redact and isinstance(shown.get("data"), dict):
+        attrs = shown["data"].get("attributes", {})
+        for name, placeholder in redact.items():
+            if name in attrs:
+                attrs[name] = placeholder
     print(f"{'APPLY' if APPLY else 'PLAN '} {what}")
     print(f"        {method} {path}")
-    print(f"        {json.dumps(_short(body), separators=(',', ':'))}")
+    print(f"        {json.dumps(shown, separators=(',', ':'))}")
     if APPLY:
         r = call(method, path, body)
         applied.append(what)
@@ -211,6 +281,22 @@ def plan(method, path, body, what):
 def unchanged(what):
     already.append(what)
     print(f"OK    {what}")
+
+
+def blocker(what):
+    """A gate --submit will not go through. Recorded for the summary."""
+    blocked.append(what)
+    print(f"BLOCK {what}")
+
+
+def maybe_data(path):
+    """GET a to-one relationship that answers 404 (or a null body) when unset."""
+    try:
+        return get(path).get("data")
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        return None
 
 
 def new_id(r, label):
@@ -640,13 +726,287 @@ def step_iap_screenshots(path):
                      f"{product_id} ({iap_id}) review screenshot {os.path.basename(path)}")
 
 
+# --- Submission ----------------------------------------------------------
+#
+# The four steps that turn a prepared version into a review submission. Each
+# reads the live state first and plans a write only where one is missing, so
+# they are safe to re-run; --submit additionally refuses to move until every
+# gate Apple checks is demonstrably satisfied.
+
+def newest_valid_build():
+    """The most recently uploaded build whose processingState is VALID.
+    The app->builds relationship endpoint accepts neither filter[] nor sort
+    (both answered 400 PARAMETER_ERROR.ILLEGAL, 2026-09-11), so both happen
+    here."""
+    builds = get(f"/v1/apps/{APP_ID}/builds?limit=200")["data"]
+    valid = [b for b in builds if b["attributes"].get("processingState") == "VALID"]
+    if not valid:
+        return None
+    valid.sort(key=lambda b: b["attributes"].get("uploadedDate") or "", reverse=True)
+    return valid[0]
+
+
+def step_attach_build(version_id):
+    build = newest_valid_build()
+    if build is None:
+        blocker("no VALID build to attach; upload one with make bump && make testflight")
+        return
+    label = (f"build {build['attributes'].get('version')} {build['id']} "
+             f"(uploaded {build['attributes'].get('uploadedDate')})")
+    current = maybe_data(f"/v1/appStoreVersions/{version_id}/build")
+    if current and current["id"] == build["id"]:
+        unchanged(f"version {version_id} already has {label}")
+        return
+    body = {"data": {"type": "builds", "id": build["id"]}}
+    was = f" (replacing {current['id']})" if current else ""
+    plan("PATCH", f"/v1/appStoreVersions/{version_id}/relationships/build", body,
+         f"attach {label} to version {version_id}{was}")
+
+
+def review_notes():
+    """The **App Review notes** block from the vault copy, with the reviewer
+    host's IP and password substituted in. The password is read from
+    REVIEW_HOST_SECRET at run time; it is never written to the repo and never
+    printed (plan() redacts the whole notes attribute)."""
+    try:
+        text = open(COPY_FILE, encoding="utf-8").read()
+    except OSError as e:
+        sys.exit(f"App Store copy not readable ({COPY_FILE}): {e}")
+    m = re.search(r"\*\*App Review notes\*\*[^\n]*:\n(.*?)(?=\n\s*\n|\n\*\*|\Z)", text, re.S)
+    if not m:
+        sys.exit(f"no **App Review notes** block in {COPY_FILE}")
+    notes = m.group(1).strip()
+    try:
+        password = open(REVIEW_HOST_SECRET, encoding="utf-8").read().strip()
+    except OSError as e:
+        sys.exit(f"review host password not readable ({REVIEW_HOST_SECRET}): {e}")
+    if not password:
+        sys.exit(f"{REVIEW_HOST_SECRET} is empty")
+    for token in ("<IP>", "<password>"):
+        if token not in notes:
+            print(f"NOTE  the App Review notes block has no {token} placeholder")
+    return notes.replace("<IP>", REVIEW_HOST_IP).replace("<password>", password)
+
+
+def redacted_notes(notes):
+    return f"<{len(notes)} chars, password redacted>"
+
+
+def step_review_details(version_id, contact):
+    """Create or update the version's App Review contact and notes.
+    Returns the appStoreReviewDetails id (a placeholder under a dry run)."""
+    notes = review_notes()
+    want = dict(contact)
+    want["demoAccountRequired"] = False
+    want["notes"] = notes
+    redact = {"notes": redacted_notes(notes)}
+    print(f"      review notes: {redacted_notes(notes)}")
+
+    detail = maybe_data(f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail")
+    if detail is None:
+        body = {"data": {"type": "appStoreReviewDetails", "attributes": want,
+                         "relationships": {"appStoreVersion": {
+                             "data": {"type": "appStoreVersions", "id": version_id}}}}}
+        r = plan("POST", "/v1/appStoreReviewDetails", body,
+                 f"App Review details for version {version_id} (create)", redact=redact)
+        return new_id(r, "appStoreReviewDetails")
+    diff = {k: v for k, v in want.items() if detail["attributes"].get(k) != v}
+    if not diff:
+        unchanged(f"App Review details already set ({detail['id']})")
+        return detail["id"]
+    body = {"data": {"type": "appStoreReviewDetails", "id": detail["id"], "attributes": diff}}
+    plan("PATCH", f"/v1/appStoreReviewDetails/{detail['id']}", body,
+         f"App Review details: {', '.join(sorted(diff))}", redact=redact)
+    return detail["id"]
+
+
+def step_review_attachment(version_id, path, detail_id=None):
+    """Upload the reviewer demo recording, unless one with that fileName is
+    already attached. Same reserve/parts/commit flow as the screenshots."""
+    if not os.path.exists(path):
+        sys.exit(f"review attachment not found: {path}")
+    name = os.path.basename(path)
+    print(f"      review attachment {path} ({os.path.getsize(path)} bytes)")
+
+    if detail_id is None:
+        detail = maybe_data(f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail")
+        if detail is None:
+            blocker("no App Review details to attach the recording to; "
+                    "run --review-details first")
+            return
+        detail_id = detail["id"]
+
+    if not detail_id.startswith("<"):
+        have = get(f"/v1/appStoreReviewDetails/{detail_id}/appStoreReviewAttachments"
+                   f"?limit=50")["data"]
+        existing = next((a for a in have if a["attributes"].get("fileName") == name), None)
+        if existing:
+            unchanged(f"review attachment {name} already uploaded ({existing['id']}, "
+                      f"{(existing['attributes'].get('assetDeliveryState') or {}).get('state')})")
+            return
+
+    body = {"data": {"type": "appStoreReviewAttachments",
+                     "attributes": {"fileName": name, "fileSize": os.path.getsize(path)},
+                     "relationships": {"appStoreReviewDetail": {
+                         "data": {"type": "appStoreReviewDetails", "id": detail_id}}}}}
+    upload_asset("/v1/appStoreReviewAttachments", body, "appStoreReviewAttachments", path,
+                 f"review attachment {name} -> details {detail_id}")
+
+
+def resolve_iaps():
+    """product id -> IAP resource id, for every tip that exists."""
+    out = {}
+    for product_id, *_ in TIPS:
+        found = get(f"/v1/apps/{APP_ID}/inAppPurchasesV2"
+                    f"?filter%5BproductId%5D={product_id}&limit=10")["data"]
+        if found:
+            out[product_id] = found[0]["id"]
+    return out
+
+
+def submission_gates(version_id, iaps, fixed_this_run):
+    """Everything --submit insists on, checked against the live state.
+    Returns the unmet gates; one already planned earlier in this same run is
+    reported as satisfied-pending rather than counted against the submission."""
+    unmet, pending = [], []
+
+    def gate(ok, label, fixer=None):
+        if ok:
+            print(f"      gate ok: {label}")
+        elif fixer and fixer in fixed_this_run:
+            pending.append(f"{label} (planned earlier in this run by {fixer})")
+            print(f"      gate pending: {label} — {fixer} covers it")
+        else:
+            unmet.append(label)
+            print(f"      gate FAILED: {label}")
+
+    gate(maybe_data(f"/v1/appStoreVersions/{version_id}/build") is not None,
+         "the version has a build attached", "--attach-build")
+
+    shots = 0
+    locs = get(f"/v1/appStoreVersions/{version_id}/appStoreVersionLocalizations")["data"]
+    loc = next((l for l in locs if l["attributes"]["locale"] == LOCALE), None)
+    if loc:
+        sets = get(f"/v1/appStoreVersionLocalizations/{loc['id']}/appScreenshotSets"
+                   f"?include=appScreenshots&limit=50")
+        for st in sets["data"]:
+            shots += len(st["relationships"]["appScreenshots"]["data"])
+    gate(shots > 0, f"the {LOCALE} screenshot set is non-empty ({shots} screenshots)")
+
+    gate(maybe_data(f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail") is not None,
+         "App Review details exist", "--review-details")
+
+    for product_id, *_ in TIPS:
+        iap_id = iaps.get(product_id)
+        has = bool(iap_id and maybe_data(f"/v2/inAppPurchases/{iap_id}/appStoreReviewScreenshot"))
+        gate(has, f"{product_id} has an App Review screenshot")
+
+    return unmet, pending
+
+
+def step_submit(version_id, fixed_this_run):
+    """Plan the review submission. Returns True when a gate refuses it, so the
+    caller can print the summary before exiting 2. Under --apply the refusal is
+    immediate — nothing is written. Under a dry run the calls are still printed
+    first, so the plan is visible even while the gates say no."""
+    iaps = resolve_iaps()
+    missing = [p for p, *_ in TIPS if p not in iaps]
+    if missing:
+        print(f"NOTE  IAPs not found in App Store Connect: {', '.join(missing)}")
+    unmet, pending = submission_gates(version_id, iaps, fixed_this_run)
+    if unmet:
+        print("\nREFUSING to submit — these are not in place:")
+        for reason in unmet:
+            print(f"  x {reason}")
+        for reason in pending:
+            print(f"  ~ {reason}")
+        print("  fix them, then re-run --submit")
+        for reason in unmet:
+            blocker(f"submit gate: {reason}")
+        if APPLY:
+            sys.exit(2)
+        print("  (dry run: the calls it would have made are printed anyway)\n")
+    for reason in pending:
+        print(f"NOTE  {reason}; --submit would be safe only after that step is applied")
+
+    # Reuse an open submission rather than opening a second one.
+    existing = [r for r in get(f"/v1/apps/{APP_ID}/reviewSubmissions?limit=50")["data"]
+                if r["attributes"].get("platform") == PLATFORM
+                and r["attributes"].get("state") in (None, "READY_FOR_REVIEW")
+                and not r["attributes"].get("submitted")]
+    if existing:
+        submission_id = existing[0]["id"]
+        unchanged(f"review submission {submission_id} already open "
+                  f"({existing[0]['attributes'].get('state')})")
+    else:
+        body = {"data": {"type": "reviewSubmissions",
+                         "attributes": {"platform": PLATFORM},
+                         "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}}}}
+        r = plan("POST", "/v1/reviewSubmissions", body,
+                 f"review submission for {PLATFORM} (create)")
+        submission_id = new_id(r, "reviewSubmissions")
+
+    have_versions, have_iaps = set(), set()
+    if not submission_id.startswith("<"):
+        items = get(f"/v1/reviewSubmissions/{submission_id}/items"
+                    f"?limit=50&include=appStoreVersion,inAppPurchaseV2")
+        for item in items["data"]:
+            rels = item.get("relationships", {})
+            v = (rels.get("appStoreVersion", {}).get("data") or {}).get("id")
+            i = (rels.get("inAppPurchaseV2", {}).get("data") or {}).get("id")
+            if v:
+                have_versions.add(v)
+            if i:
+                have_iaps.add(i)
+
+    def add_item(rel_name, rel_type, rel_id, what):
+        body = {"data": {"type": "reviewSubmissionItems", "relationships": {
+            "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission_id}},
+            rel_name: {"data": {"type": rel_type, "id": rel_id}}}}}
+        plan("POST", "/v1/reviewSubmissionItems", body, what)
+
+    if version_id in have_versions:
+        unchanged(f"submission item for version {version_id} already added")
+    else:
+        add_item("appStoreVersion", "appStoreVersions", version_id,
+                 f"submission item: App Store version {VERSION_STRING} ({version_id})")
+    for product_id, *_ in TIPS:
+        iap_id = iaps.get(product_id)
+        if iap_id is None:
+            print(f"NOTE  {product_id} has no IAP id; no submission item planned")
+            continue
+        if iap_id in have_iaps:
+            unchanged(f"submission item for {product_id} already added")
+            continue
+        add_item("inAppPurchaseV2", "inAppPurchases", iap_id,
+                 f"submission item: IAP {product_id} ({iap_id})")
+
+    body = {"data": {"type": "reviewSubmissions", "id": submission_id,
+                     "attributes": {"submitted": True}}}
+    plan("PATCH", f"/v1/reviewSubmissions/{submission_id}", body,
+         f"submit review submission {submission_id} for review")
+    return bool(unmet)
+
+
 def summary():
     print(f"\nSummary — {len(planned) if not APPLY else len(applied)} "
-          f"{'planned' if not APPLY else 'applied'}, {len(already)} already set")
+          f"{'planned' if not APPLY else 'applied'}, {len(already)} already set"
+          f"{f', {len(blocked)} blocked' if blocked else ''}")
     for w in (planned if not APPLY else applied):
         print(f"  {'->' if not APPLY else 'ok'} {w}")
     for w in already:
         print(f"  == {w}")
+    for w in blocked:
+        print(f"  !! {w}")
+    if SUBMISSION_MODE:
+        ran = [n for n, on in (("--attach-build", ATTACH_BUILD_MODE),
+                               ("--review-details", REVIEW_DETAILS_MODE),
+                               ("--review-attachment", REVIEW_ATTACHMENT_MODE),
+                               ("--submit", SUBMIT_MODE)) if on]
+        print(f"  submission steps run: {' '.join(ran)}")
+        if REVIEW_DETAILS_MODE:
+            print("  App Review notes carry the reviewer host password; "
+                  "it was read at run time and never printed")
     if not APPLY:
         print("  nothing was written; re-run with --apply to execute")
 
@@ -661,6 +1021,24 @@ def main():
         if IAP_SCREENSHOTS_MODE:
             step_iap_screenshots(IAP_SCREENSHOT)
         summary()
+        return
+
+    if SUBMISSION_MODE:
+        version_id = editable_version_id()
+        fixed = set()
+        detail_id = None
+        if ATTACH_BUILD_MODE:
+            step_attach_build(version_id)
+            fixed.add("--attach-build")
+        if REVIEW_DETAILS_MODE:
+            detail_id = step_review_details(version_id, CONTACT)
+            fixed.add("--review-details")
+        if REVIEW_ATTACHMENT_MODE:
+            step_review_attachment(version_id, REVIEW_ATTACHMENT, detail_id)
+        refused = step_submit(version_id, fixed) if SUBMIT_MODE else False
+        summary()
+        if refused:
+            sys.exit(2)
         return
 
     app_infos = get(f"/v1/apps/{APP_ID}/appInfos?include=primaryCategory,secondaryCategory")["data"]

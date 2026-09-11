@@ -1,5 +1,7 @@
 // compositor.swift — the production path for Kelpie's four ASC store panels.
 // usage: swift compositor.swift [--only N] [--raw <dir>] [--out <dir>]
+//        swift compositor.swift --export-landscape <dir>
+//        swift compositor.swift --upright <in.png> <out.png>
 //
 // Mirrors the Weights store-panel pipeline (WeightsVault/Design/Store
 // Screenshots/compositor.swift): a layout is described once, rendered with
@@ -35,6 +37,7 @@ var rawDir = baseDir.appendingPathComponent("raw")
 var outDir = baseDir.appendingPathComponent("final-13in")
 var onlyPanel: Int? = nil
 var exportLandscapeDir: URL? = nil
+var uprightPair: (input: URL, output: URL)? = nil
 var argIt = CommandLine.arguments.dropFirst().makeIterator()
 while let a = argIt.next() {
     if a == "--only", let v = argIt.next() { onlyPanel = Int(v) }
@@ -43,6 +46,12 @@ while let a = argIt.next() {
     // Write the uprighted captures somewhere (gen-panels.py uses this to feed
     // the canvas artboards), then exit. One source of truth for the rotation.
     if a == "--export-landscape", let v = argIt.next() { exportLandscapeDir = URL(fileURLWithPath: v) }
+    // Upright ONE arbitrary capture through the same uprighted() rotation, for
+    // captures that are not in the `panels` list (the tip sheet, say). Writes a
+    // freshly rendered CoreGraphics bitmap, so no EXIF orientation tag survives.
+    if a == "--upright", let i = argIt.next(), let o = argIt.next() {
+        uprightPair = (URL(fileURLWithPath: i), URL(fileURLWithPath: o))
+    }
 }
 try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
@@ -176,6 +185,15 @@ func render(_ panel: Panel) {
     let image = ctx.makeImage()!
     savePNG(image, outDir.appendingPathComponent(panel.file))
     print("wrote final-13in/\(panel.file)  \(image.width)x\(image.height)  card \(Int(w))x\(Int(h))")
+}
+
+if let uprightPair {
+    let shot = uprighted(loadImage(uprightPair.input))
+    try? FileManager.default.createDirectory(
+        at: uprightPair.output.deletingLastPathComponent(), withIntermediateDirectories: true)
+    savePNG(shot, uprightPair.output)
+    print("wrote \(uprightPair.output.path)  \(shot.width)x\(shot.height)")
+    exit(0)
 }
 
 if let exportLandscapeDir {

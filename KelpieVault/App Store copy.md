@@ -40,6 +40,6 @@ herdr,terminal,ssh,claude code,codex,agent,console,tmux,developer,remote,coding,
 First release.
 
 **App Review notes** (from docs/guides/app-review-host.md, host details filled in at submission):
-Kelpie is a client for herdr, a developer tool that runs on the user's own machine, so it needs a machine to connect to. We have provided one for review. On the Welcome screen choose "Add a Host manually", enter host <IP>, user review, password <password>, and accept the host key. herdr's interface appears with a shell pane; type `ls` and press Return to see it respond. A 45-second recording of the same flow is attached. Notifications require the user's own machine and are not needed for review.
+Kelpie is a client for herdr, a developer tool that runs on the user's own machine, so it needs a machine to connect to. We have provided one for review. On the Welcome screen choose "Add a Host manually", enter host <IP>, user review, password <password>, and accept the host key. herdr's interface appears with a shell pane; type `ls` and press Return to see it respond. A 30-second recording of the same flow is attached. Notifications require the user's own machine and are not needed for review.
 
 Related: [[App Store plan]]
