@@ -51,6 +51,25 @@ fingers ask for the selection sheet instead; in a plain shell the one-finger
 hold still selects, exactly as before, and the two-finger gesture stands down so
 the sheet cannot be presented twice.
 
+### Amended 2026-09-11: hold, then drag, is a left-button drag
+
+herdr is mouse-first — its sidebar edge and pane borders resize by dragging —
+and a one-finger drag is already scrolling. So the hold gained a second
+outcome: a finger that moves past a slop (a cell height, above the
+recognizer's own 10 pt allowance) after the hold registers sends a left-button
+press at the origin cell, one SGR motion report per cell crossed with the
+button held, and a release where the finger lifts. A finger that never moves
+sends the right click as before, now on release rather than on hold. The
+signal that the hold has registered is visual — a translucent ring under the
+finger that follows it — because iPads have no Taptic Engine and the haptic is
+silent on them.
+
+Touch text selection no longer uses Ghostty's selection at all: a double tap
+(or the two-finger hold) selects the word under the finger in a Kelpie-drawn
+overlay with iPadOS-style handles, copied from the viewport text. Ghostty's
+selection machinery is internal to the vendored package and is forwarded to
+the PTY under mouse tracking, so it could not have been extended.
+
 ## Trackpad scrolling
 
 Ghostty installs a scroll-type pan under macCatalyst only, so on iPadOS a

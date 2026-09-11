@@ -38,9 +38,9 @@ enum TerminalKeyTrace {
         lock.unlock()
         guard first else { return }
         TerminalDebugLog.isEnabled = true
-        TerminalDebugLog.categories = .input
+        TerminalDebugLog.categories = [.input, .actions]
         TerminalDebugLog.sink = { message in
-            guard !message.contains("host <- terminal") else { return }
+            if message.contains("host <- terminal"), !message.contains("[<") { return }
             TerminalKeyTrace.write("pkg " + message)
         }
         write("trace start pid=\(ProcessInfo.processInfo.processIdentifier)")

@@ -100,6 +100,49 @@ struct TerminalMouseReportingTests {
                 == Data([0x1B, 0x5B, 0x4D, 35, 33, 33]))
     }
 
+    @Test func dragReportsAPressThenMotionThenARelease() {
+        var tracker = TerminalModeTracker()
+        #expect(tracker.remoteLeftPressSequence(column: 4, row: 2) == nil)
+        #expect(tracker.remoteLeftDragSequence(column: 4, row: 2) == nil)
+        #expect(tracker.remoteLeftReleaseSequence(column: 4, row: 2) == nil)
+
+        tracker.receive(Data("\u{1B}[?1002h\u{1B}[?1006h".utf8))
+        // Press at the cell the hold began on, motion per cell crossed (the
+        // left button held is 0 + 32), release where the finger lifted.
+        #expect(
+            tracker.remoteLeftPressSequence(column: 4, row: 2)
+                == Data("\u{1B}[<0;4;2M".utf8))
+        #expect(
+            tracker.remoteLeftDragSequence(column: 5, row: 2)
+                == Data("\u{1B}[<32;5;2M".utf8))
+        #expect(
+            tracker.remoteLeftReleaseSequence(column: 9, row: 2)
+                == Data("\u{1B}[<0;9;2m".utf8))
+        // The press is exactly the first half of a full click.
+        #expect(
+            tracker.remoteLeftPressSequence(column: 4, row: 2)
+                .map { $0 + (tracker.remoteLeftReleaseSequence(column: 4, row: 2) ?? Data()) }
+                == tracker.remoteClickSequence(column: 4, row: 2))
+
+        tracker.receive(Data("\u{1B}[?1002l".utf8))
+        #expect(tracker.remoteLeftDragSequence(column: 5, row: 2) == nil)
+    }
+
+    @Test func dragReportsFallBackToLegacyEncodingWithout1006() {
+        var tracker = TerminalModeTracker()
+        tracker.receive(Data("\u{1B}[?1002h".utf8))
+        #expect(
+            tracker.remoteLeftPressSequence(column: 1, row: 1)
+                == Data([0x1B, 0x5B, 0x4D, 32, 33, 33]))
+        // Motion adds 32 before the legacy +32 bias: 0 + 32 + 32 = 64.
+        #expect(
+            tracker.remoteLeftDragSequence(column: 1, row: 1)
+                == Data([0x1B, 0x5B, 0x4D, 64, 33, 33]))
+        #expect(
+            tracker.remoteLeftReleaseSequence(column: 1, row: 1)
+                == Data([0x1B, 0x5B, 0x4D, 35, 33, 33]))
+    }
+
     @Test func bracketedPasteFollowsDECSET2004() {
         var tracker = TerminalModeTracker()
         #expect(!tracker.usesBracketedPaste)
