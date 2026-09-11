@@ -1,8 +1,13 @@
 ---
-note: Proposal for first-run onboarding in Kelpie — what a new user sees before they have a Host, and how they get from nothing to herdr's TUI. Written 2026-09-11 from Anthony's round-2 feedback; not built yet.
+note: First-run onboarding in Kelpie — proposed and built 2026-09-11 (commit `a2d66a2`), see the Status section at the top.
 ---
 
 # Onboarding proposal
+
+## Status (2026-09-11)
+
+**Built**, per Anthony's decisions: lead with the plugin and pairing, manual SSH as an option to dive into; fix the QR if possible; pasting the code is the clean path when iCloud clipboard works, typing it or scanning the QR otherwise. `WelcomeView` is the no-Host root and the menu's **Setup Guide**; `PairingCodeEntryView` is the paste-first pairing entry (Paste button, typed field, "Scan QR Code instead"). The clipboard is read only on a tap, never on appear — the iOS Allow Paste alert and upstream #204 ruled out the auto-submit the proposal wanted. QR: the scanner runs at `.accurate`, and the plugin no longer slices into the QR when its pane is too short (`Archive/round3/qr-investigation.md`). **Not yet seen on the device**: Anthony has a Host, so the Welcome root only shows after removing it; Setup Guide in the menu shows the same screen.
+
 
 ## What exists today
 
@@ -34,9 +39,9 @@ Reachable again later as **Setup guide** in the Kelpie menu, so a second device 
 - "Paste" is primary because it is the route that worked; the QR path can be promoted once it is fixed.
 - Skipped: a multi-page carousel (nothing to say beyond the one screen), and any in-app account or relay setup (push relay is an [[Open items]] item of its own).
 
-## Open questions for Anthony
+## Answered questions
 
-- Should the guide assume the plugin (pairing) or lead with manual SSH? Proposal: plugin first, manual as the fallback link.
-- The QR path: fix it (find out why the scanner rejected the code) or hide the button until it works?
+- Plugin and pairing first; manual SSH as an option they can dive into. *(Anthony, 2026-09-11)*
+- QR: fixed where the evidence pointed (plugin clamp, scanner quality); paste stays primary, typing and QR are the fallbacks.
 
 Related: [[Pairing and setup]] · [[Feedback log]] · [[Open items]] · [[Kelpie]]
