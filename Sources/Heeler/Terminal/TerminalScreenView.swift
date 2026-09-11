@@ -358,6 +358,7 @@ final class TerminalSessionCallbackBridge {
         onScroll: ((Data, Int) -> Void)?,
         onPaste: ((String, Bool) -> Void)?
     ) {
+        TerminalKeyTrace.installOnce()
         self.onSizeChanged = onSizeChanged
         self.onViewportTextChanged = onViewportTextChanged
         self.onSend = onSend
@@ -1284,6 +1285,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(handleEscapeKeyCommand(_:)) {
+            let answer = super.canPerformAction(action, withSender: sender)
+            TerminalKeyTrace.log("canPerformAction escape -> \(answer)")
+            return answer
+        }
         if action == #selector(paste(_:)) {
             return isLocalInputEnabled && clipboard.hasStrings()
         }
@@ -1911,6 +1917,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }()
 
     @objc private func handleEscapeKeyCommand(_ command: UIKeyCommand) {
+        TerminalKeyTrace.log("escape key command input=\(command.input ?? "nil") mods=0x\(String(command.modifierFlags.rawValue, radix: 16))")
         let key =
             command.modifierFlags.contains(.command)
             ? TerminalHardwareKeyMapping.Key(
@@ -1929,6 +1936,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         var forwarded: Set<UIPress> = []
         for press in presses {
+            if let key = press.key {
+                TerminalKeyTrace.log("pressesBegan code=0x\(String(key.keyCode.rawValue, radix: 16)) mods=0x\(String(key.modifierFlags.rawValue, radix: 16)) chars=\(key.charactersIgnoringModifiers.debugDescription) firstResponder=\(isFirstResponder)")
+            } else {
+                TerminalKeyTrace.log("pressesBegan type=\(press.type.rawValue) no key")
+            }
             if let step = Self.zoomShortcutStep(for: press) {
                 zoom(to: appliedFontSize + step)
                 continue
@@ -1994,7 +2006,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard isLocalInputEnabled,
             let bytes = TerminalHardwareKeyMapping.bytes(for: key),
             claimHardwareKeyDelivery(key)
-        else { return }
+        else {
+            TerminalKeyTrace.log("sendHardwareKey blocked usage=0x\(String(key.usage, radix: 16)) enabled=\(isLocalInputEnabled)")
+            return
+        }
+        TerminalKeyTrace.log("sendHardwareKey usage=0x\(String(key.usage, radix: 16)) bytes=\(bytes.map { String($0, radix: 16) })")
         terminalSession.sendInput(bytes)
     }
 
@@ -2044,6 +2060,16 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     private static func hardwareKey(for press: UIPress) -> TerminalHardwareKeyMapping.Key? {
         guard let key = press.key else { return nil }
+        // iPadOS spells ⌘. as an Escape press: traced live on iPadOS 26, the
+        // press keeps the period keycode, drops the Command modifier, and
+        // carries `UIKeyInputEscape` as its characters. Match on the
+        // characters, so both spellings of Escape land on the one row,
+        // whatever keycode or modifiers the OS attached to them.
+        if key.charactersIgnoringModifiers == UIKeyCommand.inputEscape
+            || key.characters == UIKeyCommand.inputEscape
+        {
+            return TerminalHardwareKeyMapping.Key(usage: TerminalHardwareKeyMapping.Usage.escape)
+        }
         let modifierFlags = key.modifierFlags
         return TerminalHardwareKeyMapping.Key(
             usage: UInt16(truncatingIfNeeded: key.keyCode.rawValue),
