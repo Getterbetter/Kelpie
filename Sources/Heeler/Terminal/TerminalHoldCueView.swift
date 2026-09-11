@@ -16,12 +16,14 @@ import UIKit
 /// The disc is an inner subview and this view is a transparent full-bounds
 /// container, because the vendored `UITerminalView.updateSublayerFrames()`
 /// resizes **every** sublayer of its own layer to the terminal's bounds on
-/// each layout pass — the backing layer of a subview included. A 44 pt disc
-/// added to the terminal directly was stretched to the whole screen; one more
-/// view deep, its layer is a sublayer of this container's and is left alone.
+/// each layout pass — the backing layer of a subview included. A 64 pt disc
+/// (64 pt so the ring shows around a fingertip rather than under it — the
+/// user found 44 pt hard to see) added to the terminal directly was
+/// stretched to the whole screen; one more view deep, its layer is a
+/// sublayer of this container's and is left alone.
 @MainActor
 final class TerminalHoldCueView: UIView {
-    static let diameter: CGFloat = 44
+    static let diameter: CGFloat = 64
 
     private static let appearDuration: TimeInterval = 0.12
     private static let fadeDuration: TimeInterval = 0.15
