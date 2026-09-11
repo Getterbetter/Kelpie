@@ -43,6 +43,14 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **Onboarding.** There are no instructions for a new user on how to connect to their herdr instance.
 - **Reaching Hosts from inside herdr.** The herdr view is full screen and he could not see a way to get to Hosts to connect to another device. His suggestion: perhaps it just needs a button somewhere.
 
+### Round 3 feedback (2026-09-11, on the device)
+
+- **Option+Backspace works.**
+- **The host capsule works** — "great stuff".
+- **Escape and Cmd+. still do not work** (first round-3 build). Fixed the same day: **"escape works, thank you."** His Magic Keyboard **has no Escape key**, so Cmd+. is the only Escape he has — and iPadOS delivers Cmd+. as a *press* with the period keycode, the Command modifier stripped and `UIKeyInputEscape` as its characters, which the first build did not recognise.
+- Asked to be talked through the onboarding proposal.
+- Testing: the iPad is plugged into the Mac with Enable UI Automation on, so Claude can drive it.
+
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
 Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
