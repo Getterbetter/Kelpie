@@ -56,6 +56,9 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **The Welcome screen looks good.**
 - **He will not test the QR code**: it is a free app, someone else will test it. (So the plugin-on-the-mini step in [[Open items]] is not needed for him.)
 - **Wanted next: bringing media into herdr from the iPad** — files, photos, etc. — by drag and drop, or ideally by copy and paste. Fine to do here or in a new session.
+- **The zero-code route (copy a photo on the iPad, Ctrl+V in Claude Code via Universal Clipboard) did not work for him** — "hence the ask". iCloud clipboard can be flaky, so a native path is what he wants.
+- **Asked for a sub-agent to research what else is missing** when working through the iPad that would otherwise be available directly on the Mac.
+- **New feature to workshop: reducing the size of the window, and how that works in side-by-side viewing** (Split View / Slide Over / Stage Manager).
 
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
