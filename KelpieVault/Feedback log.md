@@ -85,6 +85,11 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 - **A huge blue box covers most of the screen** on the long-press hold (both when resizing and when holding without moving) — "wasn't a ring". The hold cue is mis-sized.
 - Context at 45%; asked whether a new session is needed and, if so, to update `resume.md`.
 
+### Round 6b feedback (2026-09-11)
+
+- **The ring works and the selection stays in the pane now.**
+- The ring is a little small, hard to see behind the finger; "maybe 25–50% bigger".
+
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
 Escape and Cmd+. are now claimed as priority key commands on the terminal view (iPadOS's text-input system was eating them before the press ever arrived, as it does Ctrl chords). Option+Backspace, Option+Left/Right and Option+Fn+Delete send the ESC-prefixed word keys. The dim ellipsis became a labelled capsule naming the current Host, with Switch Host and Hosts first — the menu always had Hosts in it; it was just invisible. Onboarding is a written proposal only: [[Onboarding proposal]]. Spec and review in `Archive/round3/`. **None of it is confirmed on the device yet.**
