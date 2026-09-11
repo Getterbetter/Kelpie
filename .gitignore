@@ -41,3 +41,6 @@ __pycache__/
 
 # Kelpie: prebuilt libghostty is fetched by scripts/fetch-ghostty-artifact.sh
 Packages/GhosttyTerminal/Artifacts/
+
+# Kelpie: Obsidian per-machine workspace state
+KelpieVault/.obsidian/workspace*.json
