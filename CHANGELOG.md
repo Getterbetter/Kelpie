@@ -152,6 +152,11 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   panel, and the Kelpie menu gains Setup Guide. Pasting the Pairing Code is the
   primary way in; typing it and scanning the QR are the fallbacks. (Kelpie)
 
+- Photos and files reach herdr from the iPad: paste (including Cmd+V), drop, or
+  Attach Photo / Attach File in the Kelpie menu. Each is uploaded over SFTP to a
+  private temp folder on the Host and its path is typed into the focused pane,
+  the way herdr's own remote image paste works. (Kelpie)
+
 ### Changed
 
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
