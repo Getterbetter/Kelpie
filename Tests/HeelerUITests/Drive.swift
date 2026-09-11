@@ -146,9 +146,22 @@ final class Drive: XCTestCase {
             swipe(argument, in: app)
         case "dump":
             attachTree(app, named: "tree")
+        case "allow":
+            tapSystemAlert(argument.isEmpty ? "Allow" : argument)
         default:
-            XCTFail("unknown step '\(step)' — steps are shot, wait:, menu, menu:, tap:, toggle:, type:, key:, back, swipe:, dump")
+            XCTFail("unknown step '\(step)' — steps are shot, wait:, menu, menu:, tap:, toggle:, type:, key:, back, swipe:, dump, allow[:label]")
         }
+    }
+
+    /// Taps a button on a system permission alert (notifications, camera,
+    /// local network), which belongs to SpringBoard rather than the app.
+    private func tapSystemAlert(_ label: String) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let button = springboard.alerts.buttons[label].firstMatch
+        guard button.waitForExistence(timeout: 10) else {
+            return XCTFail("allow:\(label): no system alert button '\(label)' appeared")
+        }
+        button.tap()
     }
 
     // MARK: - Steps
@@ -209,7 +222,14 @@ final class Drive: XCTestCase {
             return XCTFail("toggle:\(prefix): no switch whose label starts with '\(prefix)'")
         }
         attachScreenshot(named: "toggle-before-\(sanitized(prefix))")
-        toggle.tap()
+        // A SwiftUI Toggle row exposes an outer switch whose centre is the
+        // label; the knob is the inner switch at the trailing edge.
+        let knob = toggle.switches.firstMatch
+        if knob.exists {
+            knob.tap()
+        } else {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5)).tap()
+        }
         settle(0.8)
         attachScreenshot(named: "toggle-after-\(sanitized(prefix))")
     }
