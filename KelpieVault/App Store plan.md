@@ -31,7 +31,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 ## Gates, in order
 
 1. Push the repo (item 0 in [[Open items]]) — `gh repo create Getterbetter/Kelpie --private|--public --source . --remote origin --push`.
-2. Create the APNs key and deploy the relay (`relay/`, Wrangler), then point `NotificationRelayEndpoint.swift` and the plugin default at it.
+2. ~~Deploy the relay~~ Done 2026-09-11: `https://kelpie-apns.getter-tilbury-0m.workers.dev` (Cloudflare account under his iCloud address, `workers_dev`). App and plugin defaults point at it; Heeler's old relay is on the legacy list so an existing install migrates. **Still needed: the APNs key** — `cd relay && npx wrangler secret put APNS_KEY_P8` with the `.p8` contents, and `APNS_KEY_ID` in `wrangler.toml`, then redeploy. Until then the relay answers 500 `relay_misconfigured`.
 3. Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.
 4. `make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.
 5. Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running.
