@@ -4,7 +4,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 
 ## Where things stand (2026-09-11)
 
-- Kelpie is a private iPadOS fork of Heeler, an SSH client for herdr. Branch `kelpie`, 36 commits on top of upstream Heeler `375267c` (including the vault), remote `upstream` only, nothing pushed anywhere.
+- Kelpie is a private iPadOS fork of Heeler, an SSH client for herdr. Branch `kelpie`, 36 commits on top of upstream Heeler `375267c` (including the vault), remotes `origin` (Getterbetter/Kelpie, public) and `upstream` (Heeler).
 - Round 1 (2026-09-10): rebrand, iPad target, trackpad right-click → herdr's menu, touch long-press → right-click, two-finger long-press → selection sheet, trackpad/mouse-wheel scrolling, sidebar collapse. Reviewed, two fixes applied.
 - Round 2 (2026-09-11): herdr's own TUI is the root screen (full-screen terminal running `herdr` over SSH), Heeler's console demoted behind a floating `ellipsis.circle` menu (Agents, Hosts, Switch host, Settings, Reconnect), automatic keyboard mode from hardware-keyboard presence, tappable URLs opening in the default browser, 12pt default font on iPad. Reviewed, six fixes applied (commit `58199a7`).
 - Round 3 (2026-09-11, commit `77cabda`): from round-2 feedback. Escape and Cmd+. now reach herdr (claimed as priority `UIKeyCommand`s on `HeelerTerminalView`; iPadOS's text-input system consumed them), Option+Backspace / Option+arrows / Option+Fn+Delete send ESC-prefixed word keys (`TerminalHardwareKeyMapping`, unit-tested), and the floating menu is a labelled host capsule with Switch Host and Hosts first. Reviewed, three fixes applied. Onboarding is a proposal in `KelpieVault/Onboarding proposal.md`, not built.
@@ -50,7 +50,8 @@ Context in the long session that did rounds 3–6 was at ~45% when this was writ
 
 ## Open items, in priority order
 
-0. **Git remote and push.** Anthony (2026-09-11): "not sure if we're using git for this project but we should." We are: every round is a commit on `kelpie` (36 commits ahead of upstream `main` after the round-7 rebase, all local). Nothing is pushed because the only remote is `upstream` (Heeler). Next session: ask him for the destination — a private GitHub repo under his account (`gh repo create TME/Kelpie --private --source . --remote origin --push`, or his own name) — and push `kelpie` with his explicit yes. Until then, `git log` on this Mac is the only copy.
+0. ~~Git remote and push~~ **Done 2026-09-11**: public `github.com/Getterbetter/Kelpie`, `origin/kelpie`. Push freely from now on. (Original note kept below.)
+0-old. **Git remote and push.** Anthony (2026-09-11): "not sure if we're using git for this project but we should." We are: every round is a commit on `kelpie` (36 commits ahead of upstream `main` after the round-7 rebase, all local). Nothing is pushed because the only remote is `upstream` (Heeler). Next session: ask him for the destination — a private GitHub repo under his account (`gh repo create TME/Kelpie --private --source . --remote origin --push`, or his own name) — and push `kelpie` with his explicit yes. Until then, `git log` on this Mac is the only copy.
 
 1. Remaining device checks (list in `KelpieVault/Open items.md`, items 1a–1g), then the two gates below.
 2. Return-to-submit in the console's Keyboard mode (partial fix, needs device confirmation).

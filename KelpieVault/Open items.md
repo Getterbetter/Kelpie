@@ -6,7 +6,7 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 
 ## Priority order
 
-- [ ] **0. Push the repo somewhere.** 32 local commits on `kelpie`, no remote of Anthony's. Needs his yes and a destination (private GitHub repo). See `resume.md` item 0.
+- [x] **0. Push the repo.** Done 2026-09-11: public `https://github.com/Getterbetter/Kelpie`, remote `origin`, default branch `kelpie`, tag `kelpie-pre-rebase-20260911` pushed too. (His `gh` token needed the `workflow` scope first.)
 
 - [ ] **1. Confirm round 3 on the iPad**: ~~Escape and Cmd+.~~ (confirmed working, `5afab42`) · Option+Backspace deleting one word and only one word · Option+Left/Right jumping words · plain Backspace and Return unchanged · the host capsule top-right, and Hosts / Switch Host from it. If Option+Backspace deletes a word *plus* a character, the UIKit echo arrived after the press ended — see the note in `scheduleHardwareKeyClaimReset`.
 - [ ] **1f. Round 5 on the device**: drop from Files · Cmd+←/→/↑/↓ in a shell · tap a file path in Claude's output (Quick Look + share) · Open File on Host… · bell haptic (`printf '\a'`) · font stepping down as the window narrows · desktop notification once the mini config line is in.
