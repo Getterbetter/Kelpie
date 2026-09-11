@@ -6,6 +6,8 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 
 ## Priority order
 
+- [ ] **0. Push the repo somewhere.** 32 local commits on `kelpie`, no remote of Anthony's. Needs his yes and a destination (private GitHub repo). See `resume.md` item 0.
+
 - [ ] **1. Confirm round 3 on the iPad**: ~~Escape and Cmd+.~~ (confirmed working, `5afab42`) · Option+Backspace deleting one word and only one word · Option+Left/Right jumping words · plain Backspace and Return unchanged · the host capsule top-right, and Hosts / Switch Host from it. If Option+Backspace deletes a word *plus* a character, the UIKit echo arrived after the press ended — see the note in `scheduleHardwareKeyClaimReset`.
 - [ ] **1f. Round 5 on the device**: drop from Files · Cmd+←/→/↑/↓ in a shell · tap a file path in Claude's output (Quick Look + share) · Open File on Host… · bell haptic (`printf '\a'`) · font stepping down as the window narrows · desktop notification once the mini config line is in.
 - [ ] **1g. Round 6 on the device** (build 6b installed; 6a's screen-sized hold box and sidebar-spanning selection are fixed): double-tap a word → handles → drag a handle (the first build lost the selection on handle touch; fixed) → Copy / Cmd+C · long-press the sidebar edge: a translucent ring appears under the finger (the haptic is silent on iPad), then drag · long-press without moving → herdr's menu on lift. Specs, reviews and the touch map in `Archive/round6/`.

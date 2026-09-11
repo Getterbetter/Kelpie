@@ -14,7 +14,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 - Round 6 (2026-09-11): touch text selection with handles (Kelpie-drawn overlay over the grid, copied from viewport text — Ghostty's selection is internal to the vendored package) and one-finger hold-then-drag as a left-button mouse drag (sidebar/pane resize by touch), with a visual ring since iPads have no haptics. Sidebar *taps* always worked; the ask was resizing. Two reviews, all findings applied. ADR 0016 amended. The trace facility (`-kelpie.key-trace YES`) now logs mouse reports too — launch with `xcrun devicectl device process launch --device <id> --terminate-existing TME.Kelpie -- -kelpie.key-trace YES`.
 - Since round 4, builds and installs are run by sonnet-runner sub-agents at Anthony's request ("we hit a safeguard, use a sub agent").
 - Round 6b (2026-09-11): two device fixes — the hold cue was stretched to the whole screen because the vendored `UITerminalView` sets every sublayer's frame to its bounds (any subview added to `HeelerTerminalView` must be a full-bounds container with the real content as an inner subview — a load-bearing quirk, see `TerminalHoldCueView`); touch selection is now clamped to the pane's box-drawing borders around the anchor so it no longer spans the sidebar.
-- The latest Release build (round 6b) is installed on the iPad. Untested on the device: the disc-sized hold cue and the pane-bounded selection. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
+- Round 6c: hold ring enlarged to 64 pt ("the ring is good"); pane-bounded selection confirmed. The mini's data volume hit 97% mid-build (the parallel builds each kept a derived-data tree); this session's scratch trees were deleted and Anthony has a separate session handling disk space. **Use one derived-data path per session from now on** (`<scratchpad>/build/kelpie-dd`), not one per builder.
+- The latest Release build (round 6c, commit `53c6821`) is installed on the iPad and everything in rounds 3–6 has been confirmed on the device except: Cmd+arrows as Home/End/Page keys, the bell haptic, the Quick Look file viewer, desktop notifications (gated on the mini config), and the Welcome root with zero Hosts. Not yet seen on the device: media intake, the Welcome screen (via Setup Guide), paste-first pairing, and whether copying text in herdr reaches the iPad clipboard.
 
 ## What Anthony will bring
 
@@ -46,7 +47,9 @@ Context in the long session that did rounds 3–6 was at ~45% when this was writ
 
 ## Open items, in priority order
 
-1. Device checks for rounds 3–4 (list in `KelpieVault/Open items.md`), then the compact-widths round once Anthony answers the window-size questions.
+0. **Git remote and push.** Anthony (2026-09-11): "not sure if we're using git for this project but we should." We are: every round is a commit on `kelpie` (32 commits ahead of upstream `main`, all local). Nothing is pushed because the only remote is `upstream` (Heeler). Next session: ask him for the destination — a private GitHub repo under his account (`gh repo create TME/Kelpie --private --source . --remote origin --push`, or his own name) — and push `kelpie` with his explicit yes. Until then, `git log` on this Mac is the only copy.
+
+1. Remaining device checks (list in `KelpieVault/Open items.md`, items 1a–1g), then the two gates below.
 2. Return-to-submit in the console's Keyboard mode (partial fix, needs device confirmation).
 3. Own push relay: deploy `relay/` as a Cloudflare Worker with Anthony's APNs key and point the app at it. Outward-facing, needs his explicit yes. Required for any App Store build.
 4. TestFlight upload (needs his yes; `scripts/ExportOptions.plist` already carries team 8JQWBQKEXX).

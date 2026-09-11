@@ -89,6 +89,7 @@ The full reasoning is in [[Decisions]] and ADR 0017.
 
 - **The ring works and the selection stays in the pane now.**
 - The ring is a little small, hard to see behind the finger; "maybe 25–50% bigger".
+- After the 64 pt ring: **"the ring is good."** Pausing here to start a new session; a separate session is handling disk space. "Not sure if we're using git for this project but we should."
 
 ### What round 3 did about it (2026-09-11, commit `77cabda`)
 
