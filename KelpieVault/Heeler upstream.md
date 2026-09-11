@@ -45,7 +45,7 @@ Upstream moves fast — daily commits, a live App Store/TestFlight release train
 - Round 2's work is almost all **new files** under `Sources/Heeler/Client/` plus `TerminalLinkDetector.swift`. The edits to existing files are narrow: `ContentView.swift`'s root, one optional `onClose` on `ConsoleView`, a `.client` case in the attach builder, an `.automatic` case in the input-mode settings, an idiom-aware default in `TerminalZoomSettings`.
 - The conflict-prone files are `project.yml` and the committed `Heeler.xcodeproj` (regenerated, so take upstream's and re-run `xcodegen generate`), `CHANGELOG.md` (Kelpie's section sits above `[Unreleased]`) and `CLAUDE.md` (Kelpie's section sits at the top).
 
-Periodic rebase is [[Open items|an open item]]. A pull request upstream for the iPad work is Anthony's call and deliberately deferred.
+First rebase done 2026-09-11 (round 7, onto `375267c`): only `CHANGELOG.md` conflicted, twice, at the `## [Unreleased]` anchor; `Heeler.xcodeproj` and `project.yml` had not moved upstream so no regen commit was needed. Plan and summary in `Archive/round7/`. Periodic rebase stays [[Open items|an open item]]. A pull request upstream for the iPad work is Anthony's call and deliberately deferred.
 
 ## Push and the relay — why notifications do not work in Kelpie
 
