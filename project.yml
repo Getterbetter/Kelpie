@@ -260,6 +260,32 @@ targets:
       - package: HeelerSSH
       - package: GhosttyTerminal
 
+  # UI-automation lane (docs/guides/driving-the-ipad.md). Not a behaviour
+  # suite: its one test is a *driver* that replays a `;`-separated step
+  # script handed in through KELPIE_DRIVE_STEPS and attaches a screenshot
+  # after every step, so an agent can drive the physical iPad and read back
+  # what the screen did. Deliberately excluded from `make test` and CI (the
+  # Heeler scheme lists it skipped); scripts/drive-ipad.sh runs it through
+  # the HeelerUIDrive scheme instead.
+  HeelerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - Tests/HeelerUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.uitests
+        # The runner app is installed beside Kelpie on the iPad; same family.
+        TARGETED_DEVICE_FAMILY: "2"
+        DEVELOPMENT_TEAM: 8JQWBQKEXX
+        # UI tests launch the app rather than hosting it, so this is
+        # TEST_TARGET_NAME (the target, not the Kelpie.app product path).
+        TEST_TARGET_NAME: Heeler
+    dependencies:
+      - target: Heeler
+
 schemes:
   Heeler:
     build:
@@ -268,6 +294,12 @@ schemes:
     test:
       targets:
         - HeelerTests
+        # Present so Xcode's Test navigator can run a driver by hand, but
+        # skipped so `xcodebuild test -scheme Heeler` (make test, and the CI
+        # lane in .github/workflows/ci.yml) never launches it on a simulator.
+        # scripts/drive-ipad.sh uses the HeelerUIDrive scheme below.
+        - name: HeelerUITests
+          skipped: true
       # The only variable the app test process needs from the invoking shell.
       # The fixture itself arrives through the Simulator's launchd environment
       # as HEELER_SSH_E2E_CONFIG / HEELER_SSH_JUMP_E2E_CONFIG /
@@ -282,3 +314,21 @@ schemes:
       # this only for Run; it is excluded from the app target's sources above
       # so it never reaches the bundle.
       storeKitConfiguration: Sources/Heeler/Kelpie.storekit
+
+  # The UI-automation lane's own scheme: test action runs ONLY the driver
+  # bundle, so nothing that says `-scheme Heeler` can pick it up.
+  HeelerUIDrive:
+    build:
+      targets:
+        Heeler: all
+        HeelerUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - HeelerUITests
+      # The step script. A UI-test runner on the device inherits nothing from
+      # the invoking shell, so the scheme has to forward it: xcodebuild
+      # substitutes $(KELPIE_DRIVE_STEPS) from its own environment (an empty
+      # string when unset, which the driver fails on with a clear message).
+      environmentVariables:
+        KELPIE_DRIVE_STEPS: $(KELPIE_DRIVE_STEPS)
