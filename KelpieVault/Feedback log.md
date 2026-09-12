@@ -188,3 +188,7 @@ Read as: only r/alphaandbetausers and r/SideProject carry the announcement; r/he
 Anthony (same night, mid-round): "for backlog items, not now: 1- the project has grown a lot so lets review claude.md to make sure its set up correctly and token efficient 2- lets use the delegate skill as the default skill for all sessions. these backlog items should be available from resume.md since thats the starting place of all new sessions"
 
 Read as: two backlog items recorded in `resume.md` under a Backlog heading (not this round): a CLAUDE.md review for correctness and token cost, and making `/delegate` the default working mode for every Kelpie session (a CLAUDE.md instruction plus whatever the delegate skill needs).
+
+Anthony (2026-09-13 morning): "lets start a new session ive not done anything thats still on me . we have some downloads overnight but missed an opp to get more out there since the permissions . ill restart claude so permissions take effect"
+
+Read as: nothing on his list was done by hand; the community posts cost a night because the Chrome rule needed a restart; the new session posts them first, before device checks.
