@@ -234,3 +234,11 @@ Force push done (`68e471e` on origin), `com.kelpie.redditwatch` loaded, the Chro
 Every must-fix and should-fix from the reviews applied; the set-aside items are listed in [[Robustness review]]. Compiled for a generic iOS device; not run on a device at close (both devices were locked).
 
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
+
+## Round 13 — the three posts out, watches checked — 2026-09-13
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: round 13** — no code changed. The three held community posts went out through Chrome on Anthony's yes (r/SideProject reply on photo handling `p9fko9n`, r/ClaudeCode weekly showcase comment `p9fl0ga`, r/herdr reply under his own comment `p9fl8gi`), logged in the embed plan; the Reddit watch marked `t1_p9bp6zo` answered and now watches r/herdr and the r/ClaudeCode showcase thread. Overnight watches read: the Reddit watch ran hourly to 07:24, the dependency watch's 05:45 run opened issue #3 (Heeler upstream 46 commits ahead, `project.yml` conflict from PR #298). The mini's Heeler plugin still holds one `sandbox` registration only (Open item 19/20f), so the round-12c re-registration has not yet been exercised by a Release install. |
+
+Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]

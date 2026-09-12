@@ -69,6 +69,10 @@ The robustness fixes (about 90 new tests across notifications, pairing, hosts, c
 
 Pairing sync carrying Host edits: app and test targets build for `generic/platform=iOS`; the seven new `PairingSync` tests (coordinate adoption, older/equal records losing, local edit after adoption, unstamped Host, rename not outranking an address, overlapping reconciles coalescing) have never executed — no device was connected and the simulator is off limits. The close-out guard and the Reddit watch were exercised for real (negative cases, dry runs, a seeded state).
 
+### Round 13 — still not on a device
+
+The morning session found the iPad locked again (`xcodebuild test` stopped at "Unlock iPad Pro"); the full suite, the round-12c fixes, the pairing-sync tests (Open item 18) and the Tailscale two-device switch remain unrun. The mini's plugin registration file still holds a single `sandbox` entry (read over SSH 2026-09-13), which is the state the round-12c re-registration is meant to fix on the next Release launch.
+
 ### The regression lesson, 2026-09-12
 
 Trackpad right-click broke and nobody noticed for three rounds. Round 6's touch-selection `UIEditMenuInteraction` answered every trackpad secondary click itself and cancelled the touch before the right click was reported. Anthony found it on a tab, then: "to confirm, looks like its happening everywhere in the app - we lost functionality meaning we lost functionality and we need better testing."
