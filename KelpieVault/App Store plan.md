@@ -32,14 +32,18 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 Done: repo public; relay deployed and keyed; ASC record filled by `scripts/asc-kelpie.py`; build 1 uploaded (VALID); review host up with staged demo; store panels rendered; driver lane for the iPad. Left: Anthony runs `--apply --screenshots`, `--apply --iap-screenshots`, `--apply --attach-build --review-details … --review-attachment`, then `--submit` on his word. After approval: tear down the Hetzner server. Known: the App Store Connect key is App Manager, so cloud signing fails — use the created App Store profiles (manual signing, `scratchpad/…/signing/ExportOptions-manual.plist` pattern) or Xcode's signed-in account (Anthony signed in on 2026-09-12).
 
+## Status at 2026-09-12 (round 9) — submitted
+
+Submitted for App Review 2026-09-12 02:20 UTC: version 1.0 (build 1) and the three tip consumables, all **Waiting for Review**. Name changed to **Kelpie for herdr**, subtitle **Agent console for iPad** (Heeler ships as "Heeler for herdr"; Moshi also carries the mark). What the submit needed beyond the script: content rights declaration (does not use third-party content), version copyright "2026 Anthony Topalides", a free price schedule (base territory AUS), App Privacy published by hand in the web UI (Identifiers → Device ID, app functionality, not linked, not tracking — the `appDataUsages` API is gone), and the tips added to the draft submission on the App Review page by hand (a first consumable has no API route). The IAP review screenshot had to be 2732x2048 (`iap/tip-sheet-2732x2048.png`, letterboxed); the original 2816x1940 was rejected `IMAGE_INCORRECT_DIMENSIONS`. Review contact is Anthony's mobile and his iCloud address. **Next: wait for the review result, then tear down the Hetzner host** (`docs/guides/app-review-host.md`).
+
 ## Gates, in order
 
 1. ~~Push the repo~~ Done 2026-09-11: public `https://github.com/Getterbetter/Kelpie`; the in-app privacy link resolves.
 2. ~~Deploy the relay~~ Done 2026-09-11: `https://kelpie-apns.getter-tilbury-0m.workers.dev` (Cloudflare account under his iCloud address, `workers_dev`). App and plugin defaults point at it; Heeler's old relay is on the legacy list so an existing install migrates. APNs key 7RJ68B8QX8 added as a Wrangler secret 2026-09-11; the relay answers 404 `not_found` at the root, not 500.
 3. ~~Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.~~ Done 2026-09-11: record 6811004082 filled by `scripts/asc-kelpie.py`.
 4. ~~`make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.~~ Done 2026-09-12: build 1 uploaded, VALID.
-5. Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running. (panels rendered in `Design/Store Screenshots/final-13in/`, upload is `--apply --screenshots`)
-6. Submit for review with the notes and video from decision 3.
+5. ~~Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running.~~ Done 2026-09-12: four panels from `Design/Store Screenshots/final-13in/` uploaded with `--apply --screenshots`.
+6. ~~Submit for review with the notes and video from decision 3.~~ Done 2026-09-12 02:20 UTC, see the round-9 status above.
 
 ## Apple rules that bit, verified 2026-09-11
 

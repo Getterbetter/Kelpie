@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""asc-kelpie.py — App Store Connect metadata for Kelpie Console (app 6811004082).
+"""asc-kelpie.py — App Store Connect metadata for Kelpie for herdr (app 6811004082).
 
     python3 scripts/asc-kelpie.py            # dry run (default): prints every call, makes none
     python3 scripts/asc-kelpie.py --dry-run  # the same
@@ -70,7 +70,7 @@ JWT_TOOL = os.path.expanduser("~/Developer/Weights/scripts/asc-jwt.swift")
 LOCALE = "en-US"
 PRIMARY_CATEGORY = "DEVELOPER_TOOLS"
 SECONDARY_CATEGORY = "UTILITIES"
-SUBTITLE = "herdr console for iPad"
+SUBTITLE = "Agent console for iPad"
 PRIVACY_POLICY_URL = "https://github.com/Getterbetter/Kelpie/blob/kelpie/PRIVACY.md"
 SUPPORT_URL = "https://www.reddit.com/r/KelpieConsole/"
 MARKETING_URL = "https://github.com/Getterbetter/Kelpie"
@@ -949,7 +949,7 @@ def step_submit(version_id, fixed_this_run):
     have_versions, have_iaps = set(), set()
     if not submission_id.startswith("<"):
         items = get(f"/v1/reviewSubmissions/{submission_id}/items"
-                    f"?limit=50&include=appStoreVersion,inAppPurchaseV2")
+                    f"?limit=50")
         for item in items["data"]:
             rels = item.get("relationships", {})
             v = (rels.get("appStoreVersion", {}).get("data") or {}).get("id")
@@ -970,17 +970,14 @@ def step_submit(version_id, fixed_this_run):
     else:
         add_item("appStoreVersion", "appStoreVersions", version_id,
                  f"submission item: App Store version {VERSION_STRING} ({version_id})")
-    for product_id, *_ in TIPS:
-        iap_id = iaps.get(product_id)
-        if iap_id is None:
-            print(f"NOTE  {product_id} has no IAP id; no submission item planned")
-            continue
-        if iap_id in have_iaps:
-            unchanged(f"submission item for {product_id} already added")
-            continue
-        add_item("inAppPurchaseV2", "inAppPurchases", iap_id,
-                 f"submission item: IAP {product_id} ({iap_id})")
-
+    # reviewSubmissionItems has no IAP relationship (409 RELATIONSHIP.UNKNOWN,
+    # 2026-09-12), /v1/inAppPurchaseSubmissions refuses a first consumable with
+    # FIRST_CONSUMABLE_MUST_BE_SUBMITTED_ON_VERSION, and the version page has no
+    # IAP section for a new app. What worked: create the submission with the
+    # version item (this script), then add the three tips to that draft on the
+    # App Review page in the web UI, then PATCH submitted (this script).
+    print("NOTE  the tips ride with the version only if added to this draft on "
+          "the App Review page by hand before the submit PATCH")
     body = {"data": {"type": "reviewSubmissions", "id": submission_id,
                      "attributes": {"submitted": True}}}
     plan("PATCH", f"/v1/reviewSubmissions/{submission_id}", body,
@@ -1012,7 +1009,7 @@ def summary():
 
 
 def main():
-    print(f"asc-kelpie — app {APP_ID} (Kelpie Console) — "
+    print(f"asc-kelpie — app {APP_ID} (Kelpie for herdr) — "
           f"{'APPLY: writing to App Store Connect' if APPLY else 'DRY RUN: no writes'}")
 
     if ASSET_MODE:
