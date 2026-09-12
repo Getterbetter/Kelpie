@@ -107,10 +107,11 @@ targets:
         # declaring it here keeps every TestFlight upload from stalling on the
         # Missing Compliance prompt.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        # iPad only for 1.0. The root screen is herdr's full TUI, which is
-        # unusable at phone width, and App Store Connect derives device
-        # support from the build. iPhone code paths are left in the source.
-        TARGETED_DEVICE_FAMILY: "2"
+        # Universal. herdr switches itself to a single-column mobile layout at
+        # 64 columns or fewer, so the phone's root screen is herdr's own doing
+        # and not a second design; App Store Connect derives device support
+        # from the build, so this line is what makes the listing universal.
+        TARGETED_DEVICE_FAMILY: "1,2"
         # And not on the Mac or Vision App Stores either: "Designed for iPad"
         # would ship this iPad-shaped TUI onto two platforms nobody has run it
         # on. Opt out explicitly rather than leaving Apple's default.
@@ -179,8 +180,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.NotificationService
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
-        # Match the containing app's iPad-only device family.
-        TARGETED_DEVICE_FAMILY: "2"
+        # Match the containing app's universal device family.
+        TARGETED_DEVICE_FAMILY: "1,2"
 
   # Lock-screen / Dynamic Island Live Activity (docs/agents/live-activity-contract.md).
   # Thin WidgetKit shell: attributes, envelope open, and Notification Key
@@ -227,8 +228,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.Widgets
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
-        # Match the containing app's iPad-only device family.
-        TARGETED_DEVICE_FAMILY: "2"
+        # Match the containing app's universal device family.
+        TARGETED_DEVICE_FAMILY: "1,2"
 
   HeelerTests:
     type: bundle.unit-test
@@ -277,8 +278,8 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.uitests
-        # The runner app is installed beside Kelpie on the iPad; same family.
-        TARGETED_DEVICE_FAMILY: "2"
+        # The runner app is installed beside Kelpie on the device; same family.
+        TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: 8JQWBQKEXX
         # UI tests launch the app rather than hosting it, so this is
         # TEST_TARGET_NAME (the target, not the Kelpie.app product path).

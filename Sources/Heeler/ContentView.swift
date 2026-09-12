@@ -49,6 +49,9 @@ struct ContentView: View {
             hardwareKeyboard: hardwareKeyboard,
             tipJar: tipJar
         )
+        // The Settings toggle lives behind the cover, so it reaches the
+        // reconcile through the environment rather than another parameter.
+        .environment(app.pairingSyncSettings)
         .environment(\.sceneWindow, window)
         .environment(
             \.agentSceneRouting,

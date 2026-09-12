@@ -260,6 +260,14 @@ extension HeelerTerminalView {
         return TerminalKeyPress(terminalKey, modifiers: flags)
     }
 
+    /// herdr's own prefix — Ctrl+B, one byte — followed by the letter that
+    /// names the command: `n`/`p` for tabs, `b` for the sidebar, `z` for zoom.
+    /// Sent as one write, the way a keyboard sends them back to back.
+    func sendHerdrPrefixed(_ letter: Character) {
+        guard isLocalInputEnabled else { return }
+        terminalSession.sendInput(Data([0x02] + Array(letter.utf8)))
+    }
+
     @objc private func textKeyboardFrameDidChange(_ notification: Notification) {
         if notificationSettlesOwnKeyboard(notification) {
             keyboardFrameDidSettle()
@@ -286,5 +294,14 @@ extension HeelerTerminalView {
             matches: keyboardLayoutFrameProvider?(window)
                 ?? TerminalKeyboardInset.keyboardLayoutGuideFrame(in: window) ?? .zero,
             in: window)
+    }
+}
+
+extension TerminalKeyboardControl {
+    /// The Kelpie menu's herdr commands. Routed through the handle like every
+    /// other piece of chrome outside the terminal, so a Host switch cannot
+    /// leave the menu typing into a dead surface.
+    func sendHerdrPrefixed(_ letter: Character) {
+        terminal?.sendHerdrPrefixed(letter)
     }
 }

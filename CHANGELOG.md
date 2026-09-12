@@ -113,6 +113,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
+- Kelpie runs on the iPhone: herdr's own mobile layout below 64 columns, a
+  12 pt default, and Next Tab / Previous Tab / Toggle Sidebar / Zoom Pane in
+  the Kelpie menu. (Kelpie)
 - Tip jar: three consumable In-App Purchases to thank the developer, from
   Settings and the Kelpie menu. (Kelpie)
 - Muse appears in Start Agent when the Host has `muse` on PATH. Notifications
@@ -185,17 +188,20 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   opens herdr's menu, on release. A translucent disc follows the finger while
   the hold is live, because an iPad cannot feel the haptic. (Kelpie)
 
+- Pairings sync through iCloud Keychain: a Host paired on the iPad is ready on
+  the iPhone, with its own notifications, and vice versa. (Kelpie)
+
 ### Changed
 
-- Kelpie is iPad-only from 1.0: no iPhone installs, and it does not appear as
-  "Designed for iPad" on Mac or Vision. (Kelpie)
+- Kelpie does not appear as "Designed for iPad" on Mac or Vision. (Kelpie)
 - The Kelpie menu is a labelled capsule naming the current Host instead of a
   dim ellipsis. It is the only way to Hosts, Agents and Settings, and a
   pointer resting on it was the only thing that made it visible. Switch Host
   and Hosts now come first in the menu. (Kelpie)
-- On-screen keyboard keys are a chip row attached above the keyboard on the
-  herdr screen (Esc, Tab, sticky Ctrl/Alt, arrows, symbols, Paste) instead of
-  a separate Keys pad. (Kelpie)
+- On-screen keyboard keys are one row of keyboard-styled keys attached above
+  the keyboard on the herdr screen (esc, tab, sticky ctrl/alt, arrows,
+  symbols, Paste); the separate Keys pad and the paste/newline row are gone
+  from that screen. (Kelpie)
 
 ### Fixed
 

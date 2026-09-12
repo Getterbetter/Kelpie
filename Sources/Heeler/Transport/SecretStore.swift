@@ -13,9 +13,21 @@ protocol SecretStore: Sendable {
     func removeSecret(account: String) throws
 }
 
+/// The same four operations, for the items that ride iCloud Keychain
+/// (`kSecAttrSynchronizable`). A separate protocol because the two halves of
+/// the Keychain are not interchangeable: a synchronizable query never matches
+/// a device-only item, and vice versa. `PairingSync` takes this one so a
+/// device-only store cannot be handed to it by accident.
+protocol SyncedSecretStore: Sendable {
+    func read(account: String) throws -> Data?
+    func readAll() throws -> [String: Data]
+    func write(_ secret: Data, account: String) throws
+    func removeSecret(account: String) throws
+}
+
 /// Process-local secret storage for previews and deterministic development
 /// compositions. Nothing is written to the Keychain or survives the process.
-final class VolatileSecretStore: SecretStore, @unchecked Sendable {
+final class VolatileSecretStore: SecretStore, SyncedSecretStore, @unchecked Sendable {
     private let lock = NSLock()
     private var secrets: [String: Data] = [:]
 
@@ -41,16 +53,26 @@ enum KeychainError: Error, Equatable {
 }
 
 /// Generic-password Keychain items under one service. Items are scoped to
-/// this device only (`ThisDeviceOnly`): the device key must never migrate to
-/// another device via backup or iCloud Keychain.
+/// this device only (`ThisDeviceOnly`) unless `synchronizable` is set: the
+/// device-only items must never migrate to another device via backup or
+/// iCloud Keychain.
+///
+/// `synchronizable` opts one store into iCloud Keychain instead (ADR 0018) —
+/// Apple end-to-end encrypts those items and carries them to the user's other
+/// devices. Synchronizable items cannot be `ThisDeviceOnly`, so they take
+/// plain `AfterFirstUnlock`. The flag is part of every query as well as the
+/// write: the two halves of the Keychain do not see each other's items.
 ///
 /// An optional access group shares the items with other targets of this app
 /// — the Notification Service Extension reads Notification Keys through the
 /// app-group access group, which iOS accepts in `kSecAttrAccessGroup`
 /// without the team id prefix.
-struct KeychainSecretStore: SecretStore {
+struct KeychainSecretStore: SecretStore, SyncedSecretStore {
     let service: String
     var accessGroup: String?
+    /// Whether these items ride iCloud Keychain. Never set for the Device
+    /// Key's local slot or a Host password.
+    var synchronizable: Bool = false
 
     func read(account: String) throws -> Data? {
         var query = baseQuery(account: account)
@@ -96,7 +118,9 @@ struct KeychainSecretStore: SecretStore {
         var attributes = baseQuery(account: account)
         attributes[kSecValueData as String] = secret
         attributes[kSecAttrAccessible as String] =
-            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            synchronizable
+            ? kSecAttrAccessibleAfterFirstUnlock
+            : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(attributes as CFDictionary, nil)
         switch status {
         case errSecSuccess:
@@ -130,6 +154,9 @@ struct KeychainSecretStore: SecretStore {
         }
         if let accessGroup {
             query[kSecAttrAccessGroup as String] = accessGroup
+        }
+        if synchronizable {
+            query[kSecAttrSynchronizable as String] = true
         }
         return query
     }

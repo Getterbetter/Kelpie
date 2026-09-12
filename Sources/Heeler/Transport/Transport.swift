@@ -212,6 +212,14 @@ protocol Transport: Sendable {
     /// itself is absent, matching the other plugin-config reads.
     func readSidebarLayout() async throws -> Data?
 
+    /// Appends one OpenSSH public-key line to this account's
+    /// `authorized_keys`, for a sibling device that holds its own Device Key
+    /// and cannot pair again (ADR 0018). Idempotent: a line already present
+    /// is left alone. The rewrite is atomic (temp file + rename at 0600) so
+    /// sshd's StrictModes never sees a half-written file, matching what the
+    /// plugin's own `editAuthorizedKeys` guarantees.
+    func appendAuthorizedKeyLine(_ line: String) async throws
+
     /// Lists the skills / custom slash commands installed for a kind on this
     /// Host: global sources under the remote home plus project sources under
     /// the query's project root, per `SkillSourceCatalog`. Kinds without a
@@ -253,6 +261,14 @@ extension Transport {
 
     func listSkills(_ query: SkillListQuery) async throws -> [AgentSkill] {
         []
+    }
+
+    /// Test doubles and alternative transports without a remote filesystem
+    /// cannot enrol a sibling device; saying so keeps `PairingSync` from
+    /// clearing a pending key it never wrote.
+    func appendAuthorizedKeyLine(_ line: String) async throws {
+        throw TransportError.channelFailed(
+            detail: "This transport cannot edit authorized_keys.")
     }
 
     func readSkillFile(atPath path: String) async throws -> String {
