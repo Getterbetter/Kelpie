@@ -1,11 +1,11 @@
 ---
-note: Listing copy for Kelpie Console 1.0 — description, keywords, promotional text, what's new, review notes. Draft by Claude, 2026-09-11; Anthony to approve before it goes into App Store Connect.
+note: Listing copy for Kelpie for herdr 1.0 (renamed from Kelpie Console 2026-09-12) — description, keywords, promotional text, what's new, review notes. Draft by Claude, 2026-09-11; Anthony to approve before it goes into App Store Connect.
 ---
 
 # App Store copy (1.0)
 
-**Name** (30): Kelpie Console
-**Subtitle** (30): herdr console for iPad
+**Name** (30): Kelpie for herdr
+**Subtitle** (30): Agent console for iPad
 
 **Promotional text** (170):
 Your herdr agents, on the iPad. A real terminal for herdr's own TUI, plus Agent Notifications when Claude needs you or finishes.
