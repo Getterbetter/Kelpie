@@ -3,14 +3,16 @@ import Foundation
 /// Finds what a tap on one terminal cell landed on, from the viewport's text
 /// alone: a web URL, or a path to a file on the Host.
 ///
-/// libghostty reports a link only when it decides one was activated, and on
-/// iOS nothing ever activates one: there is no "link at this point" query in
-/// `ghostty.h` and no cmd-click to fire the action. So a tap is resolved here,
-/// against the same viewport text the selection sheet reads. It has to be:
-/// herdr hit-tests URL clicks itself and opens them with `open` **on the Mac**,
-/// which is not where the person tapping is. A path is the same problem one
-/// step further on — the file the agent just wrote is on the Host, and the
-/// person who wants to look at it is holding an iPad.
+/// A tap is resolved here first, against the same viewport text the selection
+/// sheet reads. It has to be resolved on the iPad at all because herdr
+/// hit-tests URL clicks itself and opens them with `open` **on the Mac**, which
+/// is not where the person tapping is. A path is the same problem one step
+/// further on — the file the agent just wrote is on the Host, and the person
+/// who wants to look at it is holding an iPad.
+///
+/// This scan is not the only resolver: a link whose URL is not in the text at
+/// all — an OSC 8 hyperlink showing a title — is put to libghostty's own hit
+/// test afterwards. See ``TerminalSurfaceLinkQuery``.
 ///
 /// Deliberately pure. Wrapped URLs are the terminal-specific knowledge it does
 /// carry: a URL that fills a row to its last cell continues on the next one,
