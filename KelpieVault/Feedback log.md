@@ -130,3 +130,17 @@ Read as: a scheduled watcher (his launchd fleet pattern) over everything Kelpie 
 Anthony, after the App Store submit: "return on the on-screen keyboard works now but feature: the 'keys section' should be a row of chips sitting above the keyboard instead of separate section. tips are showing in the settings menu, all three. the other unprompted suggestions i think are fine to do later unless you think they need to be done now."
 
 Read as: on-screen Return in a shell pane is confirmed; the tip sheet lists all three tips (the earlier capture was wrong, not the app); the key pad that appears with the software keyboard should become a keyboard-attached chip row (an input accessory above the keyboard) rather than its own section of the screen; the Hetzner teardown, the universal test target and the review watch can wait.
+
+Anthony, later the same day: "one issue ive just found: right clicking a tab in herdr opens up an ipados menu for copy & select, when it should invoke the right click like if i were to hold tap it with touch"
+
+Read as: a trackpad secondary click on a herdr *tab* (the tab strip of the herdr TUI on the root screen) shows iPadOS's Copy/Select edit menu instead of reaching herdr as a right-click; touch long-press on the same tab does the right thing. Round 9 fix.
+
+Anthony, on the same issue: "to confirm, looks like its happening everywhere in the app - we lost functionality meaning we lost functionality and we need better testing."
+
+Read as: the trackpad right-click regression is app-wide, not tab-specific. The trace pins it on round 6's edit-menu interaction. The vault never recorded a device confirmation for it (Testing status has it as Reviewed only), so it either broke in round 6 or never worked on the device; either way no round re-ran the earlier checks. Standing instruction: each device build must re-run a fixed regression list of previously confirmed behaviours, not only the new feature. See `KelpieVault/Device regression list.md`.
+
+### iPhone ask (2026-09-12)
+
+Anthony: "how much of what we've built could be made available on the iPhone? Completely different screen real estate question but being able to pick it up on the phone would be so nice. I know the Heeler app is that but I wondered whether we could maintain the herdr UI more (same concept as Kelpie) to minimize changes to adapt to herdr updates, perhaps with the side bar collapsible (somehow) and the agent transcript visible in the main screen. As a back up, the same menu we have for hosts, agents, etc."
+
+Read as: an assessment first, not a build. Preference: herdr's own TUI on the phone too (Kelpie's concept, minimal surface to keep in step with herdr), sidebar collapsed, the agent pane filling the screen, the Kelpie menu as the fallback navigation.

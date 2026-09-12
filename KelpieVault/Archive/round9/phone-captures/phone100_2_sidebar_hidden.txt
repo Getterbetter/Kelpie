@@ -1,0 +1,20 @@
+1 ·│   1      +
+2 ·│To run a command as administrator (user "root"), use "sudo <command>".
+3 ·│See "man sudo_root" for details.
+4 ·│
+   │review@kelpie-review:~/demo$ ls -a
+   │.  ..  README.txt
+   │review@kelpie-review:~/demo$
+   │
+   │
+   │
+───│
+   │
+   │
+   │
+   │
+   │
+   │
+   │
+   │
+ » │

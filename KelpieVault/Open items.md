@@ -27,6 +27,8 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 - [x] **6. Rebase on Heeler upstream.** Done 2026-09-11 (round 7): 36 commits replayed onto upstream `375267c` (herdr 0.9.0 wire, muse agent kind, PR #307 paste key cap). Two `CHANGELOG.md` conflicts, nothing else; Release build clean. Pre-rebase history is kept as tag `kelpie-pre-rebase-20260911`. Still a recurring item — see [[Heeler upstream#Rebase strategy]] and `Archive/round7/rebase-summary.md`.
 - [ ] **9. Key chips above the keyboard.** Anthony 2026-09-12: the on-screen "keys section" should be a single row of chips attached above the software keyboard, not a separate section. Round 9 build.
 
+- [ ] **10. iPhone build.** Assessed 2026-09-12 ([[iPhone assessment]]): herdr's own mobile layout kicks in at ≤64 columns, so the concept carries; needs universal device family, an 11 pt phone default, prefix-key items in the Kelpie menu, iPhone screenshots for a 1.1. Anthony's call when.
+
 - [ ] **7. Consider a pull request upstream** for the iPad input work. Anthony's call; deliberately deferred while the fork is private.
 - [ ] **8. Run the unit suite** on any machine whose CoreSimulator can install an app. Every suite is platform-independent logic.
 

@@ -1,0 +1,20 @@
+ spaces                  │   1      +
+                         │To run a command as administrator (user "root"), use "sudo <command>".
+ · review                │See "man sudo_root" for details.
+ · tidepool              │
+   main                  │review@kelpie-review:~/demo$ ls -a
+ · infra                 │.  ..  README.txt
+ · notes                 │review@kelpie-review:~/demo$
+   main                  │
+                         │
+ new                 menu│
+─────────────────────────│
+ agents           grouped│
+                         │
+                         │
+                         │
+                         │
+                         │
+                         │
+                         │
+                        «│
