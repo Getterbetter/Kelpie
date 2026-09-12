@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "checks": {
+    "ci-fork": {
+      "data": {},
+      "fingerprint": "0|False|None",
+      "first_seen": "2026-09-10T05:45:02Z",
+      "last_seen": "2026-09-11T05:45:03Z",
+      "severity": "high"
+    },
+    "herdr-release": {
+      "data": {
+        "snapshot_tag": "v0.9.0",
+        "stable_tag": "v0.9.0"
+      },
+      "fingerprint": "v0.9.0|v0.9.0",
+      "first_seen": "2026-09-10T05:45:02Z",
+      "last_seen": "2026-09-11T05:45:03Z",
+      "severity": "info"
+    },
+    "heeler-ssh-pins": {
+      "data": {
+        "advisory_ids": []
+      },
+      "fingerprint": "c7557852f1b7|3.6.3|",
+      "first_seen": "2026-09-10T05:45:02Z",
+      "last_seen": "2026-09-11T05:45:03Z",
+      "severity": "low"
+    }
+  },
+  "issues": {
+    "ci-fork": {
+      "number": "41"
+    }
+  },
+  "prepared": {},
+  "runs": [
+    {
+      "checks": 10,
+      "duration_s": 21.4,
+      "high": 1,
+      "medium": 0,
+      "new": 10,
+      "prepare": "no",
+      "publish": "no",
+      "ts": "2026-09-10T05:45:02Z"
+    },
+    {
+      "checks": 10,
+      "duration_s": 19.8,
+      "high": 1,
+      "medium": 0,
+      "new": 0,
+      "prepare": "no",
+      "publish": "no",
+      "ts": "2026-09-11T05:45:03Z"
+    }
+  ]
+}
