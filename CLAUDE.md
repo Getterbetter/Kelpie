@@ -34,6 +34,17 @@ herdr. See `docs/adr/0017-herdr-client-is-the-screen.md`.
 - The iPad pointer, long-press and trackpad-scroll decisions are in `docs/adr/0016-ipad-pointer-input.md`.
 - Dependencies are watched by `scripts/depwatch.py` (`make depwatch`, `DRY=1` for a dry run); every fix it opens climbs the verification ladder in `docs/guides/dependency-watch.md` before merging.
 
+## Definition of done for a round
+
+The vault is the durable record; a round is not finished until it is reconciled. Before ending a session or reporting a round done:
+
+- `resume.md`: add the round to "Where things stand" and rewrite "What is next" and the open items.
+- `KelpieVault/Kelpie.md`: the status list and, for any new note, a row in the notes table.
+- `KelpieVault/Decisions.md` (every decision with date and why), `KelpieVault/Changelog.md` (every commit, by round), `KelpieVault/Testing status.md` (what is device-confirmed, what CI covers), `KelpieVault/Open items.md` (tick what closed, add what opened).
+- `KelpieVault/Feedback log.md`: Anthony's words verbatim, recorded before acting on them.
+- Facts about herdr, Heeler upstream, the build or the mini go in the matching note (`herdr.md`, `Heeler upstream.md`, `Build and deploy.md`), not only in chat.
+- Commit the vault with the code it describes. Specs, reviews and worker reports go under `KelpieVault/Archive/round<n>/`.
+
 The upstream Heeler guidance follows and still applies.
 
 # Heeler

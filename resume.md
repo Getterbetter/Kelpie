@@ -25,15 +25,11 @@ Read this first in a new session started in `~/Developer/Kelpie`. Full documenta
 
 ## What is next
 
-- His three `--apply` runs then `--submit`:
-  ```
-  python3 scripts/asc-kelpie.py --apply --screenshots "KelpieVault/Design/Store Screenshots/final-13in"
-  python3 scripts/asc-kelpie.py --apply --iap-screenshots
-  python3 scripts/asc-kelpie.py --apply --attach-build --review-details --contact-first … --contact-last … --contact-phone … --contact-email … --review-attachment <file>
-  python3 scripts/asc-kelpie.py --apply --submit
-  ```
-- The device checks he said he would do: on-screen keyboard Return in a shell pane, whether the 20:27 notification on 2026-09-11 landed, whether the tip sheet lists all three tips.
-- Record his feedback in `KelpieVault/Feedback log.md` before acting on it.
+- **App Store**: 1.0 and the three tips were submitted 2026-09-12 and are Waiting for Review; the TestFlight public beta was submitted the same day (links in `KelpieVault/App Store plan.md`). After approval: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan; the host must outlive both reviews.
+- **Device checks still open** (`KelpieVault/Open items.md` items 1, 1a, 1b, 1f, 1g): rounds 3 to 6 on the iPad, media into a pane, the Welcome screen with zero Hosts.
+- **Builds to do**: key chips as one row above the software keyboard (Open items 9); the iPhone build is assessed, not started (Open items 10, `KelpieVault/iPhone assessment.md`).
+- **Dependency watch follow-ups**: the mini runs herdr 0.8.2 against a 0.9.0 snapshot (Open items 11); the morning brief does not read `~/.memoryos/kelpie-depwatch-briefing.json` yet (Open items 12). Every morning's findings are GitHub issues labelled `depwatch`; a red CI run on a PR gets one re-run before it counts.
+- Record his feedback in `KelpieVault/Feedback log.md` before acting on it, and finish every round with the definition of done in `CLAUDE.md` (resume.md and the vault reconciled, committed with the code).
 
 ## How to work on it
 

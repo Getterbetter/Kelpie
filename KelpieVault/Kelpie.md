@@ -6,10 +6,11 @@ Named for the Australian kelpie, a herding dog — a sibling to Heeler.
 
 ## Status — 2026-09-12
 
-- Branch `kelpie`, 56 commits on top of upstream Heeler `375267c`. Remotes `origin` (public github.com/Getterbetter/Kelpie, branch kelpie, pushed) and `upstream` (Heeler).
+- Branch `kelpie`, 69 commits on top of upstream Heeler `375267c`. Remotes `origin` (public github.com/Getterbetter/Kelpie, branch kelpie, pushed) and `upstream` (Heeler).
 - Round 1 (evening of 2026-09-10): rebrand, iPad device family, trackpad/mouse right-click reaching herdr, touch long-press as right-click, trackpad and wheel scrolling, split-view collapse. Built, reviewed, two fixes applied.
 - Round 2 (2026-09-11): herdr's own client became the root screen, Heeler's console demoted behind a floating menu, automatic keyboard mode, tappable URLs, 12 pt default font on iPad. Built, reviewed, six fixes applied (`58199a7`).
-- The round-2 Release build is installed on Anthony's iPad Pro and paired with the mini.
+- Rounds 3 to 6 (2026-09-11): keys that reach herdr (Escape, Cmd+., Option word keys), Welcome screen and paste-first pairing, photos and files into a pane, all four orientations with a width-aware font, touch selection with handles and hold-then-drag. Round 7: rebase onto upstream `375267c`. Rounds 7b to 9: the App Store push (public repo, own push relay, tip jar, review host, 1.0 submitted 2026-09-12). The round-7c Release build (`a42e62e`) is installed on Anthony's iPad Pro and paired with the mini; the device checklist is in [[Open items]].
+- Round 10 (2026-09-12): the [[Dependency watch]] runs daily at 05:45, opens one GitHub issue per moved dependency, and its first pass made CI real on the fork (PR #2: vendored libghostty fetched on the runner, iPad simulator, licence inventory and zoom tests fixed; 1648 tests green). The Mac mini's herdr version is watched through a dedicated key.
 - Distribution: App Store 1.0 in preparation: ASC record filled, build 1 uploaded, three uploads and the submit remain — see [[App Store plan]]. No pull request upstream for now.
 
 ## The notes
@@ -26,10 +27,11 @@ Named for the Australian kelpie, a herding dog — a sibling to Heeler.
 | [[Onboarding proposal]] | First-run Welcome screen (round 3, built) |
 | [[Mac vs iPad gaps]] | What the iPad still lacks versus sitting at the Mac, ranked |
 | [[Window size workshop]] | Split View / Slide Over / Stage Manager: facts, options, recommendation |
-| [[Testing status]] | What is verified, what is only compiled, what nobody has seen run |
+| [[Testing status]] | What is verified on the device, what CI covers, what nobody has seen run |
+| [[Dependency watch]] | What Kelpie depends on, the daily watch, and what to do when something moves |
 | [[Open items]] | The checklist, including reviewer nits not yet taken |
-| [[Changelog]] | The 17 Kelpie commits, by round |
-| [[Feedback log]] | Anthony's round-1 feedback, and a space for round 2 |
+| [[Changelog]] | Every Kelpie commit, by round |
+| [[Feedback log]] | Anthony's feedback, verbatim, every round, with how it was read |
 
 ## Archive
 

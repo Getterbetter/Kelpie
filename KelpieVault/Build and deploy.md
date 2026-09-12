@@ -90,12 +90,14 @@ Recorded in the user's memory as *iOS simulator unusable, use the iPad*.
 
 ```sh
 xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPad Air 11-inch (M4)' \
   -only-testing:HeelerTests \
   -clonedSourcePackagesDirPath "$S/kelpie-spm" -derivedDataPath "$S/kelpie-dd"
 ```
 
 The recipe is the build recipe with `test` and a simulator destination — *if* a simulator ever boots. The test target **cannot** compile for a device destination at all: `SidebarConsoleIntegrationTests` uses `DemoScreenshotComposition`, which sits behind `#if DEBUG && targetEnvironment(simulator)`. That is pre-existing and applies to any change.
+
+**Since 2026-09-12 the suite runs in GitHub Actions on the fork** (`.github/workflows/ci.yml`, macos-26 runner) on every pull request into `kelpie`, so the way to run the tests is to open a PR. Two Kelpie-specific steps make that work: the workflow fetches the vendored libghostty artifact before building (it is gitignored), and `scripts/run-ci-ios-tests.sh` boots an iPad simulator (`HEELER_CI_SIM_MODEL`, default `iPad Air 11-inch (M4)`) because Kelpie is iPad-only. The real-SSH fixtures are flaky on hosted runners: three of the first five runs failed on a different transient connection error each time, and upstream sees the same, so re-run a red run once before reading it as a regression. Details in [[Dependency watch]] and `docs/guides/dependency-watch.md`.
 
 `TEST_HOST` is pinned in `project.yml` to `$(BUILT_PRODUCTS_DIR)/Kelpie.app/Kelpie`, because XcodeGen derives it from the *target* name (Heeler) while the product is `Kelpie.app`.
 

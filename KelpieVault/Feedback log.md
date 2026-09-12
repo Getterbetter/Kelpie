@@ -144,3 +144,17 @@ Read as: the trackpad right-click regression is app-wide, not tab-specific. The 
 Anthony: "how much of what we've built could be made available on the iPhone? Completely different screen real estate question but being able to pick it up on the phone would be so nice. I know the Heeler app is that but I wondered whether we could maintain the herdr UI more (same concept as Kelpie) to minimize changes to adapt to herdr updates, perhaps with the side bar collapsible (somehow) and the agent transcript visible in the main screen. As a back up, the same menu we have for hosts, agents, etc."
 
 Read as: an assessment first, not a build. Preference: herdr's own TUI on the phone too (Kelpie's concept, minimal surface to keep in step with herdr), sidebar collapsed, the agent pane filling the screen, the Kelpie menu as the fallback navigation.
+
+Anthony, later: "right-click is working again." — trackpad right-click confirmed on the iPad after the round-9 fix (`74e2e47` amended).
+
+### Vault upkeep (2026-09-12)
+
+Anthony, closing the depwatch session: "ill start a new session next, let's make sure the kelpie-vault is up to date, might also be worth updating claude.md to ensure the vault is always kept up to date too"
+
+Read as: the vault is the durable record and must be reconciled at the end of every round, not only when he asks; CLAUDE.md gets a definition-of-done rule that names which notes to touch.
+
+### Community push (2026-09-12)
+
+Anthony: "kelpie's testflight has been approved, so i'd like to get this out to the relevant communities on reddit and point them to the new reddit. also for reddit, i need an image of the app icon to inc. in the subreddit"
+
+Read as: Beta App Review cleared (confirmed via the API: APPROVED, link live). Draft the community posts under the get-noticed rules, one per venue, each gated by an embed check; posting is his hand. Icon exported to `Design/Icon/` (1024/512/256, Apple's own render of build 1).
