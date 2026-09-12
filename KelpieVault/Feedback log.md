@@ -192,3 +192,9 @@ Read as: two backlog items recorded in `resume.md` under a Backlog heading (not 
 Anthony (2026-09-13 morning): "lets start a new session ive not done anything thats still on me . we have some downloads overnight but missed an opp to get more out there since the permissions . ill restart claude so permissions take effect"
 
 Read as: nothing on his list was done by hand; the community posts cost a night because the Chrome rule needed a restart; the new session posts them first, before device checks.
+
+## Round 13 — 2026-09-13 (morning, `/delegate check resume.md and deliver whats remaining`)
+
+Anthony, shown the three post texts (r/SideProject reply, r/ClaudeCode showcase comment, r/herdr reply) and asked which may go out as written: "3. r/herdr reply, all of them".
+
+Read as: all three posts approved verbatim, including the r/herdr reply that had only been drafted; post them now through Chrome on his account, log each in the embed plan, then mark the r/SideProject comment answered in the Reddit watch and add the r/herdr thread to it.

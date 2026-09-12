@@ -208,6 +208,16 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **The double-space rewrite runs in alternate-screen mode on purpose.** herdr's client is always `?1049h` plus mouse tracking, and the input boxes of claude, codex and grok read DEL as Backspace; the honest gates are the shadow caret at end of line, the echo leash and the printable-ASCII rule, not the screen mode.
 
+## 2026-09-13 — round 13: posts and watches
+
+**A — Post with a yes in the same conversation, never on a carried-over approval.** The r/SideProject and r/ClaudeCode texts had a yes on 2026-09-12 and the r/herdr reply none; all three were shown again verbatim and posted only after "all of them". The Chrome allow rule in `~/.claude/settings.json` says the same: the gate is the delegate skill, not the classifier.
+
+**A — The Reddit watch follows every thread Kelpie has posted in, not only the launch posts.** r/herdr (the Heeler author's thread) and the r/ClaudeCode showcase thread were added with `--add` the moment the comments went up, so replies there are caught by the hourly run.
+
+**A — Trust the watch logs in UTC.** A scout read the Reddit watch's last run (`21:24Z`) as an evening stop and reported that launchd had slept through the night; it was 07:24 local. Timestamps under `~/.kelpie/` are UTC; the mini is UTC+10.
+
+**Overtaken — the depwatch upstream check is now high.** Issue #3: 46 upstream commits, one conflicting file. The next rebase (Open item 5) is due, not optional; it waits for a session with the device unlocked so the rebased build can be confirmed.
+
 ## Distribution
 
 **A — Xcode sideload now, TestFlight later, App Store possibly.** *(Overtaken 2026-09-11 to 12: the App Store became the plan. `scripts/ExportOptions.plist` carries team `8JQWBQKEXX`; build 1 of 1.0 was uploaded 2026-09-12 and version 1.0 plus the three tips were submitted for review at 02:20 UTC that day as **Kelpie for herdr**. A TestFlight public beta went in alongside it. See [[App Store plan]].)*
