@@ -214,3 +214,7 @@ Read as: double-space and iPhone scroll-to-dismiss confirmed. The Tailscale edit
 Anthony (2026-09-13): "new item: artifacts that claude creates sometimes get pinned below the text bar as links. these would normally open on a terminal into the browser, Kelpie should do the same"
 
 Read as: Claude Code pins artifact links (claude.ai pages) under its input bar; a Mac terminal makes them clickable and opens the browser; on Kelpie a tap does nothing. Work out how the link is rendered (an OSC 8 hyperlink with display text rather than a bare URL is the likely gap in `TerminalLinkDetector`, which scans viewport text for URLs) and make a tap open it on the iPad, as URL taps already do.
+
+Anthony (2026-09-13, on exposing `sendMousePos` in the vendored GhosttyTerminal package): "i dont understand the pros & cons of this decision" → after the trade-off was laid out: "proceed on your recommendation"
+
+Read as: allow the one-line visibility change in `Packages/GhosttyTerminal`, record it so a re-vendor reapplies it (CLAUDE.md and a patch note in the package), finish and device-test the artifact-link tap, and prepare an upstream pull request to libghostty-spm exposing the member — the PR itself waits for his yes before anything is pushed.
