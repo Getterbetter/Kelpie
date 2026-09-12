@@ -483,11 +483,18 @@ final class TerminalSessionCallbackBridge {
         self.onPaste = onPaste
     }
 
+    /// Drops a write the app provoked on its own behalf rather than the user's.
+    /// The only such write is the mouse-motion report libghostty answers a link
+    /// probe with; see `HeelerTerminalView.surfaceLinkURL(at:)`.
+    var suppressesTerminalInput: ((Data) -> Bool)?
+
     nonisolated func send(_ data: Data) {
         Task { @MainActor [weak self] in
-            self?.onReliableInput?()
-            self?.onTerminalInput?(data)
-            self?.onSend?(data)
+            guard let self else { return }
+            if suppressesTerminalInput?(data) == true { return }
+            onReliableInput?()
+            onTerminalInput?(data)
+            onSend?(data)
         }
     }
 
@@ -962,6 +969,31 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         let match: TerminalLinkDetector.Match?
     }
 
+    /// The URL libghostty last reported under its own mouse. Only
+    /// ``surfaceLinkURL(at:)`` ever puts that mouse on a cell, so this is
+    /// always a probe's answer.
+    private var hoverLinkURL: String?
+    /// Whether a probe is waiting for that answer right now.
+    private var isProbingSurfaceLink = false
+    /// Whether libghostty reported the hover link from inside the call that
+    /// moved its mouse, rather than a turn later. The resolver needs it to be
+    /// true — it never waits — and the device suite asserts it, because a
+    /// libghostty that starts deferring the action would silently stop
+    /// resolving OSC 8 taps.
+    private(set) var didReportHoverLinkSynchronously = false
+    /// While this deadline stands, a buttonless motion report from the core is
+    /// the probe's own and never reaches the Host. Time-bounded because the
+    /// core's write crosses a thread on its way out, so it can land a moment
+    /// after the synchronous probe has returned.
+    private var surfaceLinkProbeDeadline: TimeInterval?
+    private static let surfaceLinkProbeWindow: TimeInterval = 0.25
+    /// libghostty's own "the pointer left the surface" position, used to park
+    /// the core's mouse once the probe has its answer.
+    private static let offSurfacePoint = CGPoint(x: -1, y: -1)
+    private let linkProbeMenuDelegate = TerminalLinkProbeMenuDelegate()
+    private lazy var linkProbeMenuInteraction = UIContextMenuInteraction(
+        delegate: linkProbeMenuDelegate)
+
     /// A one-finger hold that has not yet ended. It is a right click until the
     /// finger travels far enough to be a drag, at which point `lastCell` is
     /// set and the left button is down.
@@ -1305,6 +1337,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         delegate = self
         callbackBridge.onTerminalInput = { [weak self] data in
             self?.recordTerminalInput(data)
+        }
+        // A link probe moves libghostty's mouse to ask what is under a cell.
+        // Under `?1003h` the core answers a move with a motion report; that
+        // report is the app's question, not the user's input, and is dropped
+        // before it can reach the Host.
+        callbackBridge.suppressesTerminalInput = { [weak self] data in
+            self?.isSurfaceLinkProbeReport(data) ?? false
         }
         let acceptedPasteTypes = UIPasteConfiguration(forAccepting: String.self)
         // Images and files are pasteable too: they are staged onto the Host
@@ -2371,24 +2410,78 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 : TerminalKeyboardTapTarget.minimumHeight)
     }
 
-    /// The URL or absolute Host path the cell under `point` is part of, if
-    /// any. Read from the viewport rather than asked of libghostty, which has
-    /// no such query on iOS. See ``TerminalLinkDetector``.
+    /// The URL or absolute Host path the cell under `point` is part of, if any.
+    ///
+    /// The viewport's text answers first (``TerminalLinkDetector``), and a cell
+    /// it cannot explain is put to libghostty's own hit test — an OSC 8
+    /// hyperlink shows a title and keeps its URL in the escape sequence, so the
+    /// text scan cannot see it at all. See ``TerminalSurfaceLinkQuery``.
     func linkMatch(at point: CGPoint) -> TerminalLinkDetector.Match? {
         let mapper = gridPointMapper
         // Strictly inside the grid: the clamping mapper would answer a tap in
         // the bottom or right padding with an edge cell, and open a URL that
         // is not under the finger.
-        guard let cell = mapper.strictCell(at: point),
-            let text = terminalSession.readViewportText()
-        else { return nil }
-        let match = TerminalLinkDetector.match(
-            inViewport: text, column: cell.column, row: cell.row,
-            width: mapper.columns)
+        guard let cell = mapper.strictCell(at: point) else { return nil }
+        let match = TerminalSurfaceLinkQuery.match(
+            at: point,
+            textScan: { _ in
+                guard let text = terminalSession.readViewportText() else { return nil }
+                return TerminalLinkDetector.match(
+                    inViewport: text, column: cell.column, row: cell.row,
+                    width: mapper.columns)
+            },
+            surfaceLink: { surfaceLinkURL(at: $0) })
         // A path is only a link on a screen that can open one; elsewhere the
         // tap must fall through to its click and keyboard behaviour.
         if case .hostPath? = match, onHostPathTap == nil { return nil }
         return match
+    }
+
+    /// Asks libghostty which link covers `point`.
+    ///
+    /// There is no link-at-point query in `ghostty.h`. The core hit-tests links
+    /// when its mouse moves and reports the answer through
+    /// `GHOSTTY_ACTION_MOUSE_OVER_LINK`, which the vendored package forwards to
+    /// ``terminalDidUpdateHoverLink(_:)`` — from inside the move itself, so
+    /// nothing here waits. `sendMousePos` is internal to that package, so the
+    /// mouse is moved through the one `open` member that moves it: the
+    /// context-menu hook. `super`'s implementation positions the mouse and then
+    /// builds a selection menu configuration, which is discarded here.
+    ///
+    /// Not yet effective: the core answers only when the mods match its link
+    /// modifier (super), and no reachable call carries mods — see
+    /// ``TerminalSurfaceLinkQuery`` for the measurement. Internal rather than
+    /// private so the device suite can drive the probe on its own.
+    ///
+    /// Afterwards the mouse is parked at (-1, -1) — libghostty's own "the
+    /// pointer left the surface" position — so no hover state is left on a cell
+    /// nothing is pointing at. Nothing reaches the Host either: the motion
+    /// report `?1003h` earns from the move is dropped on its way out (see
+    /// ``TerminalSurfaceLinkQuery/isButtonlessMotionReport(_:)``), and the SGR
+    /// reports Kelpie sends for real taps never came through here.
+    func surfaceLinkURL(at point: CGPoint) -> String? {
+        surfaceLinkProbeDeadline = Self.now() + Self.surfaceLinkProbeWindow
+        hoverLinkURL = nil
+        isProbingSurfaceLink = true
+        _ = super.contextMenuInteraction(
+            linkProbeMenuInteraction, configurationForMenuAtLocation: point)
+        let reported = hoverLinkURL
+        _ = super.contextMenuInteraction(
+            linkProbeMenuInteraction,
+            configurationForMenuAtLocation: Self.offSurfacePoint)
+        isProbingSurfaceLink = false
+        hoverLinkURL = nil
+        return reported
+    }
+
+    /// Whether a write from the core is a link probe's own motion report.
+    private func isSurfaceLinkProbeReport(_ data: Data) -> Bool {
+        guard let deadline = surfaceLinkProbeDeadline else { return false }
+        guard Self.now() <= deadline else {
+            surfaceLinkProbeDeadline = nil
+            return false
+        }
+        return TerminalSurfaceLinkQuery.isButtonlessMotionReport(data)
     }
 
     /// ``linkMatch(at:)`` for the press in progress, answered once.
@@ -3585,9 +3678,20 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 }
 
 extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
+    TerminalSurfaceHoverLinkDelegate,
     TerminalSurfaceTextSelectionRequestDelegate, TerminalSurfaceLifecycleDelegate,
     TerminalSurfaceGridResizeDelegate, TerminalSurfaceBellDelegate
 {
+    /// libghostty reporting the link under its own mouse. Nothing on iPadOS
+    /// hovers, so the only thing that ever moves that mouse onto a cell is
+    /// ``surfaceLinkURL(at:)`` — this is its answer.
+    func terminalDidUpdateHoverLink(_ url: String?) {
+        hoverLinkURL = url
+        if url != nil, isProbingSurfaceLink {
+            didReportHoverLinkSynchronously = true
+        }
+    }
+
     /// A bell the iPad can feel. There is no terminal audio here and a visual
     /// flash would fight the agent's own redraw, so BEL becomes a light impact
     /// — the same vocabulary the long-press right click already uses, one step
