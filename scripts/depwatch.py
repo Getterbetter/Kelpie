@@ -30,6 +30,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1344,11 +1345,11 @@ def check_node(ctx):
         result = ctx.run(
             ["npm", "audit", "--json", "--audit-level=low"],
             cwd=directory,
-            timeout=DEFAULT_TIMEOUT,
+            timeout=NETWORK_TIMEOUT,
             tolerate=True,
         )
         if result["timed_out"]:
-            raise ToolTimeout("`npm audit` in %s/ exceeded %gs" % (package, DEFAULT_TIMEOUT))
+            raise ToolTimeout("`npm audit` in %s/ exceeded %gs" % (package, NETWORK_TIMEOUT))
         if result["code"] == 127:
             evidence.append("`%s/`: npm is not on PATH; audit skipped" % package)
             continue
@@ -1830,7 +1831,7 @@ def prepare_herdr_fix(ctx, finding, publish, dry_run, planned):
                 "xcodebuild build -project Heeler.xcodeproj -scheme Heeler -configuration Debug "
                 "-destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO "
                 "-clonedSourcePackagesDirPath %s -derivedDataPath %s > %s 2>&1"
-                % (build_dir / "spm", build_dir / "dd", log_path),
+                % (shlex.quote(str(build_dir / "spm")), shlex.quote(str(build_dir / "dd")), shlex.quote(str(log_path))),
             ],
             cwd=worktree,
             timeout=COMPILE_TIMEOUT,
