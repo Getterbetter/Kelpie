@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Kelpie community watch. NOT loaded by the repo: copy it to
+     ~/Library/LaunchAgents/ and bootstrap it by hand, see
+     docs/guides/reddit-watch.md. Hourly, all day: a comment on a beta post
+     goes cold in a day, and an hour of lag costs nothing. "Overnight" is just
+     this running while Anthony is asleep, so the drafts are ready by the
+     06:05 morning brief. The job reads Reddit and GitHub and writes drafts;
+     it never posts, replies or votes. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>            <string>com.kelpie.redditwatch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/anthonytopalides/Developer/Kelpie/scripts/redditwatch.py</string>
+        <string>--analyse</string>
+    </array>
+    <key>StartInterval</key>    <integer>3600</integer>
+    <!-- The window variant. If Anthony would rather it only ran overnight,
+         delete StartInterval above and use this instead: one entry per hour
+         from 22:00 to 07:00 local.
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>5</integer></dict>
+    </array>
+    -->
+    <key>RunAtLoad</key>        <false/>
+    <key>ProcessType</key>      <string>Background</string>
+    <key>StandardOutPath</key>  <string>/Users/anthonytopalides/.kelpie/redditwatch/launchd.out.log</string>
+    <key>StandardErrorPath</key><string>/Users/anthonytopalides/.kelpie/redditwatch/launchd.err.log</string>
+    <key>WorkingDirectory</key> <string>/Users/anthonytopalides/Developer/Kelpie</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key> <string>/Users/anthonytopalides</string>
+        <key>PATH</key> <string>/Users/anthonytopalides/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

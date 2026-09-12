@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# Round close-out guard. Enabled with `make hooks` (git config core.hooksPath
+# .githooks). Refuses a push that would leave the branch detached from upstream,
+# or the vault unreconciled — see scripts/check-round-closeout.sh.
+#
+# Skip once, deliberately: git push --no-verify
+exec "$(git rev-parse --show-toplevel)/scripts/check-round-closeout.sh" --hook

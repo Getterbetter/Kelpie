@@ -113,56 +113,56 @@ From the round-2 feedback in [[Feedback log]].
 | --- | --- |
 | `98187d3` [pre-rebase `76ed711`] | **refactor(terminal, client): take the round-2 reviewer nits** — one viewport read per link tap (the resolved match rides in the claim state, whose `UITouch` is now weak), padding taps no longer clamp to an edge cell on the link path, the dead `HardwareKeyboardObserver` environment injection is gone, the console cover's router reset lives on the cover only, the floating capsule lifts on press as well as hover (a `Menu` only routes a `ButtonStyle` to its label under `.menuStyle(.button)`), and the detector's doc comment states the grapheme-vs-cell limitation. The idiom font default stays: round 5's width ladder already settles it per window. |
 | *(no commit)* | **The rebase.** `git tag kelpie-pre-rebase-20260911`, then 36 commits replayed onto upstream `375267c` (herdr 0.9.0 wire types, the muse agent kind, PR #307's paste key cap). Two `CHANGELOG.md` conflicts, resolved by keeping both `### Added` lists; nothing else. Release build clean, installed on the iPad. **Every hash before this line was rewritten**; the originals are on the tag. |
-| `bae86a9` | **docs: round 7** — reviewer nits taken, rebased on upstream, archive in `Archive/round7/`. |
+| `395eace` | **docs: round 7** — reviewer nits taken, rebased on upstream, archive in `Archive/round7/`. |
 
 ## Round 7b — the App Store groundwork — 2026-09-11
 
 | Commit | |
 | --- | --- |
-| `cc8e38a` | **chore(app-store): rebrand leftovers, NOTICE, Kelpie privacy policy, 1.0.0** — visible "Heeler" text becomes "Kelpie" (usage strings, extension display names, Settings, notifications, Live Activity copy) while Keychain names, the logger subsystem and every wire literal stay; `NOTICE` and an in-app Heeler credit under Apache 2.0; `PRIVACY.md` rewritten; repository / privacy / support links hoisted into `KelpieLinks`; local-network usage description; relay config on `TME.Kelpie` and team 8JQWBQKEXX; `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`; all three targets reset to 1.0 (1). |
-| `3948efd` | **docs: resume notes for round 7b and [[App Store plan]]** — eight decisions for Anthony, six gates in order. |
+| `8158e25` | **chore(app-store): rebrand leftovers, NOTICE, Kelpie privacy policy, 1.0.0** — visible "Heeler" text becomes "Kelpie" (usage strings, extension display names, Settings, notifications, Live Activity copy) while Keychain names, the logger subsystem and every wire literal stay; `NOTICE` and an in-app Heeler credit under Apache 2.0; `PRIVACY.md` rewritten; repository / privacy / support links hoisted into `KelpieLinks`; local-network usage description; relay config on `TME.Kelpie` and team 8JQWBQKEXX; `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`; all three targets reset to 1.0 (1). |
+| `820932f` | **docs: resume notes for round 7b and [[App Store plan]]** — eight decisions for Anthony, six gates in order. |
 
 ## Round 7c — his answers, built — 2026-09-11
 
 | Commit | |
 | --- | --- |
-| `03e6936` | **docs: feedback log** — the App Store plan answers in his words. |
-| `a42e62e` | **feat(app-store): tip jar and iPad-only target** — three consumables (`TME.Kelpie.tip.small/medium/large`) through StoreKit 2; `TipJarStore` owns products, purchase and the `Transaction.updates` listener and finishes every tip, including unverified ones; `TipJarView` is a form sheet from Settings and the Kelpie menu; `Kelpie.storekit` backs the scheme's run action and stays out of the bundle. All three targets are iPad-only and opt out of Designed-for-iPad on Mac and Vision. |
-| `8da2db1` | **docs: App Store plan answers, round 7c, icon drafts archived.** |
+| `6839ac0` | **docs: feedback log** — the App Store plan answers in his words. |
+| `540b8d6` | **feat(app-store): tip jar and iPad-only target** — three consumables (`TME.Kelpie.tip.small/medium/large`) through StoreKit 2; `TipJarStore` owns products, purchase and the `Transaction.updates` listener and finishes every tip, including unverified ones; `TipJarView` is a form sheet from Settings and the Kelpie menu; `Kelpie.storekit` backs the scheme's run action and stays out of the bundle. All three targets are iPad-only and opt out of Designed-for-iPad on Mac and Vision. |
+| `152fab3` | **docs: App Store plan answers, round 7c, icon drafts archived.** |
 
 ## Round 8 — the App Store push — 2026-09-11 to 12
 
 | Commit | |
 | --- | --- |
-| `2c13697` | **feat(notifications): Kelpie's own push relay on workers.dev** — `relay/` deployed as `kelpie-apns` on Anthony's Cloudflare account. The app's production endpoint and the plugin default point at it; Heeler's relay joins the legacy list so an existing install migrates on its next registration. |
-| `5584d9c` | **feat(icon): Kelpie's own app icon** — front-facing kelpie head with a terminal prompt for eyes, draft 2 of the set archived in the vault. |
-| `8904a93` | **docs: item 0 closed** — the repo is public on GitHub; plan answers updated. |
-| `71e6da3` | **docs(app-review-host): App Review host runbook; relay key id** — Pairing Codes are single-use and live two minutes, so the guide falls back to a review-only password login for the review window. |
-| `285bb4e` | **feat(tooling): XCUITest driver lane for the iPad** (`scripts/drive-ipad.sh`), the way to drive the device. |
-| `ca1946c` | **chore(app-store): ASC metadata script, driver toggle/allow steps, version 1.0** — `scripts/asc-kelpie.py` plans and applies the App Store Connect metadata, dry-run by default. |
-| `394723c` | **docs: App Store listing copy draft**; the ASC script tolerates a new IAP's missing schedule. |
-| `4af8576` | **docs(app-review-host): Node 22 from NodeSource** — the distro's Node 18 is below the plugin's floor. |
-| `9e400df` | **chore(app-store): listing copy into the version localization**; support link `r/KelpieConsole`. |
-| `e47b377` | **chore(app-store): no `whatsNew` on a first release.** |
-| `34c19d5` | **chore(app-store): a new IAP has no availability record yet.** |
-| `94f0147` | **feat(app-store): 13-inch store panels**, the compositor, and the screenshot and IAP upload steps in `asc-kelpie`. |
-| `baefed9` | **feat(app-store): attach build, review details, attachment and submission steps**; upright tip sheet; review clip. |
-| `109ca7a` | **docs: round 8 close-out** — App Store push state, review host, relay, driver lane. |
+| `3811432` | **feat(notifications): Kelpie's own push relay on workers.dev** — `relay/` deployed as `kelpie-apns` on Anthony's Cloudflare account. The app's production endpoint and the plugin default point at it; Heeler's relay joins the legacy list so an existing install migrates on its next registration. |
+| `ea19e7c` | **feat(icon): Kelpie's own app icon** — front-facing kelpie head with a terminal prompt for eyes, draft 2 of the set archived in the vault. |
+| `4caabed` | **docs: item 0 closed** — the repo is public on GitHub; plan answers updated. |
+| `2016f23` | **docs(app-review-host): App Review host runbook; relay key id** — Pairing Codes are single-use and live two minutes, so the guide falls back to a review-only password login for the review window. |
+| `396d885` | **feat(tooling): XCUITest driver lane for the iPad** (`scripts/drive-ipad.sh`), the way to drive the device. |
+| `c000019` | **chore(app-store): ASC metadata script, driver toggle/allow steps, version 1.0** — `scripts/asc-kelpie.py` plans and applies the App Store Connect metadata, dry-run by default. |
+| `f13134c` | **docs: App Store listing copy draft**; the ASC script tolerates a new IAP's missing schedule. |
+| `d2b71e2` | **docs(app-review-host): Node 22 from NodeSource** — the distro's Node 18 is below the plugin's floor. |
+| `d8897fe` | **chore(app-store): listing copy into the version localization**; support link `r/KelpieConsole`. |
+| `f72cfb5` | **chore(app-store): no `whatsNew` on a first release.** |
+| `45064ad` | **chore(app-store): a new IAP has no availability record yet.** |
+| `c664672` | **feat(app-store): 13-inch store panels**, the compositor, and the screenshot and IAP upload steps in `asc-kelpie`. |
+| `cf45aea` | **feat(app-store): attach build, review details, attachment and submission steps**; upright tip sheet; review clip. |
+| `8211508` | **docs: round 8 close-out** — App Store push state, review host, relay, driver lane. |
 
 ## Round 9 — submitted — 2026-09-12
 
 | Commit | |
 | --- | --- |
-| `1c918f0` | **docs: round 9** — `resume.md` and the vault reconciled against the repo, App Store Connect, the relay and the review host. No live state had drifted, only the docs. |
-| `694774c` | **feat(app-store): 1.0 submitted for review as Kelpie for herdr** — submitted 02:20 UTC with the three tip consumables. Beyond the script it needed content rights, copyright, a free price schedule, App Privacy published by hand, and the tips added to the draft on the App Review page by hand (`reviewSubmissionItems` has no IAP relationship and a first consumable cannot use `inAppPurchaseSubmissions`). The IAP review screenshot was letterboxed to 2732x2048 after 2816x1940 was rejected. Subtitle is "Agent console for iPad". |
+| `265f8b0` | **docs: round 9** — `resume.md` and the vault reconciled against the repo, App Store Connect, the relay and the review host. No live state had drifted, only the docs. |
+| `61f6546` | **feat(app-store): 1.0 submitted for review as Kelpie for herdr** — submitted 02:20 UTC with the three tip consumables. Beyond the script it needed content rights, copyright, a free price schedule, App Privacy published by hand, and the tips added to the draft on the App Review page by hand (`reviewSubmissionItems` has no IAP relationship and a first consumable cannot use `inAppPurchaseSubmissions`). The IAP review screenshot was letterboxed to 2732x2048 after 2816x1940 was rejected. Subtitle is "Agent console for iPad". |
 
 Three more round-9 commits landed from the parallel session while round 10 was running, so they sit out of order in `git log`:
 
 | Commit | |
 | --- | --- |
-| `2eb612c` | **feat(keyboard): chip row above the software keyboard on the herdr screen** — the accessory bar (Esc, Tab, sticky Ctrl/Alt, arrows, symbols) rides the keyboard on the root screen instead of the separate Keys pad, and is absent while a hardware keyboard is attached. [[Open items]] 9, from his round-9 feedback. |
-| `31b8082` | **docs(app-store): TestFlight public beta submitted** alongside the 1.0 review. |
-| `18651c5` | **fix(terminal): trackpad right-click reaches herdr again** — round 6's touch-selection `UIEditMenuInteraction` answered every trackpad secondary click itself and cancelled the touch before the right click was reported. It is now installed only while a touch selection is on screen. Confirmed on the iPad by Anthony the same day. Brings a per-build device regression list and the iPhone assessment with it. |
+| `a756361` | **feat(keyboard): chip row above the software keyboard on the herdr screen** — the accessory bar (Esc, Tab, sticky Ctrl/Alt, arrows, symbols) rides the keyboard on the root screen instead of the separate Keys pad, and is absent while a hardware keyboard is attached. [[Open items]] 9, from his round-9 feedback. |
+| `5a3ee9e` | **docs(app-store): TestFlight public beta submitted** alongside the 1.0 review. |
+| `c23b766` | **fix(terminal): trackpad right-click reaches herdr again** — round 6's touch-selection `UIEditMenuInteraction` answered every trackpad secondary click itself and cancelled the touch before the right click was reported. It is now installed only while a touch selection is on screen. Confirmed on the iPad by Anthony the same day. Brings a per-build device regression list and the iPhone assessment with it. |
 
 ## Round 10 — the dependency watch — 2026-09-12
 
@@ -170,33 +170,55 @@ Anthony's ask: a recurring routine that checks what Kelpie depends on and feeds 
 
 | Commit | |
 | --- | --- |
-| `ab73f1a` | **feat(depwatch): scheduled dependency watch** — `scripts/depwatch.py` (stdlib, `/usr/bin/python3`) runs ten checks: herdr releases and API schema drift, herdr on the mini, Heeler upstream with a dry-run rebase, libghostty-spm, the libssh2/OpenSSL pins and advisories, npm audit, the Xcode toolchain, CI on the fork, the push relay, the review host. State and reports go to `~/.kelpie/depwatch/`, a section to [[Dependency watch]] and a handoff to the morning brief. `--publish` keeps one GitHub issue per check; `--prepare` builds and compile-checks the herdr wire-type refresh on a branch in a temporary worktree; `scripts/depwatch-analyse.sh` writes a headless-Claude brief for new high manual findings. Ships with `scripts/depwatch.sh` (the launchd wrapper and its lock), the `com.kelpie.depwatch` plist at 05:45 **unloaded**, tests, `docs/guides/dependency-watch.md` and `make depwatch`. |
-| `5faf719` | **docs: depwatch schedule loaded, first live run** — `com.kelpie.depwatch` bootstrapped with Anthony's yes, `--publish` on. The first live run opened **issue #1** (`ci-fork`: GitHub Actions had never run on the fork). |
+| `bef44c7` | **feat(depwatch): scheduled dependency watch** — `scripts/depwatch.py` (stdlib, `/usr/bin/python3`) runs ten checks: herdr releases and API schema drift, herdr on the mini, Heeler upstream with a dry-run rebase, libghostty-spm, the libssh2/OpenSSL pins and advisories, npm audit, the Xcode toolchain, CI on the fork, the push relay, the review host. State and reports go to `~/.kelpie/depwatch/`, a section to [[Dependency watch]] and a handoff to the morning brief. `--publish` keeps one GitHub issue per check; `--prepare` builds and compile-checks the herdr wire-type refresh on a branch in a temporary worktree; `scripts/depwatch-analyse.sh` writes a headless-Claude brief for new high manual findings. Ships with `scripts/depwatch.sh` (the launchd wrapper and its lock), the `com.kelpie.depwatch` plist at 05:45 **unloaded**, tests, `docs/guides/dependency-watch.md` and `make depwatch`. |
+| `222b855` | **docs: depwatch schedule loaded, first live run** — `com.kelpie.depwatch` bootstrapped with Anthony's yes, `--publish` on. The first live run opened **issue #1** (`ci-fork`: GitHub Actions had never run on the fork). |
 
 Then PR #2, the first pull request into `kelpie`, merged by rebase. It exists because opening it is what makes CI run on the fork at all, and it made CI real there for the first time: **1648 tests** green.
 
 | Commit | |
 | --- | --- |
-| `976edac` | **fix(depwatch): quote compile paths and give npm audit the network timeout** — two nits from the depwatch review, and the PR's reason to exist. |
-| `3da2a82` | **ci: fetch the vendored libghostty artifact before the simulator build** — the fork's first CI run failed at package resolution because `GhosttyKit.xcframework` is gitignored and only `make generate` fetched it. |
-| `81d8829` | **ci: boot an iPad simulator, Kelpie is iPad-only** — `TARGETED_DEVICE_FAMILY` is 2, so the iPhone 17 the gate booted is not a valid destination. The model is `HEELER_CI_SIM_MODEL`, default `iPad Air 11-inch (M4)`, which the macos-26 runners have. |
-| `436044f` | **test: cover Kelpie's iPad defaults in the licence inventory and zoom tests** — libghostty-spm no longer appears in `Package.resolved` since GhosttyTerminal is vendored, so its coverage moves to `projectPackages.GhosttyTerminal`; the zoom tests pin the phone idiom and add the iPad 12 pt default. |
+| `3d28072` | **fix(depwatch): quote compile paths and give npm audit the network timeout** — two nits from the depwatch review, and the PR's reason to exist. |
+| `84587b2` | **ci: fetch the vendored libghostty artifact before the simulator build** — the fork's first CI run failed at package resolution because `GhosttyKit.xcframework` is gitignored and only `make generate` fetched it. |
+| `e157a21` | **ci: boot an iPad simulator, Kelpie is iPad-only** — `TARGETED_DEVICE_FAMILY` is 2, so the iPhone 17 the gate booted is not a valid destination. The model is `HEELER_CI_SIM_MODEL`, default `iPad Air 11-inch (M4)`, which the macos-26 runners have. |
+| `203acd0` | **test: cover Kelpie's iPad defaults in the licence inventory and zoom tests** — libghostty-spm no longer appears in `Package.resolved` since GhosttyTerminal is vendored, so its coverage moves to `projectPackages.GhosttyTerminal`; the zoom tests pin the phone idiom and add the iPad 12 pt default. |
 
 Five CI attempts to green. Two were the real fixes above; three were transient real-SSH fixture failures, a different test each time, and upstream's own PR runs show the same. So **a red real-SSH run is re-run once before it counts as a regression.**
 
 | Commit | |
 | --- | --- |
-| `7af1acd` | **depwatch: accurate `ci-fork` summary once CI is green; `resume.md` round 10 close-out.** Issue #1 closed; `ci-fork` drops to info. |
-| `599bc26` | **depwatch: `herdr-mini` finds herdr on the mini's non-interactive PATH; document the key setup** — the check extends `PATH` with `~/.local/bin`, Homebrew and Cargo, because a non-interactive login has none of them. |
+| `0e6dc43` | **depwatch: accurate `ci-fork` summary once CI is green; `resume.md` round 10 close-out.** Issue #1 closed; `ci-fork` drops to info. |
+| `0347cb8` | **depwatch: `herdr-mini` finds herdr on the mini's non-interactive PATH; document the key setup** — the check extends `PATH` with `~/.local/bin`, Homebrew and Cargo, because a non-interactive login has none of them. |
 
 Remaining low findings after the first runs: libghostty-spm has a newer release, and OpenSSL 3.6.4 is out.
 
 ## Round 11 — iPhone, key bar, pairing sync, TestFlight — 2026-09-12
 
-Not yet written up here; see `resume.md` round 11 and [[Open items]] 10 to 13. Its hashes (`9799147`, `baefed9` and later) were rewritten twice (purge, then round 11b).
+Anthony's ask was an iPhone assessment ("being able to pick it up on the phone would be so nice"), and it turned into a build: the same concept — herdr's own TUI on the screen — carried onto the phone, with the key bar and iCloud pairing sync built alongside it. Same-day: the TestFlight public beta was approved, build 2 went up, and a sweep of the now-public repo found a leak.
+
+| Commit | |
+| --- | --- |
+| `4beeecd` | **feat: iPhone build, keyboard-styled key bar, iCloud pairing sync** — three pieces in one commit. *iPhone*: universal device family, a 12 pt phone default with herdr's own mobile layout taking over at 64 columns or fewer, a herdr submenu in the Kelpie menu (Next/Previous Tab, Toggle Sidebar, Zoom Pane) and Welcome copy for both devices. *Key bar*: `TerminalKeyBar`, one keyboard-styled row (`UIInputView` in keyboard style) above the software keyboard on the herdr screen — esc, tab, sticky ctrl and alt, arrows, symbols, a `UIPasteControl` — replacing the vendored chip bar and the paste/newline row. *Pairing sync*: `Sources/Heeler/Pairing/` (`PairingSync`, `PairingSyncRecord`) carries the device SSH key and one synchronizable record per Host — host, fingerprints, notification key, pending and authorized public keys — through iCloud Keychain, with a Settings toggle; fresh devices adopt, siblings enrol each other's keys into `authorized_keys`, and an adopted Host registers its APNs token on first connect. ADR 0018. **22 unit tests pass on the iPad**; the simulator-only integration suite is gated so the test target still builds for a device. |
+| `44bbb8f` | **docs: open items for the iPhone, pairing sync and key bar checks** — [[Open items]] 10, 11 and 12: the phone device check and a 1.1 listing, the two-device sync check, and the key bar's look plus sticky ctrl and Paste. |
+| `68bc332` | **fix(client): the Kelpie capsule sits in the bottom corner on phones** — from his screenshot ("our button slightly overlaps the menu button in herdr"): at compact width the icon-only capsule sat on herdr's own mobile-header switch button, so it moves bottom-trailing, off the header. |
+| `e56d2cd` | **chore: build 2 (1.0) for TestFlight** — `CURRENT_PROJECT_VERSION` 2 in `project.yml` and the regenerated project, app and extensions in lockstep; the store copy note renamed to **Kelpie for herdr** to match the submitted listing. |
+| `d292e37` | **chore: review clip purged from history; vault media ignored; sweep recorded** — the public-repo sweep's outcome: `.gitignore` stops vault media entering the repo again, and the sweep is recorded in [[App Store plan]] and [[Device regression list]]. |
+| `8637df1` | **docs: open item 13** — pairing sync should carry Host *edits*, not only unknown Hosts, so the Tailscale address (`100.65.54.52`) is set once instead of on both devices. |
+| `439e752` | **docs: round 11 close-out** — `resume.md`: TestFlight build 2, the iPhone build, the key bar, iCloud pairing sync, the repo purge and the community push state. |
+
+**TestFlight build 2.** The public beta cleared Beta App Review and is live at `https://testflight.apple.com/join/AkJxAbnJ`, now serving build 2 of 1.0. The upload went through `xcrun altool --upload-app` with the App Store Connect API key, not `make upload`, which fails "Failed to Use Accounts" on this Mac — see [[Build and deploy]].
+
+**The purge.** Before publicising the beta, Anthony asked for "a sweep of the github repo to make sure there's nothing in there that shouldn't be since it's public". It found the round-8 App Review clip (added in `cf45aea`) showing a lock screen. `git filter-repo` removed it and the branch was force-pushed; the clip now lives outside the repo at `~/Developer/kelpie-private/`. **Every hash after `cf45aea` changed** — and because `filter-repo` rewrote the shared history too, the branch lost its common commit with upstream, which is what round 11b below repaired (so those hashes changed a second time; the table above carries the current ones).
 
 ## Round 11b — re-parenting after the purge — 2026-09-12
 
 No code change. `kelpie` rebased with `--onto` back onto upstream `375267c` after the round-11 `filter-repo` detached it (see [[Decisions]]). 77 commits replayed, no conflicts, tree identical. Old tip: tag `kelpie-pre-rerebase-20260912`. One docs commit follows (this vault and `resume.md`).
+
+## Round 12 — guards, round-11 write-up, hash repair, pairing edits, Reddit watch — 2026-09-12
+
+| Commit | |
+| --- | --- |
+| `0b6aa14` | **round 12**: `scripts/check-round-closeout.sh` + `.githooks/pre-push` + `make hooks`/`closeout-check`; round 11 in the vault; 35 stale hashes repaired; pairing sync carries Host edits (`PairingSync.swift`, `ContentView.swift`, 7 tests, ADR 0018 amendment); `scripts/redditwatch.py`, `scripts/redditwatch-analyse.sh`, `scripts/launchd/com.kelpie.redditwatch.plist`, `docs/guides/reddit-watch.md`, [[Reddit watch]]. |
+
+Reviewed twice (fresh-context Opus); every must-fix and should-fix applied. Not on a device; the launchd job not loaded; force push pending.
 
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
