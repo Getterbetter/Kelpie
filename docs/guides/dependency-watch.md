@@ -118,8 +118,13 @@ Optional and off by default. Put an ssh destination in
 { "mini_host": "mac-mini" }
 ```
 
-The mini is reachable over Tailscale as `mac-mini`, but this Mac has no host
-key for it, so the first connection has to be accepted by hand once:
+Set up on 2026-09-12: the mini is reachable over Tailscale as `mac-mini`; a
+dedicated passphrase-less key `~/.ssh/kelpie-depwatch` is installed there
+(`ssh-copy-id -i ~/.ssh/kelpie-depwatch.pub mac-mini`, run once in Terminal.app
+because the session runner cannot answer a password prompt), and a `Host mac-mini`
+block in `~/.ssh/config` uses it. The check extends `PATH` with `~/.local/bin`,
+Homebrew and Cargo because a non-interactive login has none of them. Redoing it
+on another Mac means accepting the host key and installing a key once:
 
 ```sh
 ssh mac-mini true      # accept the fingerprint, then the watch can use BatchMode
@@ -320,8 +325,8 @@ path). Keep `data` small and JSON-serialisable.
   libssh2 both publish through their own channels, so these endpoints can be
   empty on a day when an advisory exists. Treat a quiet `heeler-ssh-pins` as "no
   advisory *on GitHub*", not "no advisory".
-- **`herdr-mini` needs a one-time host-key accept** before it can do anything
-  (see above), and stays `info` until then.
+- **`herdr-mini` needs a one-time host-key accept and an installed key** before
+  it can do anything (see above), and stays `info` until then.
 - **`--prepare` covers one check.** Only `herdr-release` has an automated fix.
   Everything else reports and hands over.
 - **The watcher never touches the checkout.** It does not switch branches,
