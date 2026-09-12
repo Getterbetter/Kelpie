@@ -95,7 +95,7 @@ targets:
         # Home-screen name; the App Store listing is "Kelpie for herdr".
         INFOPLIST_KEY_CFBundleDisplayName: Kelpie
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         # Scan to Pair (#62) reads the Pairing Code QR from the computer screen.
         INFOPLIST_KEY_NSCameraUsageDescription: "Kelpie uses the camera to scan the Pairing Code shown on your computer, so you can add that machine without typing anything."
         # A Host reached by a .local/mDNS name or a LAN address makes iOS ask
@@ -179,7 +179,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.NotificationService
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         # Match the containing app's universal device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 
@@ -227,7 +227,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: TME.Kelpie.Widgets
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         # Match the containing app's universal device family.
         TARGETED_DEVICE_FAMILY: "1,2"
 
