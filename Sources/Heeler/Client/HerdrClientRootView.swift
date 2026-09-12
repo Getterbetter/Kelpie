@@ -152,7 +152,11 @@ struct HerdrClientRootView: View {
         // A different Host is a different attach: rebuild rather than
         // repoint the pipeline.
         .id(host.id)
-        .overlay(alignment: .topTrailing) { menuButton }
+        // Top-trailing beside herdr's tab strip on a wide window; on a phone
+        // herdr's mobile header puts its own "switch" button in that corner,
+        // so the capsule moves to the bottom corner, where the mobile layout
+        // draws nothing. The keyboard covers it while typing, by design.
+        .overlay(alignment: isCompactWidth ? .bottomTrailing : .topTrailing) { menuButton }
         // The foreground Blocked/Done banner (#77) is drawn wherever the app's
         // root is; ConsoleView keeps drawing its own for when the cover is up.
         .overlay(alignment: .top) { banner }

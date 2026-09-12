@@ -158,3 +158,7 @@ Read as: the vault is the durable record and must be reconciled at the end of ev
 Anthony: "kelpie's testflight has been approved, so i'd like to get this out to the relevant communities on reddit and point them to the new reddit. also for reddit, i need an image of the app icon to inc. in the subreddit"
 
 Read as: Beta App Review cleared (confirmed via the API: APPROVED, link live). Draft the community posts under the get-noticed rules, one per venue, each gated by an embed check; posting is his hand. Icon exported to `Design/Icon/` (1024/512/256, Apple's own render of build 1).
+
+Anthony, on the iPhone build (2026-09-12, screenshot): "ios version works, but our button slightly overlaps the menu button in herdr" — the Kelpie capsule (icon-only at compact width, top-trailing) sits on herdr's mobile-header "switch" button. Also: "ill get some posts into r/ClaudeAI if that's important, but this is a free app in a community that is likely already using herdr." Draft notes: "1- lets give heaps of props to Heeler since we forked his design 2- this is now an iOS app that keeps the herdr UI + sync over iCloud so you don't have to re-pair devices 3- do we need to do a sweep of the github repo to make sure there's nothing in there that shouldn't be since it's public? Otherwise drafts are great."
+
+Read as: move the capsule off herdr's mobile header on compact widths; the posts credit Heeler generously and lead with iPad + iPhone + iCloud pairing sync; a public-repo sweep before publicising; r/ClaudeAI is in, dwell served lightly by his own comments.
