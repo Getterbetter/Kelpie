@@ -57,6 +57,13 @@ final class HostOnboardingStore {
         self.fingerprintTimeout = fingerprintTimeout
     }
 
+    /// Whether this Host is a password Host with no password on this device
+    /// — an adopted Host that needs one entered here (ADR 0018). Read fresh
+    /// so entering the password and coming back reflects it.
+    var needsPasswordEntry: Bool {
+        credentials.needsPasswordEntry(for: host)
+    }
+
     /// Runs the preflight once: connect + ping, rendered into `report`.
     func runChecks() async {
         guard phase != .running else { return }

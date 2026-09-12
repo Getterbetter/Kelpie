@@ -40,6 +40,41 @@ struct TerminalStatusPresentation: Equatable {
         message: nil,
         dimsBackground: false)
 
+    /// The Client let go of the Host's Attach channel and never got it back
+    /// (`HerdrClientStore` `.rejoinRequired`). Not a remote failure — nothing
+    /// ended on the Host — so it says what it is and offers the one action
+    /// that fixes it.
+    static let rejoinRequired = TerminalStatusPresentation(
+        kind: .ended,
+        title: "Disconnected",
+        message: "Kelpie let go of this Host's terminal. Reconnect to attach again.",
+        dimsBackground: true)
+
+    /// The Client's own ended state. Same dialog, plus the one fact the raw
+    /// message cannot carry: which herdr session the attach asked for. A
+    /// nonzero exit from `herdr --session "<name>"` is nearly always that name
+    /// — a session that does not exist, or one this Host no longer runs — so
+    /// the overlay says which one and waits for the user rather than
+    /// reattaching into the same exit.
+    static func clientEnded(
+        message: String, sessionName: String?
+    ) -> TerminalStatusPresentation {
+        guard let sessionName else {
+            return TerminalStatusPresentation(
+                kind: .ended,
+                title: "Session Ended",
+                message: message + "\n\nherdr exited on the Host.",
+                dimsBackground: true)
+        }
+        return TerminalStatusPresentation(
+            kind: .ended,
+            title: "Session Ended",
+            message: message
+                + "\n\nherdr exited on the Host, running session “\(sessionName)”."
+                + " Check the session name for this Host if it no longer exists.",
+            dimsBackground: true)
+    }
+
     static func ended(message: String) -> TerminalStatusPresentation {
         TerminalStatusPresentation(
             kind: .ended,

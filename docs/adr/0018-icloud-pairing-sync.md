@@ -106,3 +106,66 @@ overwrites either way. The cost of stamping at reconcile rather than at the
 moment of editing is granularity: an edit is dated when the app next
 reconciles — which a save now triggers — and that rounds in favour of the local
 edit, never against it.
+
+## Amendment — 2026-09-12: deletions travel, fingerprints follow coordinates, and the Console asks
+
+A robustness review of identity and durable state found three ways the sync
+above undid the user's own actions, all of them silent.
+
+**A record's fingerprints travel with its coordinates.** The move amendment
+above took a sibling's address, port and username onto an existing Host but
+left its known-hosts pins behind — only the never-seen-before branch imported
+them. So the Host arrived at an address this device had no trusted key for,
+and every connection failed `hostKeyRejected`. `adoptCoordinates` now runs the
+same import the add path does, for **endpoints it has no pin of its own for**:
+a record may fill a gap, never retire a pin this device confirmed itself. That
+distinction is what keeps a changed key a mismatch failure rather than a
+silently accepted one.
+
+**The Console asks about an unknown key instead of refusing it.** Its policy
+was `{ _ in false }`, on the reasoning that the Console has no screen to ask
+from. That was right while the only unpinned Host was one the user had never
+confirmed anywhere, and wrong once a Host can arrive from a sibling or move to
+a new address: the Host became unreachable until the user found Edit Host →
+preflight, with no prompt anywhere on the root screen. `HostKeyConfirmationBroker`
+carries the question to whichever screen applied `hostKeyConfirmation()`, using
+preflight's own alert copy; with no screen mounted it declines at once, exactly
+as before. A **mismatch** never reaches it — that is still a hard failure.
+
+**A deletion is a fact, and it syncs.** Deleting a Host removed only this
+device's record, so the sibling's next reconcile published it back and this
+device re-adopted it, Notification Key and all. Deletion now writes a
+**tombstone** — Host id and `deletedAt` — under a `deleted-<uuid>` account in
+the same Keychain service. A build that predates tombstones ignores them (they
+are not bare UUID accounts); a build that has them deletes the Host locally
+when the tombstone is newer than its own last edit of it, through
+`HostStore.remove`, so the password, the Notification Key and the device's
+registration go with it. The same last-writer-wins rule as the coordinates: a
+Host edited here *after* the deletion survives and is republished. Tombstones
+expire after 30 days — longer than any device stays away, and an expired one
+only stops suppressing a record nobody publishes any more. Turning sync off
+withdraws this device's records but deliberately leaves tombstones: they can
+only ever suppress, never resurrect. Re-pairing a deleted Host mints a new id,
+which no tombstone names.
+
+**A re-pair is an edit.** Pairing a machine this device already has updates
+that Host in place and keeps its address, port and username, so the reconcile's
+digest of those three fields does not change and the pairing was invisible to
+the conflict rule — an older tombstone would then delete the Host that had just
+been paired. The stamps moved out of `PairingSync` into `PairingSyncHostEdits`,
+which the pairing ceremony writes too: a pairing that updates a row stamps it
+"edited here, now", so it out-dates any tombstone and republishes. And
+`publish` re-checks that the Host still exists, and that no tombstone names it,
+after every suspension and immediately before writing its record: reading a
+Host's fingerprints suspends, and a delete in that gap used to be answered with
+a freshly stamped record that resurrected the Host on both devices.
+
+### Still open
+
+The conflict clock is unchanged, and is still last-writer-wins on each
+device's own wall clock with no skew guard and no logical counter: a device
+whose clock runs ahead wins every conflict, and can now win a deletion too.
+Bounding an implausible future `updatedAt`, or carrying a monotonic revision
+counter beside the timestamp, is the fix; it was set aside deliberately rather
+than half-done, because the rule governs adoption, publication and deletion at
+once and wants changing in one piece.

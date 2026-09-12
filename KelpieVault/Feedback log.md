@@ -168,3 +168,23 @@ Read as: move the capsule off herdr's mobile header on compact widths; the posts
 After the round-11b re-parenting report (the purge had detached `kelpie` from upstream; fixed locally, force push gated; round 11 missing from the vault notes; hashes stale; depwatch rehearsal to watch), Anthony: "how do we fix the above from happening next time? on the remaining items /delegate all of this 1- can we make sure that doesn't happen again too and fix it? 2- fix it 3- can we /update-config for claude in chrome to allow reddit posts so the remaining posts can be handled 4- ok, on hold. More items: 5- connecting ios kelpie over tailscale and 6- can we set up an hourly job overnight to check for comments to the reddit posts, this process shoudl be /delegate too"
 
 Read as: (0) a guard so a purge can never again leave the branch detached; (1) write round 11 into the vault and add a guard that a round cannot close unreconciled; (2) repair the stale hashes; (3) a `settings.json` allow rule for the Chrome tools so the Reddit posts can go out (each post still shown for his yes); (4) the depwatch rehearsal check is on hold; (5) open item 13 — pairing sync carries Host edits so the Tailscale address is set once; (6) an hourly overnight job that collects new comments on the Reddit posts and drafts replies for his approval, built through `/delegate`. The force push is still gated.
+
+Anthony, on the round-12 report (2026-09-12 night): "yes for the ones needs approval . i think you can run tests over wifi, check . also, i didnt get a notification for this one when you messaged, not sure if thats because the ipad was unlocked and had kelpie open 5- do it . 3- good . 4- good . new issue: double space on ios sends a full stop after the stop where itd normally put it before the first space - if this is fixable, then great"
+
+Read as: force push and the launchd load approved; post the r/ClaudeCode showcase comment (3) and the reply to u/Training_Mail_973 (5) as drafted; r/ClaudeAI stays held (4); try the device over Wi-Fi for tests and installs; investigate why no Kelpie notification arrived when the session asked for input while the iPad was unlocked with Kelpie in the foreground; new bug — the iOS double-space shortcut puts the full stop after the space instead of before it, fix if the input path allows.
+
+Anthony (same evening, mid-round): "also: scrolling the terminal on ios should collapse the keyboard. in ipados theres a button for it"
+
+Read as: on the iPhone, a touch scroll of the terminal should dismiss the software keyboard (the iPad has a dismiss key on its keyboard; the phone does not). Added to the double-space builder's scope in the same input layer.
+
+Anthony (2026-09-12 night, after the push-registration finding): "the issue of not registering the ios app for notifications has me slightly concerned that the app is not robust, perhaps because its quickly been put together. can we review properly and fix the gaps?"
+
+Read as: a robustness review of the whole app, not of one change — every place where state is set once and never revalidated (launch, reinstall, environment change, second device, reconnect, network change, backgrounding), every silent failure, every happy-path-only assumption — split by subsystem to fresh reviewers, ranked into one gap list in the vault, and the must-fix and should-fix gaps built and reviewed in the same way as this round's work.
+
+Anthony (same night): "i also only see two posts in reddit, ie cant see it in the herdr channel. might be worth an update here too: https://www.reddit.com/r/herdr/s/M6ui7Oba5h"
+
+Read as: only r/alphaandbetausers and r/SideProject carry the announcement; r/herdr has nothing. Read the linked r/herdr thread, draft a comment there for his yes, and add r/herdr to the community plan and the Reddit watch.
+
+Anthony (same night, mid-round): "for backlog items, not now: 1- the project has grown a lot so lets review claude.md to make sure its set up correctly and token efficient 2- lets use the delegate skill as the default skill for all sessions. these backlog items should be available from resume.md since thats the starting place of all new sessions"
+
+Read as: two backlog items recorded in `resume.md` under a Backlog heading (not this round): a CLAUDE.md review for correctness and token cost, and making `/delegate` the default working mode for every Kelpie session (a CLAUDE.md instruction plus whatever the delegate skill needs).

@@ -164,3 +164,49 @@ struct TerminalLinkDetectorTests {
         #expect(TerminalLinkDetector.url(inViewport: text, column: 6, row: 2) == nil)
     }
 }
+
+/// Round 12, finding 5: a tap on a Host path used to be swallowed whole and
+/// never reached herdr, and the path rule was loose enough to fire on ordinary
+/// agent output. The tap now goes to herdr and the file viewer is offered from
+/// the selection menu; the matcher is tightened so the cell has to be on the
+/// path itself.
+@Suite("Terminal host path matching")
+struct TerminalHostPathMatchingTests {
+    @Test func theCellHasToLandOnThePathNotOnItsWrapper() {
+        // Inside the path: a match.
+        #expect(
+            TerminalLinkDetector.match(in: ["(/a/b.txt)"], column: 4, row: 1)
+                == .hostPath("/a/b.txt"))
+        // On the opening bracket, and on the closing one: not the path.
+        #expect(TerminalLinkDetector.match(in: ["(/a/b.txt)"], column: 1, row: 1) == nil)
+        #expect(TerminalLinkDetector.match(in: ["(/a/b.txt)"], column: 10, row: 1) == nil)
+    }
+
+    /// `main.swift:12:3` — the line and column are the compiler's, not the
+    /// file's, and a tap on them is not a tap on the file.
+    @Test func theCellHasToLandOnThePathNotOnASourceLocation() {
+        let line = ["at /a/b.swift:12:3 here"]
+        #expect(
+            TerminalLinkDetector.match(in: line, column: 8, row: 1)
+                == .hostPath("/a/b.swift"))
+        // Column 15 is the `2` of `:12`.
+        #expect(TerminalLinkDetector.match(in: line, column: 15, row: 1) == nil)
+    }
+
+    /// The Open on Host menu item reads the selection, which is the same
+    /// whitespace-delimited run the tap path resolves.
+    @Test func aSelectionResolvesTheSamePathTheTapPathWould() {
+        #expect(TerminalLinkDetector.hostPath(inSelectedText: "/a/b.txt") == "/a/b.txt")
+        #expect(TerminalLinkDetector.hostPath(inSelectedText: " ~/x/y.md ") == "~/x/y.md")
+        #expect(
+            TerminalLinkDetector.hostPath(inSelectedText: "(/a/b.swift:12:3)")
+                == "/a/b.swift")
+    }
+
+    /// A selection that spans whitespace is prose, not a filename, and a
+    /// directory is not a file to preview.
+    @Test(arguments: ["wrote /a/b.txt now", "/usr/local/bin", "b.txt", "", "   "])
+    func aSelectionThatIsNotOnePathOffersNothing(text: String) {
+        #expect(TerminalLinkDetector.hostPath(inSelectedText: text) == nil)
+    }
+}

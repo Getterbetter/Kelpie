@@ -217,6 +217,139 @@ struct PairingScanStoreTests {
         #expect(env.store.step == nil)
     }
 
+    /// Re-pairing a machine this device already has is an update, not a
+    /// second row: two Hosts for one machine quietly break the older one's
+    /// push path, because the Host's registration file is keyed by device
+    /// token and keeps only the newer entry.
+    @Test func pairingAMachineThisDeviceAlreadyHasUpdatesThatHost() async throws {
+        let env = try makeEnv()
+        defer { env.cleanup() }
+        let existing = Host(
+            name: "The mini", address: "10.0.0.7", port: 22, username: "lin",
+            authMethod: .password, sessionName: "work")
+        try env.catalog.add(existing, password: "hunter2")
+        env.store.submit(scannedCode: Self.bootstrapVector.code)
+
+        await env.store.pair()
+
+        #expect(env.catalog.hosts.count == 1)
+        let paired = try #require(env.store.pairedHost)
+        #expect(paired.id == existing.id)
+        // Pairing enrolled this device's key, and everything the user chose
+        // about the Host is kept.
+        #expect(paired.authMethod == .deviceKey)
+        #expect(paired.name == "The mini")
+        #expect(paired.sessionName == "work")
+        #expect(env.store.didUpdateExistingHost)
+        #expect(env.store.outcome?.message == "Updated The mini")
+    }
+
+    /// The same machine at a new address: its pinned host key is what says so.
+    @Test func aMovedMachineIsMatchedByItsPinnedHostKey() async throws {
+        let env = try makeEnv()
+        defer { env.cleanup() }
+        let existing = Host(
+            name: "The mini", address: "192.168.1.20", port: 22, username: "lin")
+        try env.catalog.add(existing)
+        await env.knownHosts.setFingerprint(
+            Self.pairedResult.hostKeyFingerprint, host: "192.168.1.20", port: 22)
+        env.store.submit(scannedCode: Self.bootstrapVector.code)
+
+        await env.store.pair()
+
+        #expect(env.catalog.hosts.count == 1)
+        #expect(env.catalog.hosts.first?.id == existing.id)
+        #expect(env.catalog.hosts.first?.address == "10.0.0.7")
+        #expect(env.store.outcome?.message == "Updated The mini")
+    }
+
+    /// Deleting the Host on one device and pairing the machine again on the
+    /// other must keep it. The re-pair updates the existing row and keeps its
+    /// address, port and username, so without an explicit edit stamp the next
+    /// reconcile sees no local change, applies the older tombstone, and
+    /// deletes the Host that was just paired — password and key with it.
+    @Test func aRePairedHostSurvivesAnOlderTombstone() async throws {
+        let suiteName = "hm-pairing-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let catalog = HostStore(defaults: defaults, secrets: InMemorySecretStore())
+        let existing = Host(
+            name: "The mini", address: "10.0.0.7", port: 22, username: "lin")
+        try catalog.add(existing)
+        let records = CountingSecretStore()
+        try records.write(
+            try PairingSyncTombstone(
+                hostID: existing.id, deletedAt: Date(timeIntervalSince1970: 2_000)
+            ).encoded(),
+            account: PairingSyncTombstone.account(for: existing.id))
+        let store = PairingScanStore(
+            catalog: catalog,
+            connector: FakePairingConnector(outcomes: [.succeeds(Self.pairedResult)]),
+            knownHosts: InMemoryKnownHostsStore(),
+            credentials: HostCredentialsProvider(
+                deviceKeys: DeviceKeyStore(secrets: InMemorySecretStore()),
+                secrets: InMemorySecretStore()),
+            hostEdits: PairingSyncHostEdits(defaults: defaults),
+            now: { Date(timeIntervalSince1970: 3_000) })
+        store.submit(scannedCode: Self.bootstrapVector.code)
+
+        await store.pair()
+        #expect(store.pairedHost?.id == existing.id)
+
+        let sync = PairingSync(
+            records: records,
+            deviceKeySlot: VolatileSecretStore(),
+            hosts: catalog,
+            primaryHost: FakePairingSyncPrimary(),
+            knownHosts: InMemoryKnownHostsStore(),
+            notificationKeys: NotificationKeyStore(secrets: VolatileSecretStore(), mirror: nil),
+            deviceKeys: DeviceKeyStore(secrets: VolatileSecretStore()),
+            settings: PairingSyncSettings(defaults: defaults),
+            defaults: defaults,
+            now: { Date(timeIntervalSince1970: 4_000) })
+        await sync.reconcile()
+
+        #expect(catalog.hosts.map(\.id) == [existing.id])
+        // And the re-pair is published, so the record out-dates the tombstone
+        // on the device that deleted it.
+        let stored = try #require(try records.read(account: existing.id.uuidString))
+        let record = try #require(PairingSyncRecord.decode(stored))
+        #expect(record.updatedAt == Date(timeIntervalSince1970: 4_000))
+    }
+
+    /// The key identifies the machine, not the account on it: the same machine
+    /// under a different login is a different Host.
+    @Test func aPinnedKeyUnderADifferentUsernameIsNotMatched() async throws {
+        let env = try makeEnv()
+        defer { env.cleanup() }
+        let other = Host(name: "Mine", address: "192.168.1.20", port: 22, username: "anthony")
+        try env.catalog.add(other)
+        await env.knownHosts.setFingerprint(
+            Self.pairedResult.hostKeyFingerprint, host: "192.168.1.20", port: 22)
+        env.store.submit(scannedCode: Self.bootstrapVector.code)
+
+        await env.store.pair()
+
+        #expect(env.catalog.hosts.count == 2)
+        #expect(env.store.didUpdateExistingHost == false)
+    }
+
+    /// A different machine is still a new Host — and so is the same machine
+    /// paired again after its Host was deleted, which has nothing to match.
+    @Test func anUnrelatedHostIsNotMatched() async throws {
+        let env = try makeEnv()
+        defer { env.cleanup() }
+        try env.catalog.add(
+            Host(name: "Other", address: "10.0.0.9", port: 22, username: "lin"))
+        env.store.submit(scannedCode: Self.bootstrapVector.code)
+
+        await env.store.pair()
+
+        #expect(env.catalog.hosts.count == 2)
+        #expect(env.store.didUpdateExistingHost == false)
+        #expect(env.store.outcome?.message == "Added lin@10.0.0.7")
+    }
+
     @Test func pairingAgainAfterSuccessIsIgnored() async throws {
         let env = try makeEnv()
         defer { env.cleanup() }

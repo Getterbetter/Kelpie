@@ -18,7 +18,7 @@ struct PairingScanView: View {
         case paste
     }
 
-    let onPaired: (Host) -> Void
+    let onPaired: (PairingOutcome) -> Void
     let onAddManually: () -> Void
     @State private var store: PairingScanStore
     @State private var entry: Entry
@@ -28,7 +28,7 @@ struct PairingScanView: View {
     init(
         catalog: HostStore,
         entry: Entry = .camera,
-        onPaired: @escaping (Host) -> Void = { _ in },
+        onPaired: @escaping (PairingOutcome) -> Void = { _ in },
         onAddManually: @escaping () -> Void = {}
     ) {
         self.onPaired = onPaired
@@ -69,9 +69,9 @@ struct PairingScanView: View {
                 await resolveCameraAccess()
             }
             .onChange(of: store.pairedHost) { _, paired in
-                guard let paired else { return }
+                guard paired != nil, let outcome = store.outcome else { return }
                 dismiss()
-                onPaired(paired)
+                onPaired(outcome)
             }
         }
     }

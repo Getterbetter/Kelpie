@@ -14,6 +14,10 @@ protocol PairingSyncHostCatalog: AnyObject {
     /// take a sibling's newer address, port and username onto a Host this
     /// device already holds.
     func update(_ host: Host, password: String?) throws
+    /// Deletes the Host. Pairing sync calls this only for a Host a sibling
+    /// deleted (a tombstone), and the catalog's own removal path is what
+    /// takes the Host's password, Notification Key and registration with it.
+    func remove(_ id: Host.ID) throws
 }
 
 /// The root screen's Host selection, as pairing sync needs it: a fresh device
@@ -30,6 +34,75 @@ protocol PairingSyncPrimarySelecting: AnyObject {
 }
 
 extension HostStore: PairingSyncHostCatalog {}
+
+/// What this device last saw of one Host's synced coordinates, and when.
+/// `digest` covers the three fields adoption governs and nothing else: a
+/// rename, a session change or a jump-host edit is not a claim on the address,
+/// and stamping one would both block a newer remote address and push the stale
+/// local one back over it. `at` is the Host's local last-modified time, which
+/// the conflict rule weighs against a record's `updatedAt` — and against a
+/// tombstone's `deletedAt`.
+struct HostEditStamp: Codable, Equatable {
+    var digest: String
+    var at: Date
+}
+
+/// The stamps themselves, in the defaults slot the reconcile reads.
+///
+/// Separate from `PairingSync` because it has a second writer: pairing a
+/// machine this device already has updates that Host **in place**, keeping its
+/// address, port and username — so the digest does not change, the reconcile
+/// sees no edit, and a sibling's tombstone from before the re-pair would
+/// delete the Host that was just paired, its password and Notification Key
+/// with it. A pairing says "edited here, now" through this type instead.
+@MainActor
+struct PairingSyncHostEdits {
+    static let defaultsKey = "kelpie.pairing-sync.host-edits"
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    /// JSON rather than a plist dictionary because the value is a pair; an
+    /// unreadable blob reads as "no Host was ever stamped", which only means
+    /// the next synced record wins.
+    var stamps: [String: HostEditStamp] {
+        get {
+            guard let data = defaults.data(forKey: Self.defaultsKey),
+                let decoded = try? JSONDecoder().decode([String: HostEditStamp].self, from: data)
+            else { return [:] }
+            return decoded
+        }
+        nonmutating set {
+            guard !newValue.isEmpty, let data = try? JSONEncoder().encode(newValue) else {
+                defaults.removeObject(forKey: Self.defaultsKey)
+                return
+            }
+            defaults.set(data, forKey: Self.defaultsKey)
+        }
+    }
+
+    /// Records this Host as changed here at `instant`, whether or not its
+    /// coordinates moved. The digest is the Host's current one, so the next
+    /// reconcile sees no further change and keeps this timestamp.
+    func markEdited(_ host: Host, at instant: Date) {
+        var current = stamps
+        current[host.id.uuidString] = HostEditStamp(digest: Self.digest(of: host), at: instant)
+        stamps = current
+    }
+
+    /// The three fields a record governs — address, port, username — and only
+    /// those. Neither an address nor a username can contain a newline, so the
+    /// join is unambiguous.
+    static func digest(of host: Host) -> String {
+        var hasher = SHA256()
+        hasher.update(
+            data: Data("\(host.address)\n\(host.port)\n\(host.username)".utf8))
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+}
 
 /// Reads and writes the same defaults key `PrimaryHostStore` persists, fresh
 /// on every call.
@@ -102,7 +175,6 @@ final class PairingSync {
 
     private static let publishedKey = "kelpie.pairing-sync.published"
     private static let pendingRegistrationKey = "kelpie.pairing-sync.pending-registration"
-    private static let hostEditsKey = "kelpie.pairing-sync.host-edits"
 
     private let records: any SyncedSecretStore
     private let deviceKeySlot: any SyncedSecretStore
@@ -113,14 +185,23 @@ final class PairingSync {
     private let deviceKeys: DeviceKeyStore
     private let settings: PairingSyncSettings
     private let defaults: UserDefaults
+    private let hostEdits: PairingSyncHostEdits
     private let now: @Sendable () -> Date
 
     /// The live per-Host connections sibling enrolment and first-connect
     /// registration ride. Absent in tests that only exercise the reconcile.
     private let transports: (any NotificationTransportProvider)?
+    /// Where an adoption's registration failure is reported (#8), so a second
+    /// device that never armed does not look identical to one that did. Weak
+    /// and optional: every existing test builds this type without it.
+    private weak var registrationNotes: (any RegistrationFailureRecording)?
     private let deviceToken: @MainActor () -> APNSDeviceToken?
     private let relayBaseURL: @MainActor () -> URL?
     private let ceremony: NotificationRegistrationCeremony
+    /// The same per-Host (token, environment) record the preferences store
+    /// keeps, written here too: a Host this device registers on adoption is
+    /// already current, and a later launch must not rewrite it.
+    private let registeredTokens: RegisteredDeviceTokenLog
 
     private static let log = Logger(subsystem: "dev.bybee.heeler", category: "pairing-sync")
     /// One line per failure kind, not one per activation.
@@ -130,6 +211,9 @@ final class PairingSync {
     /// between awaits, so the flag can never be missed.
     private var isReconciling = false
     private var rerunRequested = false
+    /// Set while a sibling's tombstone is being applied, so the catalog's
+    /// removal hook does not answer it with a tombstone of this device's own.
+    private var isApplyingRemoteDeletion = false
 
     init(
         records: any SyncedSecretStore = KeychainSecretStore(
@@ -147,6 +231,7 @@ final class PairingSync {
         deviceToken: @escaping @MainActor () -> APNSDeviceToken? = { nil },
         relayBaseURL: @escaping @MainActor () -> URL? = { nil },
         ceremony: NotificationRegistrationCeremony = NotificationRegistrationCeremony(),
+        registrationNotes: (any RegistrationFailureRecording)? = nil,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.records = records
@@ -158,10 +243,13 @@ final class PairingSync {
         self.deviceKeys = deviceKeys
         self.settings = settings
         self.defaults = defaults
+        self.hostEdits = PairingSyncHostEdits(defaults: defaults)
         self.transports = transports
         self.deviceToken = deviceToken
         self.relayBaseURL = relayBaseURL
         self.ceremony = ceremony
+        self.registrationNotes = registrationNotes
+        self.registeredTokens = RegisteredDeviceTokenLog(defaults: defaults)
         self.now = now
     }
 
@@ -197,18 +285,39 @@ final class PairingSync {
             withdraw()
             return
         }
-        let synced = loadRecords()
+        let items = loadSyncedItems()
+        let tombstones = purgingExpired(items.tombstones)
         let deviceKey = reconcileDeviceKey()
         var stamps = refreshedHostEditStamps()
-        await adopt(synced, stamps: &stamps)
+        applyTombstones(tombstones, stamps: &stamps)
+        await adopt(items.records, tombstones: tombstones, stamps: &stamps)
         hostEditStamps = stamps
-        await publish(synced, deviceKey: deviceKey, stamps: stamps)
+        await publish(
+            items.records, deviceKey: deviceKey, stamps: stamps, tombstones: tombstones)
     }
 
-    /// Drops a deleted Host's synced record, so the next reconcile does not
-    /// adopt the Host straight back. The synced Device Key is never deleted
+    /// Drops a deleted Host's synced record and publishes a tombstone in its
+    /// place, so the sibling that still holds the Host deletes it too instead
+    /// of republishing it — without which a delete on one device is undone by
+    /// the other's next reconcile. The synced Device Key is never deleted
     /// from here: the siblings still need it.
     func hostWasDeleted(_ id: Host.ID) {
+        forgetHost(id)
+        // A deletion this device is only *applying* already has its sibling's
+        // tombstone in the synced store; rewriting it with a fresh date would
+        // set both devices rewriting the same item forever.
+        guard !isApplyingRemoteDeletion else { return }
+        let tombstone = PairingSyncTombstone(hostID: id, deletedAt: now())
+        do {
+            try records.write(try tombstone.encoded(), account: PairingSyncTombstone.account(for: id))
+        } catch {
+            logOnce("tombstone-publish", error)
+        }
+    }
+
+    /// Everything this device keeps about a Host that is no longer in the
+    /// catalog: its synced record and its three bookkeeping entries.
+    private func forgetHost(_ id: Host.ID) {
         try? records.removeSecret(account: id.uuidString)
         var published = publishedRecords
         published[id.uuidString] = nil
@@ -298,14 +407,22 @@ final class PairingSync {
     // MARK: Adopt
 
     private func adopt(
-        _ synced: [UUID: PairingSyncRecord], stamps: inout [String: HostEditStamp]
+        _ synced: [UUID: PairingSyncRecord],
+        tombstones: [UUID: PairingSyncTombstone],
+        stamps: inout [String: HostEditStamp]
     ) async {
         let known = Dictionary(
             hosts.hosts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var firstAdopted: Host.ID?
         for record in synced.values.sorted(by: { $0.updatedAt < $1.updatedAt }) {
+            // A record no newer than the Host's deletion is the deleted Host
+            // itself, still sitting in the synced store until the device that
+            // published it reconciles. Adopting it would resurrect it.
+            if let tombstone = tombstones[record.host.id], tombstone.deletedAt >= record.updatedAt {
+                continue
+            }
             if let local = known[record.host.id] {
-                adoptCoordinates(from: record, onto: local, stamps: &stamps)
+                await adoptCoordinates(from: record, onto: local, stamps: &stamps)
                 continue
             }
             do {
@@ -327,6 +444,8 @@ final class PairingSync {
                             key: key))
                 } catch {
                     logOnce("notification-key-adopt", error)
+                    registrationNotes?.recordRegistrationFailure(
+                        error, source: .pairingSync, for: record.host.id)
                 }
             }
             // This device has no entry in the Host's registration file yet —
@@ -336,7 +455,7 @@ final class PairingSync {
             // last-modified time is the record's own: nothing here is a local
             // edit, and the next reconcile must not read it as one.
             stamps[record.host.id.uuidString] = HostEditStamp(
-                digest: Self.digest(of: record.host), at: record.updatedAt)
+                digest: PairingSyncHostEdits.digest(of: record.host), at: record.updatedAt)
             firstAdopted = firstAdopted ?? record.host.id
         }
         // Read the persisted selection now rather than trusting a cached
@@ -364,12 +483,17 @@ final class PairingSync {
     /// record, and nothing is deleted here.
     private func adoptCoordinates(
         from record: PairingSyncRecord, onto local: Host, stamps: inout [String: HostEditStamp]
-    ) {
+    ) async {
         let key = local.id.uuidString
         let lastLocalEdit = stamps[key]?.at ?? .distantPast
         // Strictly newer. A record that merely ties with the local edit —
         // including the echo of this device's own publish — leaves it alone.
         guard record.updatedAt > lastLocalEdit else { return }
+        // The record's pins come with its coordinates. Without them the Host
+        // moves to an address this device has never confirmed a key for, and
+        // the Console — which never prompts for a Host it already holds —
+        // would refuse every connection to the new address.
+        await adoptFingerprints(from: record)
         var updated = local
         updated.address = record.host.address
         updated.port = record.host.port
@@ -381,23 +505,85 @@ final class PairingSync {
             logOnce("host-coordinates-adopt", error)
             return
         }
-        stamps[key] = HostEditStamp(digest: Self.digest(of: updated), at: record.updatedAt)
+        stamps[key] = HostEditStamp(
+            digest: PairingSyncHostEdits.digest(of: updated), at: record.updatedAt)
+    }
+
+    /// Takes a record's known-hosts entries onto this device, for endpoints
+    /// it has no pin of its own for. An existing pin is never replaced: it is
+    /// this device's own first-connect confirmation, and a record must not be
+    /// able to retire it — that is what the mismatch failure is for.
+    private func adoptFingerprints(from record: PairingSyncRecord) async {
+        for entry in record.fingerprints.compactMap(PairingSyncFingerprint.init(encoded:)) {
+            let existing = await knownHosts.fingerprint(
+                host: entry.address, port: entry.port, algorithm: entry.fingerprint.algorithm)
+            guard existing == nil else { continue }
+            await knownHosts.setFingerprint(
+                entry.fingerprint, host: entry.address, port: entry.port)
+        }
+    }
+
+    // MARK: Deletions
+
+    /// Deletes the Hosts a sibling deleted. The same last-writer-wins rule the
+    /// coordinates use: a tombstone written after this device's own last edit
+    /// of that Host takes it, and one written before it loses — so a Host
+    /// edited here after the deletion stays, and is published again.
+    ///
+    /// Deletion goes through the catalog's own `remove`, so the Host's
+    /// password, its Notification Key and its device registration leave with
+    /// it exactly as they do when the user deletes the Host here.
+    private func applyTombstones(
+        _ tombstones: [UUID: PairingSyncTombstone], stamps: inout [String: HostEditStamp]
+    ) {
+        guard !tombstones.isEmpty else { return }
+        for host in hosts.hosts {
+            guard let tombstone = tombstones[host.id] else { continue }
+            let key = host.id.uuidString
+            guard tombstone.deletedAt > (stamps[key]?.at ?? .distantPast) else { continue }
+            isApplyingRemoteDeletion = true
+            do {
+                try hosts.remove(host.id)
+            } catch {
+                logOnce("host-tombstone-delete", error)
+                isApplyingRemoteDeletion = false
+                continue
+            }
+            // The catalog's removal hook runs `hostWasDeleted` in production
+            // and nothing at all in tests; either way this leaves no trace of
+            // the Host behind, and never republishes it.
+            forgetHost(host.id)
+            isApplyingRemoteDeletion = false
+            stamps[key] = nil
+        }
+    }
+
+    /// Drops tombstones past their lifetime from the synced store, and returns
+    /// the ones still in force. Suppression is not meant to be permanent: a
+    /// month is longer than any device stays away, and an expired tombstone
+    /// only means a record nobody publishes any more is no longer suppressed.
+    private func purgingExpired(
+        _ tombstones: [UUID: PairingSyncTombstone]
+    ) -> [UUID: PairingSyncTombstone] {
+        let instant = now()
+        var live: [UUID: PairingSyncTombstone] = [:]
+        for (id, tombstone) in tombstones {
+            guard tombstone.hasExpired(at: instant) else {
+                live[id] = tombstone
+                continue
+            }
+            do {
+                try records.removeSecret(account: PairingSyncTombstone.account(for: id))
+            } catch {
+                logOnce("tombstone-expire", error)
+            }
+        }
+        return live
     }
 
     // MARK: Local edits
 
     /// What this device last saw of one Host's synced coordinates, and when.
-    /// `digest` covers the three fields adoption governs and nothing else: a
-    /// rename, a session change or a jump-host edit is not a claim on the
-    /// address, and stamping one would both block a newer remote address and
-    /// push the stale local one back over it. `at` is when this device first
-    /// saw those coordinates — the Host's local last-modified time, which is
-    /// what the conflict rule weighs against a record's `updatedAt`.
-    private struct HostEditStamp: Codable {
-        var digest: String
-        var at: Date
-    }
-
     /// Stamps every Host whose coordinates changed since the last reconcile,
     /// and returns the stamps. A Host this device has never stamped — every
     /// Host that predates this bookkeeping — is stamped `.distantPast`, so the
@@ -407,7 +593,7 @@ final class PairingSync {
         let live = Set(hosts.hosts.map(\.id.uuidString))
         for host in hosts.hosts {
             let key = host.id.uuidString
-            let digest = Self.digest(of: host)
+            let digest = PairingSyncHostEdits.digest(of: host)
             guard let stamp = stamps[key] else {
                 stamps[key] = HostEditStamp(digest: digest, at: .distantPast)
                 continue
@@ -420,21 +606,11 @@ final class PairingSync {
         return stamps
     }
 
-    /// The three fields a record governs — address, port, username — and only
-    /// those. Neither an address nor a username can contain a newline, so the
-    /// join is unambiguous.
-    private static func digest(of host: Host) -> String {
-        var hasher = SHA256()
-        hasher.update(
-            data: Data("\(host.address)\n\(host.port)\n\(host.username)".utf8))
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
-    }
-
     // MARK: Publish
 
     private func publish(
         _ synced: [UUID: PairingSyncRecord], deviceKey: DeviceKeyState,
-        stamps: [String: HostEditStamp]
+        stamps: [String: HostEditStamp], tombstones: [UUID: PairingSyncTombstone]
     ) async {
         var published = publishedRecords
         for host in hosts.hosts {
@@ -486,6 +662,20 @@ final class PairingSync {
                 {
                     continue
                 }
+            }
+            // Reading this Host's fingerprints suspended, and the Host may
+            // have been deleted while it did — a delete is exactly what the
+            // user does while the app is settling. Writing the record now
+            // would give it a fresh `updatedAt`, out-date the tombstone that
+            // deletion just published, and resurrect the Host on both
+            // devices. So the last thing before the write is: is it still
+            // here, and has nobody deleted it?
+            guard hosts.hosts.contains(where: { $0.id == host.id }),
+                tombstones[host.id] == nil,
+                syncedTombstone(host.id) == nil
+            else {
+                published[host.id.uuidString] = nil
+                continue
             }
             do {
                 try records.write(try mine.encoded(), account: host.id.uuidString)
@@ -581,30 +771,56 @@ final class PairingSync {
             }
         } catch {
             logOnce("adopted-host-registration", error)
+            registrationNotes?.recordRegistrationFailure(error, source: .pairingSync, for: id)
             return
         }
+        registrationNotes?.clearRegistrationNote(for: id)
+        registeredTokens.record(token, for: id)
         pendingRegistrationHostIDs.remove(id.uuidString)
     }
 
     // MARK: Synced items
 
-    private func loadRecords() -> [UUID: PairingSyncRecord] {
+    /// What the synced store holds: one record per live Host, one tombstone
+    /// per Host some device deleted. Accounts that are neither — a newer
+    /// build's item kind — are skipped rather than guessed at.
+    private struct SyncedItems {
+        var records: [UUID: PairingSyncRecord] = [:]
+        var tombstones: [UUID: PairingSyncTombstone] = [:]
+    }
+
+    private func loadSyncedItems() -> SyncedItems {
         let stored: [String: Data]
         do {
             stored = try records.readAll()
         } catch {
             logOnce("record-read", error)
-            return [:]
+            return SyncedItems()
         }
-        var decoded: [UUID: PairingSyncRecord] = [:]
+        var items = SyncedItems()
         for (account, data) in stored {
+            if let id = PairingSyncTombstone.hostID(forAccount: account) {
+                guard let tombstone = PairingSyncTombstone.decode(data), tombstone.hostID == id
+                else { continue }
+                items.tombstones[id] = tombstone
+                continue
+            }
             guard let id = UUID(uuidString: account),
                 let record = PairingSyncRecord.decode(data),
                 record.host.id == id
             else { continue }
-            decoded[id] = record
+            items.records[id] = record
         }
-        return decoded
+        return items
+    }
+
+    /// A fresh read of one Host's tombstone. The reconcile's own snapshot
+    /// predates every suspension in `publish`, and a deletion is answered by
+    /// writing this item — so the write path re-reads rather than trusting it.
+    private func syncedTombstone(_ id: Host.ID) -> PairingSyncTombstone? {
+        guard let data = try? records.read(account: PairingSyncTombstone.account(for: id))
+        else { return nil }
+        return PairingSyncTombstone.decode(data)
     }
 
     private func syncedRecord(_ id: Host.ID) -> PairingSyncRecord? {
@@ -629,24 +845,12 @@ final class PairingSync {
         }
     }
 
-    /// Host id → the shape this device last saw that Host in, and when. JSON
-    /// rather than a plist dictionary because the value is a pair; an
-    /// unreadable blob reads as "no Host was ever stamped", which only means
-    /// the next synced record wins.
+    /// Host id → the shape this device last saw that Host in, and when. The
+    /// pairing ceremony writes here too, so the store itself lives outside
+    /// this type.
     private var hostEditStamps: [String: HostEditStamp] {
-        get {
-            guard let data = defaults.data(forKey: Self.hostEditsKey),
-                let decoded = try? JSONDecoder().decode([String: HostEditStamp].self, from: data)
-            else { return [:] }
-            return decoded
-        }
-        set {
-            guard !newValue.isEmpty, let data = try? JSONEncoder().encode(newValue) else {
-                defaults.removeObject(forKey: Self.hostEditsKey)
-                return
-            }
-            defaults.set(data, forKey: Self.hostEditsKey)
-        }
+        get { hostEdits.stamps }
+        set { hostEdits.stamps = newValue }
     }
 
     /// Hosts adopted from a sibling that this device has not registered for

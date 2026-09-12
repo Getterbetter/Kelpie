@@ -178,6 +178,36 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Browser posting is allowed at the settings level, gated at the conversation level.** `mcp__claude-in-chrome` is in `permissions.allow` and the auto-mode classifier has an allow rule for approved community posts. The rule that each post text gets Anthony's yes on screen is the delegate skill's, and stays.
 
+## 2026-09-12 — round 12b: the double-space, the keyboard, the missing push
+
+**The iOS double-space shortcut is fixed by honouring `replace(_:withText:)`, not by a trait.** Every autocorrection trait was already `.no`; the vendored view simply ignored the range iOS asked it to replace. The override sends one DEL per replaced character and refuses whenever it cannot be honest: marked text, a hardware keyboard, a range that is not the line's suffix, non-printable or wide text, or a caret away from the end of the shadow line.
+
+**A one-finger scroll drops the software keyboard on every idiom.** The iPad's keyboard has a dismiss key and the iPhone's does not; the gesture never fires with a hardware keyboard attached, and never for selection, hold-then-drag or trackpad scroll.
+
+**The push entry on the Host is revalidated on launch.** The mini held one sandbox entry from 11 Sep while the iPad ran the TestFlight build and the iPhone had adopted the Host by sync; nothing re-registered because registration only ran from two Settings toggles. Each Host now records the (token, environment) pair it last registered and re-registers when the pair changes; the sibling path re-runs when the token arrives.
+
+**Swift Testing suites are named by their struct in `-only-testing`.** The first device run executed zero tests because the filter named the file; the XCTest "Executed N tests" line does not count Swift Testing.
+
+## 2026-09-12 — round 12c: the robustness review
+
+**"Captured once, never revalidated" is the bug class, and the cure is a habit.** Four fresh-context reviews (notifications, identity, transport, screen) independently found the hard parts sound and the same weakness at every lifecycle edge; see [[Robustness review]]. The rule from now on: any fact about the outside world (a token, an environment, a keyboard, a session name, a fingerprint, a network path) is re-read on launch and foreground, travels with the record it belongs to, is retired with that record, and gets a visible state when its neighbour is unhealthy.
+
+**The APNs environment comes from the provisioning profile, not `#if DEBUG`.** `embedded.mobileprovision` carries `aps-environment`; a Release build on a development profile is sandbox, TestFlight and the App Store are production, and a build with no profile is production. `#if DEBUG` is only the fallback when the profile cannot be read.
+
+**A push in the foreground is never dropped.** `willPresent` hands the envelope to the in-app banner store; when the store cannot show it (no live list, unknown triggers) the system banner shows instead; only the Agent actually on screen stays silent. One de-dupe key covers both pipelines.
+
+**Deleting a Host retires everything it owned.** The Notification Key (Keychain and app-group mirror), this device's entry on the Host (withdrawn over SSH with retries, then a visible note if it never lands), and a synced tombstone so a sibling deletes too and never resurrects it. A re-pair after deletion advances the edit stamp so it out-dates the tombstone.
+
+**Adopted coordinates travel with their fingerprints, and an unpinned Host asks.** `adoptCoordinates` imports the record's pins for endpoints with no local pin; `HostKeyConfirmationBroker` turns the Console's blanket-reject policy into a first-connect question wherever a presenter is mounted, and declines as before when none is.
+
+**A remote exit is never transport death.** Only channel-open failure, an unreachable SSH host and timeouts mark the transport suspect; a nonzero herdr exit (a bad `--session` name, now user-editable) shows the exit and the session name and waits for the user, because treating it as death looped forever.
+
+**A network path change is a first-class event.** `NetworkPathObserver` (NWPathMonitor behind a protocol) marks connected Hosts reconnecting synchronously, repairs with a capped policy, coalesces a flap storm to one repair plus one follow-up, and reports settled only when every Host reconnected on a newer transport generation.
+
+**Paths in the terminal are no longer a tap target.** A tap always reaches herdr as a click; "Open <file>" lives in the selection menu. The path matcher was swallowing ordinary agent output.
+
+**The double-space rewrite runs in alternate-screen mode on purpose.** herdr's client is always `?1049h` plus mouse tracking, and the input boxes of claude, codex and grok read DEL as Backspace; the honest gates are the shadow caret at end of line, the echo leash and the printable-ASCII rule, not the screen mode.
+
 ## Distribution
 
 **A — Xcode sideload now, TestFlight later, App Store possibly.** *(Overtaken 2026-09-11 to 12: the App Store became the plan. `scripts/ExportOptions.plist` carries team `8JQWBQKEXX`; build 1 of 1.0 was uploaded 2026-09-12 and version 1.0 plus the three tips were submitted for review at 02:20 UTC that day as **Kelpie for herdr**. A TestFlight public beta went in alongside it. See [[App Store plan]].)*

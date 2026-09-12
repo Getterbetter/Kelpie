@@ -86,7 +86,27 @@ enum TerminalLinkDetector {
         // Terminal prose wraps paths in brackets and quotes — `(/tmp/out.log)`,
         // `"~/notes.md"` — and neither the wrapper nor the sentence's
         // punctuation is part of what was tapped.
-        return hostPath(trimmed(strippingLeadingPunctuation(token))).map(Match.hostPath)
+        let leading = leadingPunctuationCount(token.text)
+        guard let path = hostPath(trimmed(strippingLeadingPunctuation(token.text)))
+        else { return nil }
+        // The cell has to be on the path itself, not on the wrapper around it
+        // or on the `:12:3` a compiler appended. Agent output is dense with
+        // `(see /tmp/out.log)` and `main.swift:12:3`, and a tap on the bracket
+        // or on the line number is not a tap on the file (round 12,
+        // finding 5).
+        let offset = column - 1 - token.start
+        guard offset >= leading, offset < leading + path.count else { return nil }
+        return .hostPath(path)
+    }
+
+    /// The Host path a *selection* names, for the Open on Host menu item.
+    ///
+    /// One token only: a selection that spans whitespace is prose, and the
+    /// same wrappers and source locations are stripped as on the tap path.
+    static func hostPath(inSelectedText text: String) -> String? {
+        let token = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty, !token.contains(where: isTerminator) else { return nil }
+        return hostPath(trimmed(strippingLeadingPunctuation(token)))
     }
 
     /// The URL covering the tapped cell, found anywhere inside the run rather
@@ -132,9 +152,17 @@ enum TerminalLinkDetector {
 
     /// The whitespace-delimited run of characters the tapped cell is part of,
     /// joined with the next row when it reached the grid's last column.
+    /// The run and where it starts, so the caller can tell which of its
+    /// characters the tapped cell actually landed on.
+    private struct Token {
+        let text: String
+        /// 0-based index of the run's first character in its row.
+        let start: Int
+    }
+
     private static func token(
         in rows: [String], column: Int, row: Int, width: Int?
-    ) -> String? {
+    ) -> Token? {
         guard row >= 1, row <= rows.count, column >= 1 else { return nil }
         let characters = Array(rows[row - 1])
         let index = column - 1
@@ -148,7 +176,7 @@ enum TerminalLinkDetector {
             let continuation = Array(rows[row]).prefix { !isTerminator($0) }
             token += String(continuation)
         }
-        return token
+        return Token(text: token, start: start)
     }
 
     private static func trimmed(_ token: String) -> String {
@@ -160,11 +188,11 @@ enum TerminalLinkDetector {
     }
 
     private static func strippingLeadingPunctuation(_ token: String) -> String {
-        var token = token
-        while let first = token.first, leadingPunctuation.contains(first) {
-            token.removeFirst()
-        }
-        return token
+        String(token.dropFirst(leadingPunctuationCount(token)))
+    }
+
+    private static func leadingPunctuationCount(_ token: String) -> Int {
+        token.prefix { leadingPunctuation.contains($0) }.count
     }
 
     /// An absolute Unix path whose last component looks like a file: a name

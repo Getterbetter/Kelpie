@@ -52,6 +52,10 @@ struct ContentView: View {
         // The Settings toggle lives behind the cover, so it reaches the
         // reconcile through the environment rather than another parameter.
         .environment(app.pairingSyncSettings)
+        // The Console connects Hosts in the background and has no screen of
+        // its own to ask on, so the first-connect question lands here — and
+        // on the Console cover's own root, for when that is what is up.
+        .hostKeyConfirmation()
         .environment(\.sceneWindow, window)
         .environment(
             \.agentSceneRouting,

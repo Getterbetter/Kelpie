@@ -38,6 +38,11 @@ final class HeelerAppModel {
     let activity: AppActivityCoordinator
     /// iCloud pairing sync (ADR 0018). App-wide like the other stores: one
     /// reconcile per process, not one per window.
+    /// Wi-Fi↔cellular, a VPN toggle, the mini moving to its Tailscale
+    /// address: a path change leaves every Host's socket dead while it still
+    /// reports itself reusable, so the observer drives the Console's own
+    /// revalidate until the connections settle (S1).
+    let networkPaths = NetworkPathObserver()
     let pairingSyncSettings: PairingSyncSettings
     let pairingSync: PairingSync
 
@@ -109,7 +114,10 @@ final class HeelerAppModel {
             pinnedPaneIDs: { [weak console] id in
                 console?.pins.pinnedPaneIDs(for: id) ?? []
             },
-            rowLayout: { [weak console] id in console?.rowLayout(for: id) })
+            rowLayout: { [weak console] id in console?.rowLayout(for: id) },
+            // A token write that never lands shows on the Host's row in
+            // Settings rather than in a log line nobody reads (#8).
+            registrationNotes: notificationPreferences)
         // iCloud pairing sync (ADR 0018). It reads and writes the persisted
         // primary-Host id directly rather than holding a `PrimaryHostStore`,
         // whose cached selection could overwrite a Host the user switched to
@@ -121,7 +129,8 @@ final class HeelerAppModel {
             settings: pairingSyncSettings,
             transports: console,
             deviceToken: { [weak pushRegistration] in pushRegistration?.deviceToken },
-            relayBaseURL: { [weak relaySettings] in relaySettings?.relayURL })
+            relayBaseURL: { [weak relaySettings] in relaySettings?.relayURL },
+            registrationNotes: notificationPreferences)
     }
 
     var terminal: TerminalSettings {
@@ -159,6 +168,11 @@ final class HeelerAppModel {
             await ConsoleActivityDriver(activity: activity, console: console).run()
         }
         Task { await pushRegistration.refresh() }
+        Task { [networkPaths, console] in
+            await networkPaths.run(
+                recover: { await console.networkPathDidChange() },
+                isRecovered: { console.hostConnectionsAreSettled })
+        }
         // Existing installs' Notification Keys predate the app-group
         // mirror; refresh it before a locked widget render needs it.
         NotificationKeyStore().refreshMirror()
@@ -166,8 +180,13 @@ final class HeelerAppModel {
 
         // Adopt before anything else needs the catalog, and hang the deletion
         // hook on the store the app kept.
-        hostStore.didRemoveHost = { [weak pairingSync] id in
+        // One slot, two listeners: the tombstone that stops a sibling
+        // device resurrecting the Host, and the withdrawal of this device's
+        // Notification Key and registration entry.
+        hostStore.didRemoveHost = {
+            [weak pairingSync, weak notificationPreferences] id in
             pairingSync?.hostWasDeleted(id)
+            notificationPreferences?.hostWasRemoved(id)
         }
         Task { await pairingSync.reconcile() }
 
@@ -234,7 +253,14 @@ final class HeelerAppModel {
         // visit that may never happen.
         observe({ console.hostStatuses }) { [weak self] _ in
             guard let self else { return }
-            Task { await self.notificationPreferences.refresh() }
+            Task {
+                await self.notificationPreferences.refresh()
+                // A Host reachable again is the first chance to notice that
+                // its entry still names the token — or the APNs environment,
+                // which a TestFlight build changes under it — of an earlier
+                // install, and to rewrite it before a push is dropped.
+                await self.notificationPreferences.reregisterChangedDevices()
+            }
             liveActivities.connectionsDidChange()
             // A Host that just came up is the only moment pairing sync can
             // enrol a sibling's key or register this device for an adopted
@@ -260,7 +286,21 @@ final class HeelerAppModel {
         }
         observe({ pushRegistration.deviceToken }) { [weak self] _ in
             guard let self else { return }
-            Task { await self.notificationPreferences.refresh() }
+            Task {
+                await self.notificationPreferences.refresh()
+                await self.notificationPreferences.reregisterChangedDevices()
+                // Registering an adopted Host bails while this device has no
+                // push token — a second device that adopts a Host through
+                // iCloud before its first notification permission never gets
+                // an entry otherwise — so the token arriving re-runs it for
+                // the Hosts that are already up.
+                let connected = console.hostStatuses
+                    .filter { $0.value == .connected }
+                    .map(\.key)
+                if !connected.isEmpty {
+                    await self.pairingSync.hostsDidConnect(connected)
+                }
+            }
         }
     }
 

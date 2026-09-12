@@ -16,6 +16,52 @@ protocol TerminalKeyBarHandler: AnyObject {
     ) -> TerminalPublicStickyActivation
 }
 
+/// The key bar's sizes, derived from the reader's text size.
+///
+/// Before round 12 every one of these was a constant: 38 pt keys under the
+/// 44 pt minimum target, 16 pt labels that ignored Dynamic Type entirely, and
+/// a 46 pt bar that could not grow — on the one row of chrome an iPhone user
+/// has for Esc, Tab, Ctrl and the arrows (finding 8). They scale now, and they
+/// are capped, because the bar has to stay a single row above the keyboard.
+///
+/// Pure, so the floor and the ceiling can be tested without a view.
+enum TerminalKeyBarMetrics {
+    /// The unscaled label size, and the text style it scales with. `.body` is
+    /// the style a keyboard key's caption reads as.
+    static let baseTitleSize: CGFloat = 16
+    static let textStyle = UIFont.TextStyle.body
+    /// Past this a key's caption starts wrapping inside a one-row bar.
+    static let maximumTitleSize: CGFloat = 24
+    /// The HIG minimum touch target, which the old 38 pt keys were under.
+    static let minimumKeyHeight: CGFloat = 44
+    /// A third of an iPhone's landscape keyboard is as much as one row may
+    /// take.
+    static let maximumKeyHeight: CGFloat = 68
+    /// The gap above and below the key row inside the bar.
+    static let keyPadding: CGFloat = 4
+
+    /// The label size at `traits`' content size category, scaled by
+    /// `UIFontMetrics` exactly as `preferredFont(forTextStyle:)` would and
+    /// then capped.
+    static func titleSize(for traits: UITraitCollection) -> CGFloat {
+        min(
+            UIFontMetrics(forTextStyle: textStyle).scaledValue(
+                for: baseTitleSize, compatibleWith: traits),
+            maximumTitleSize)
+    }
+
+    /// The key height that fits a caption of `size`, never below the touch
+    /// minimum and never above the one-row ceiling.
+    static func keyHeight(forTitleSize size: CGFloat) -> CGFloat {
+        let fitted = (size * 1.6).rounded(.up) + 16
+        return min(max(minimumKeyHeight, fitted), maximumKeyHeight)
+    }
+
+    static func barHeight(forTitleSize size: CGFloat) -> CGFloat {
+        keyHeight(forTitleSize: size) + 2 * keyPadding
+    }
+}
+
 /// One row of keys riding the software keyboard, drawn as keyboard keys.
 ///
 /// The vendored accessory bar draws round buttons on its own blurred gradient,
@@ -29,14 +75,15 @@ protocol TerminalKeyBarHandler: AnyObject {
 /// UIKit's, and the vendored surface never lays it out.
 @MainActor
 final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
-    static let barHeight: CGFloat = 46
-    private static let keyHeight: CGFloat = 38
     private static let minimumKeyWidth: CGFloat = 44
     fileprivate static let keyCornerRadius: CGFloat = 6
     private static let keySpacing: CGFloat = 6
     private static let groupSpacing: CGFloat = 12
     private static let sideInset: CGFloat = 8
-    private static let titleSize: CGFloat = 16
+
+    private var titleSize: CGFloat { TerminalKeyBarMetrics.titleSize(for: traitCollection) }
+    private var keyHeight: CGFloat { TerminalKeyBarMetrics.keyHeight(forTitleSize: titleSize) }
+    private var barHeight: CGFloat { TerminalKeyBarMetrics.barHeight(forTitleSize: titleSize) }
 
     /// White on light, the keyboard's own grey on dark — the colour an iPadOS
     /// key is, which no semantic colour reproduces on both sides.
@@ -48,13 +95,20 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
 
     private weak var handler: (any TerminalKeyBarHandler)?
     private let stack = UIStackView()
+    private let scroll = UIScrollView()
     private var stickyKeys:
         [(modifier: TerminalPublicStickyModifier, key: UIButton, caption: String)] = []
+    /// Every constraint pinned to the key height, so one text-size change can
+    /// move them all together.
+    private var keyHeightConstraints: [NSLayoutConstraint] = []
+    /// The symbol keys and their SF Symbol names: an image is drawn at a point
+    /// size, so it has to be remade when the text size moves.
+    private var symbolKeys: [(button: UIButton, symbol: String)] = []
 
     @objc var enableInputClicksWhenVisible: Bool { true }
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: Self.barHeight)
+        CGSize(width: UIView.noIntrinsicMetric, height: barHeight)
     }
 
     /// - Parameter pasteTarget: the responder whose `pasteConfiguration` and
@@ -69,11 +123,48 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         // A real starting frame plus flexible width: an accessory sized only by
         // its intrinsic height is the classic zero-height bar.
         super.init(
-            frame: CGRect(x: 0, y: 0, width: 320, height: Self.barHeight),
+            frame: CGRect(
+                x: 0, y: 0, width: 320,
+                height: TerminalKeyBarMetrics.barHeight(
+                    forTitleSize: TerminalKeyBarMetrics.titleSize(for: .current))),
             inputViewStyle: .keyboard)
         autoresizingMask = [.flexibleWidth]
         configureKeys(pasteTarget: pasteTarget)
+        applyTextSizeMetrics()
         refreshStickyKeys()
+        // One row of chrome is all an iPhone has for Esc, Tab, Ctrl and the
+        // arrows, so it follows the reader's text size — capped, because the
+        // bar has to stay one row (round 12, finding 8).
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) {
+            (bar: TerminalKeyBar, _) in
+            bar.applyTextSizeMetrics()
+        }
+    }
+
+    /// Re-derives every size that follows the text size, and tells UIKit the
+    /// accessory wants a different height.
+    private func applyTextSizeMetrics() {
+        let keyHeight = self.keyHeight
+        for constraint in keyHeightConstraints { constraint.constant = keyHeight }
+        let verticalInset = (barHeight - keyHeight) / 2
+        scroll.contentInset = UIEdgeInsets(
+            top: verticalInset, left: Self.sideInset,
+            bottom: verticalInset, right: Self.sideInset)
+        for entry in symbolKeys {
+            entry.button.configuration?.image = Self.symbolImage(
+                entry.symbol, pointSize: titleSize)
+            entry.button.setNeedsUpdateConfiguration()
+        }
+        refreshStickyKeys()
+        invalidateIntrinsicContentSize()
+        frame.size.height = barHeight
+    }
+
+    private static func symbolImage(_ name: String, pointSize: CGFloat) -> UIImage? {
+        UIImage(
+            systemName: name,
+            withConfiguration: UIImage.SymbolConfiguration(
+                pointSize: pointSize, weight: .regular))
     }
 
     @available(*, unavailable)
@@ -98,16 +189,11 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
 
     private func configureKeys(pasteTarget: (any UIPasteConfigurationSupporting)?) {
         // A scroll view so a phone can reach the right-hand keys. On an iPad
-        // the row fits and never scrolls.
-        let scroll = UIScrollView()
+        // the row fits and never scrolls. Its vertical inset is what centres
+        // the key row in the bar (``applyTextSizeMetrics`` sets it); a centre
+        // constraint would fight the scroll view's content offset.
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsHorizontalScrollIndicator = false
-        // The vertical inset is what centres a 38 pt key in the 46 pt bar;
-        // a centre constraint would fight the scroll view's content offset.
-        let verticalInset = (Self.barHeight - Self.keyHeight) / 2
-        scroll.contentInset = UIEdgeInsets(
-            top: verticalInset, left: Self.sideInset,
-            bottom: verticalInset, right: Self.sideInset)
         addSubview(scroll)
 
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -160,8 +246,10 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
             stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
-            stack.heightAnchor.constraint(equalToConstant: Self.keyHeight),
         ])
+        let stackHeight = stack.heightAnchor.constraint(equalToConstant: keyHeight)
+        stackHeight.isActive = true
+        keyHeightConstraints.append(stackHeight)
     }
 
     /// Widens the gap after the key just added, so the groups read apart.
@@ -223,8 +311,10 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         let control = UIPasteControl(configuration: configuration)
         control.target = target
         control.translatesAutoresizingMaskIntoConstraints = false
+        let height = control.heightAnchor.constraint(equalToConstant: keyHeight)
+        keyHeightConstraints.append(height)
         NSLayoutConstraint.activate([
-            control.heightAnchor.constraint(equalToConstant: Self.keyHeight),
+            height,
             control.widthAnchor.constraint(
                 greaterThanOrEqualToConstant: Self.minimumKeyWidth),
         ])
@@ -234,24 +324,22 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     private func makeKey(title: String?, symbol: String?, monospaced: Bool) -> UIButton {
         var configuration = UIButton.Configuration.plain()
         configuration.title = title
-        configuration.image = symbol.flatMap {
-            UIImage(
-                systemName: $0,
-                withConfiguration: UIImage.SymbolConfiguration(
-                    pointSize: Self.titleSize, weight: .regular))
-        }
+        configuration.image = symbol.flatMap { Self.symbolImage($0, pointSize: titleSize) }
         configuration.baseForegroundColor = .label
         configuration.background.backgroundColor = Self.keyBackgroundColor
         configuration.background.cornerRadius = Self.keyCornerRadius
         configuration.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: 8, bottom: 0, trailing: 8)
         configuration.titleTextAttributesTransformer =
-            UIConfigurationTextAttributesTransformer { incoming in
+            UIConfigurationTextAttributesTransformer { [weak self] incoming in
                 var outgoing = incoming
+                let size =
+                    self?.titleSize
+                    ?? TerminalKeyBarMetrics.titleSize(for: .current)
                 outgoing.font =
                     monospaced
-                    ? .monospacedSystemFont(ofSize: Self.titleSize, weight: .regular)
-                    : .systemFont(ofSize: Self.titleSize)
+                    ? .monospacedSystemFont(ofSize: size, weight: .regular)
+                    : .systemFont(ofSize: size)
                 return outgoing
             }
 
@@ -263,11 +351,14 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         button.layer.shadowOpacity = 0.35
         button.layer.shadowOffset = CGSize(width: 0, height: 1)
         button.layer.shadowRadius = 0
+        let height = button.heightAnchor.constraint(equalToConstant: keyHeight)
+        keyHeightConstraints.append(height)
         NSLayoutConstraint.activate([
-            button.heightAnchor.constraint(equalToConstant: Self.keyHeight),
+            height,
             button.widthAnchor.constraint(
                 greaterThanOrEqualToConstant: Self.minimumKeyWidth),
         ])
+        if let symbol { symbolKeys.append((button, symbol)) }
         return button
     }
 
@@ -280,7 +371,7 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     ) {
         guard var configuration = key.configuration else { return }
         var title = AttributedString(caption)
-        title.font = .systemFont(ofSize: Self.titleSize)
+        title.font = .systemFont(ofSize: titleSize)
         switch activation {
         case .inactive:
             configuration.background.backgroundColor = Self.keyBackgroundColor

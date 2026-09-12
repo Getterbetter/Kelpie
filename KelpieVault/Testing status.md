@@ -57,6 +57,14 @@ Anthony tests on his 11-inch iPad Pro with a Magic Keyboard — and, since round
 | The phone in portrait | 11 | Only the landscape screenshot has been seen. [[Open items]] 10, with the iPhone screenshots for a 1.1 listing. |
 | The capsule in its new bottom-trailing corner on a phone | 11 | `68bc332` went in from the screenshot; the fix itself has not been seen. |
 
+### Round 12b — run on the iPad over Wi-Fi
+
+171 tests in 7 suites passed on the iPad (`PairingSyncRecordTests`, `PairingSyncReconcileTests`, `NotificationPreferencesStoreTests`, `TerminalInputControllerTests`, `TerminalTextSafetyTests`, `TerminalTextRewriteTests`, `TerminalAttachTests`) before the robustness fixes landed. Swift Testing suites need their struct names in `-only-testing`; the XCTest "Executed N tests" line ignores them.
+
+### Round 12c — compiled, not run
+
+The robustness fixes (about 90 new tests across notifications, pairing, hosts, client, transport, terminal) compile for a generic iOS device; the full-suite device run was blocked by both devices being locked. First thing next session: unlock both, run `HeelerTests` on the iPad, install and launch with the key trace, then the device checklist in [[Open items]] (double-space in a Claude pane, scroll-to-dismiss, the Tailscale switch with the fingerprint carry-over, the foreground banner, a background push on the TestFlight build).
+
 ### Round 12 — compiled, not run
 
 Pairing sync carrying Host edits: app and test targets build for `generic/platform=iOS`; the seven new `PairingSync` tests (coordinate adoption, older/equal records losing, local edit after adoption, unstamped Host, rename not outranking an address, overlapping reconciles coalescing) have never executed — no device was connected and the simulator is off limits. The close-out guard and the Reddit watch were exercised for real (negative cases, dry runs, a seeded state).

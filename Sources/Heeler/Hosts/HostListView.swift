@@ -91,6 +91,10 @@ struct HostListView: View {
     @State private var manualFallbackRequested = false
     @State private var didRunInitialAction = false
     @State private var path: [Host.ID] = []
+    /// What the last pairing did ("Added Studio" / "Updated Studio"), shown
+    /// briefly on return: a second pairing of a machine this device already
+    /// has updates that Host, and the user should see which happened.
+    @State private var pairingConfirmation: String?
 
     init(
         store: HostStore,
@@ -153,6 +157,37 @@ struct HostListView: View {
                     }
                 }
             }
+            // A catalog written by a newer build, or one with a Host this
+            // build could not read, is a notice — not a reason to stop the
+            // user adding or editing Hosts.
+            .safeAreaInset(edge: .top) {
+                if let notice = store.catalogNotice {
+                    Label(notice, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(.thinMaterial)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if let pairingConfirmation {
+                    Text(pairingConfirmation)
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.bottom, 24)
+                }
+            }
+            .animation(.default, value: pairingConfirmation)
+            .task(id: pairingConfirmation) {
+                guard pairingConfirmation != nil else { return }
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled else { return }
+                pairingConfirmation = nil
+            }
             .navigationTitle("Hosts")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -201,8 +236,9 @@ struct HostListView: View {
             ) {
                 // A successful Pairing lands in the same onboarding preflight
                 // a manually added Host enters (session discovery included).
-                PairingScanView(catalog: store, entry: pairingEntry) { paired in
-                    path.append(paired.id)
+                PairingScanView(catalog: store, entry: pairingEntry) { outcome in
+                    pairingConfirmation = outcome.message
+                    path.append(outcome.host.id)
                 } onAddManually: {
                     manualFallbackRequested = true
                 }

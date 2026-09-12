@@ -43,6 +43,25 @@ struct PairingSyncRecordTests {
         #expect(PairingSyncRecord.decode(try record.encoded()) == nil)
     }
 
+    @Test func tombstonesRoundTripUnderTheirOwnAccount() throws {
+        let id = UUID()
+        let tombstone = PairingSyncTombstone(
+            hostID: id, deletedAt: Date(timeIntervalSince1970: 1_700_000_000))
+
+        let account = PairingSyncTombstone.account(for: id)
+        #expect(PairingSyncTombstone.hostID(forAccount: account) == id)
+        // A record account is not a tombstone account, and vice versa: a build
+        // that predates tombstones skips them, and this one skips records here.
+        #expect(PairingSyncTombstone.hostID(forAccount: id.uuidString) == nil)
+        #expect(UUID(uuidString: account) == nil)
+        #expect(PairingSyncTombstone.decode(try tombstone.encoded()) == tombstone)
+
+        #expect(!tombstone.hasExpired(at: tombstone.deletedAt.addingTimeInterval(1)))
+        #expect(
+            tombstone.hasExpired(
+                at: tombstone.deletedAt.addingTimeInterval(PairingSyncTombstone.lifetime + 1)))
+    }
+
     @Test func fingerprintEntriesRoundTrip() throws {
         let entry = PairingSyncFingerprint(
             address: "a.example",
@@ -76,6 +95,18 @@ final class FakePairingSyncHostCatalog: PairingSyncHostCatalog {
         }
         hosts[index] = host
     }
+
+    func remove(_ id: Host.ID) throws {
+        guard let index = hosts.firstIndex(where: { $0.id == id }) else {
+            throw HostStoreError.unknownHost
+        }
+        hosts.remove(at: index)
+        removedHostIDs.append(id)
+    }
+
+    /// What `HostStore.remove` would have taken the Notification Key and the
+    /// saved password with, in order.
+    private(set) var removedHostIDs: [Host.ID] = []
 }
 
 /// The record store, counting what was written to each account: two identical
@@ -130,6 +161,52 @@ final class PairingSyncTestClock: @unchecked Sendable {
     }
 }
 
+/// Lets a test act at `publish`'s suspension point: the gap between reading a
+/// Host's fingerprints and writing its record.
+final class PublishSuspensionHook: @unchecked Sendable {
+    private let lock = NSLock()
+    private var action: (@MainActor @Sendable () -> Void)?
+    private var hasFired = false
+
+    func onFirstSuspension(_ action: @escaping @MainActor @Sendable () -> Void) {
+        lock.withLock { self.action = action }
+    }
+
+    func run() async {
+        let pending: (@MainActor @Sendable () -> Void)? = lock.withLock {
+            guard !self.hasFired, let pending = self.action else { return nil }
+            self.hasFired = true
+            return pending
+        }
+        guard let pending else { return }
+        await MainActor.run { pending() }
+    }
+}
+
+/// A known-hosts store that runs the hook on its first fingerprint read —
+/// which, during a reconcile, is inside `publish`.
+final class HookedKnownHostsStore: KnownHostsStore, @unchecked Sendable {
+    private let backing = InMemoryKnownHostsStore()
+    private let hook: PublishSuspensionHook
+
+    init(hook: PublishSuspensionHook) {
+        self.hook = hook
+    }
+
+    func fingerprints(host: String, port: Int) async -> [HostKeyFingerprint] {
+        await hook.run()
+        return await backing.fingerprints(host: host, port: port)
+    }
+
+    func fingerprint(host: String, port: Int, algorithm: String) async -> HostKeyFingerprint? {
+        await backing.fingerprint(host: host, port: port, algorithm: algorithm)
+    }
+
+    func setFingerprint(_ fingerprint: HostKeyFingerprint, host: String, port: Int) async {
+        await backing.setFingerprint(fingerprint, host: host, port: port)
+    }
+}
+
 /// Stands in for the persisted primary-Host id, which production reads
 /// straight out of UserDefaults on every adopt.
 @MainActor
@@ -155,7 +232,7 @@ struct PairingSyncReconcileTests {
         let deviceKeySlot: VolatileSecretStore
         let catalog: FakePairingSyncHostCatalog
         let primary: FakePairingSyncPrimary
-        let knownHosts: InMemoryKnownHostsStore
+        let knownHosts: any KnownHostsStore
         let notificationKeys: NotificationKeyStore
         let deviceKeys: DeviceKeyStore
         let settings: PairingSyncSettings
@@ -165,7 +242,10 @@ struct PairingSyncReconcileTests {
     }
 
     private func makeRig(
-        hosts: [Host] = [], clock: PairingSyncTestClock? = nil
+        hosts: [Host] = [], clock: PairingSyncTestClock? = nil,
+        transports: ScriptedTransportProvider? = nil,
+        deviceToken: APNSDeviceToken? = nil,
+        knownHosts: (any KnownHostsStore)? = nil
     ) throws -> Rig {
         let suiteName = "kelpie-pairing-sync-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -173,7 +253,7 @@ struct PairingSyncReconcileTests {
         let deviceKeySlot = VolatileSecretStore()
         let catalog = FakePairingSyncHostCatalog(hosts: hosts)
         let primary = FakePairingSyncPrimary()
-        let knownHosts = InMemoryKnownHostsStore()
+        let knownHosts = knownHosts ?? InMemoryKnownHostsStore()
         let notificationKeys = NotificationKeyStore(secrets: VolatileSecretStore(), mirror: nil)
         let deviceKeys = DeviceKeyStore(secrets: VolatileSecretStore())
         let settings = PairingSyncSettings(defaults: defaults)
@@ -198,6 +278,9 @@ struct PairingSyncReconcileTests {
                 deviceKeys: deviceKeys,
                 settings: settings,
                 defaults: defaults,
+                transports: transports,
+                deviceToken: { deviceToken },
+                ceremony: NotificationRegistrationCeremony(keys: notificationKeys),
                 now: { clock?.current ?? Date() }))
     }
 
@@ -526,5 +609,264 @@ struct PairingSyncReconcileTests {
         clock.set(Date(timeIntervalSince1970: 4_000))
         await rig.sync.reconcile()
         #expect(rig.catalog.hosts.first?.address == "mini.tail.example")
+    }
+
+    // MARK: Registering an adopted Host
+
+    /// The sibling-enrolment path writes the same (token, environment)
+    /// record the launch sweep compares against, so the Host it just
+    /// registered is not rewritten on the next launch for nothing.
+    @Test func registeringAnAdoptedHostRecordsTheTokenPair() async throws {
+        let token = APNSDeviceToken(hex: "0a1b2c3d", environment: .production)
+        let transport = ScriptedTransport()
+        let rig = try makeRig(
+            transports: ScriptedTransportProvider(transports: [host.id: transport]),
+            deviceToken: token)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        try seedRecord(
+            PairingSyncRecord(
+                host: host, notificationKey: Data(repeating: 5, count: 32),
+                updatedAt: Date(timeIntervalSince1970: 1_000)),
+            into: rig)
+        await rig.sync.reconcile()
+
+        await rig.sync.hostsDidConnect([host.id])
+
+        let file = try NotificationRegistrationFile.decode(
+            await transport.notificationRegistration)
+        #expect(file.containsDevice(token: token.hex))
+        #expect(
+            RegisteredDeviceTokenLog(defaults: rig.defaults).lastRegistered(for: host.id)
+                == token)
+    }
+
+    // MARK: Deletions
+
+    /// The resurrection loop this exists to stop: deleting the mini on one
+    /// device must not have the other publish it straight back.
+    @Test func aSiblingsTombstoneDeletesTheHostHere() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 1_000))
+        let rig = try makeRig(hosts: [host], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        await rig.sync.reconcile()
+        #expect(try rig.records.read(account: host.id.uuidString) != nil)
+
+        // The sibling deleted it: its record is gone, a tombstone in its place.
+        try rig.records.removeSecret(account: host.id.uuidString)
+        try rig.records.write(
+            try PairingSyncTombstone(
+                hostID: host.id, deletedAt: Date(timeIntervalSince1970: 2_000)
+            ).encoded(),
+            account: PairingSyncTombstone.account(for: host.id))
+        clock.set(Date(timeIntervalSince1970: 3_000))
+        await rig.sync.reconcile()
+
+        #expect(rig.catalog.hosts.isEmpty)
+        // Deleted through the catalog, so the Notification Key and password
+        // leave with the Host exactly as a local delete takes them.
+        #expect(rig.catalog.removedHostIDs == [host.id])
+        // And nothing was republished — not the record, not a second tombstone.
+        #expect(try rig.records.read(account: host.id.uuidString) == nil)
+        let stored = try #require(
+            try rig.records.read(account: PairingSyncTombstone.account(for: host.id)))
+        let tombstone = try #require(PairingSyncTombstone.decode(stored))
+        #expect(tombstone.deletedAt == Date(timeIntervalSince1970: 2_000))
+    }
+
+    /// A stale record for a deleted Host — the sibling that still holds it has
+    /// not reconciled yet — must not re-add the Host on a device that applied
+    /// the tombstone already.
+    @Test func aRecordOlderThanItsTombstoneIsNotAdopted() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 3_000))
+        let rig = try makeRig(clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        try seedRecord(
+            PairingSyncRecord(host: host, updatedAt: Date(timeIntervalSince1970: 1_000)),
+            into: rig)
+        try rig.records.write(
+            try PairingSyncTombstone(
+                hostID: host.id, deletedAt: Date(timeIntervalSince1970: 2_000)
+            ).encoded(),
+            account: PairingSyncTombstone.account(for: host.id))
+
+        await rig.sync.reconcile()
+
+        #expect(rig.catalog.hosts.isEmpty)
+    }
+
+    /// Deleting a Host here publishes the tombstone the sibling reads.
+    @Test func deletingAHostPublishesATombstone() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 5_000))
+        let rig = try makeRig(hosts: [host], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        await rig.sync.reconcile()
+
+        rig.sync.hostWasDeleted(host.id)
+
+        #expect(try rig.records.read(account: host.id.uuidString) == nil)
+        let stored = try #require(
+            try rig.records.read(account: PairingSyncTombstone.account(for: host.id)))
+        let tombstone = try #require(PairingSyncTombstone.decode(stored))
+        #expect(tombstone.hostID == host.id)
+        #expect(tombstone.deletedAt == Date(timeIntervalSince1970: 5_000))
+    }
+
+    /// Suppression is not permanent: a tombstone past its lifetime leaves the
+    /// synced store rather than sitting there forever.
+    @Test func anExpiredTombstoneIsDropped() async throws {
+        let deletedAt = Date(timeIntervalSince1970: 1_000)
+        let clock = PairingSyncTestClock(
+            deletedAt.addingTimeInterval(PairingSyncTombstone.lifetime + 1))
+        let rig = try makeRig(clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        try rig.records.write(
+            try PairingSyncTombstone(hostID: host.id, deletedAt: deletedAt).encoded(),
+            account: PairingSyncTombstone.account(for: host.id))
+
+        await rig.sync.reconcile()
+
+        #expect(try rig.records.read(account: PairingSyncTombstone.account(for: host.id)) == nil)
+    }
+
+    /// A Host paired again after the deletion is a new Host with a new id, and
+    /// the old tombstone has nothing to say about it.
+    @Test func aTombstoneDoesNotTouchAFreshlyPairedHost() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 3_000))
+        let repaired = Host(name: "Studio", address: "a.example", username: "anthony")
+        let rig = try makeRig(hosts: [repaired], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        try rig.records.write(
+            try PairingSyncTombstone(
+                hostID: host.id, deletedAt: Date(timeIntervalSince1970: 2_000)
+            ).encoded(),
+            account: PairingSyncTombstone.account(for: host.id))
+
+        await rig.sync.reconcile()
+
+        #expect(rig.catalog.hosts.map(\.id) == [repaired.id])
+    }
+
+    /// A Host edited here after the sibling deleted it wins: last writer, same
+    /// rule the coordinates use.
+    @Test func aLocalEditAfterTheDeletionKeepsTheHost() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 1_000))
+        let rig = try makeRig(hosts: [host], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        await rig.sync.reconcile()
+
+        var edited = host
+        edited.address = "100.65.54.52"
+        try rig.catalog.update(edited, password: nil)
+        clock.set(Date(timeIntervalSince1970: 4_000))
+        try rig.records.write(
+            try PairingSyncTombstone(
+                hostID: host.id, deletedAt: Date(timeIntervalSince1970: 3_000)
+            ).encoded(),
+            account: PairingSyncTombstone.account(for: host.id))
+
+        await rig.sync.reconcile()
+
+        #expect(rig.catalog.hosts.map(\.id) == [host.id])
+        #expect(rig.catalog.hosts.first?.address == "100.65.54.52")
+    }
+
+    /// `publish` suspends per Host to read its fingerprints. A delete in that
+    /// gap used to be answered with a freshly stamped record, which out-dated
+    /// the tombstone the delete had just written — so the Host came back on
+    /// both devices.
+    @Test func aDeleteDuringPublishNeverWritesTheRecord() async throws {
+        let hook = PublishSuspensionHook()
+        let rig = try makeRig(hosts: [host], knownHosts: HookedKnownHostsStore(hook: hook))
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        let catalog = rig.catalog
+        let sync = rig.sync
+        let id = host.id
+        hook.onFirstSuspension {
+            try? catalog.remove(id)
+            sync.hostWasDeleted(id)
+        }
+
+        await rig.sync.reconcile()
+
+        #expect(rig.records.writeCount(account: id.uuidString) == 0)
+        #expect(try rig.records.read(account: id.uuidString) == nil)
+        #expect(try rig.records.read(account: PairingSyncTombstone.account(for: id)) != nil)
+    }
+
+    // MARK: Fingerprints
+
+    /// The Tailscale move: a Host that takes a sibling's new address takes the
+    /// pin for it too, or the Console has nothing to trust at the new endpoint.
+    @Test func adoptedCoordinatesBringTheirFingerprints() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 1_000))
+        let rig = try makeRig(hosts: [host], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        await rig.sync.reconcile()
+
+        let moved = HostKeyFingerprint(publicKeyBlob: Data("moved".utf8))
+        var record = host
+        record.address = "100.65.54.52"
+        try seedRecord(
+            PairingSyncRecord(
+                host: record,
+                fingerprints: [
+                    PairingSyncFingerprint(
+                        address: "100.65.54.52", port: 22, fingerprint: moved
+                    ).encoded
+                ],
+                updatedAt: Date(timeIntervalSince1970: 3_000)),
+            into: rig)
+        clock.set(Date(timeIntervalSince1970: 4_000))
+        await rig.sync.reconcile()
+
+        #expect(rig.catalog.hosts.first?.address == "100.65.54.52")
+        #expect(await rig.knownHosts.fingerprint(host: "100.65.54.52", port: 22) == moved)
+    }
+
+    /// A record never retires a pin this device confirmed itself: that pin is
+    /// what turns an impostor into a mismatch failure.
+    @Test func anAdoptedRecordNeverReplacesALocalPin() async throws {
+        let clock = PairingSyncTestClock(Date(timeIntervalSince1970: 1_000))
+        let rig = try makeRig(hosts: [host], clock: clock)
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        let mine = HostKeyFingerprint(publicKeyBlob: Data("mine".utf8))
+        await rig.knownHosts.setFingerprint(mine, host: "100.65.54.52", port: 22)
+        await rig.sync.reconcile()
+
+        var record = host
+        record.address = "100.65.54.52"
+        try seedRecord(
+            PairingSyncRecord(
+                host: record,
+                fingerprints: [
+                    PairingSyncFingerprint(
+                        address: "100.65.54.52", port: 22,
+                        fingerprint: HostKeyFingerprint(publicKeyBlob: Data("theirs".utf8))
+                    ).encoded
+                ],
+                updatedAt: Date(timeIntervalSince1970: 3_000)),
+            into: rig)
+        clock.set(Date(timeIntervalSince1970: 4_000))
+        await rig.sync.reconcile()
+
+        #expect(await rig.knownHosts.fingerprint(host: "100.65.54.52", port: 22) == mine)
+    }
+
+    /// A device that adopts a Host before it has a push token registers
+    /// nothing and records nothing — and must stay owed the ceremony.
+    @Test func anAdoptedHostWithoutAPushTokenRecordsNothing() async throws {
+        let transport = ScriptedTransport()
+        let rig = try makeRig(
+            transports: ScriptedTransportProvider(transports: [host.id: transport]))
+        defer { rig.defaults.removePersistentDomain(forName: rig.suiteName) }
+        try seedRecord(
+            PairingSyncRecord(host: host, updatedAt: Date(timeIntervalSince1970: 1_000)),
+            into: rig)
+        await rig.sync.reconcile()
+
+        await rig.sync.hostsDidConnect([host.id])
+
+        #expect(await transport.replacedNotificationRegistrations.isEmpty)
+        #expect(RegisteredDeviceTokenLog(defaults: rig.defaults).lastRegistered(for: host.id) == nil)
     }
 }

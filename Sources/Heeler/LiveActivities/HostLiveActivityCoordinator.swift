@@ -22,6 +22,10 @@ final class HostLiveActivityCoordinator {
     @ObservationIgnored private let connectionStatus: @MainActor (Host.ID) -> EventsSessionStatus?
     @ObservationIgnored private let pinnedPaneIDs: @MainActor (Host.ID) -> [String]
     @ObservationIgnored private let rowLayout: @MainActor (Host.ID) -> AgentRowLayout?
+    /// Where a failed token write is reported (#8). Weak: the preferences
+    /// store outlives this coordinator at the root, and neither owns the
+    /// other.
+    @ObservationIgnored private weak var registrationNotes: (any RegistrationFailureRecording)?
     @ObservationIgnored private let settleDuration: Duration
     @ObservationIgnored private let now: @MainActor () -> Date
 
@@ -52,6 +56,7 @@ final class HostLiveActivityCoordinator {
         connectionStatus: @escaping @MainActor (Host.ID) -> EventsSessionStatus?,
         pinnedPaneIDs: @escaping @MainActor (Host.ID) -> [String] = { _ in [] },
         rowLayout: @escaping @MainActor (Host.ID) -> AgentRowLayout? = { _ in nil },
+        registrationNotes: (any RegistrationFailureRecording)? = nil,
         settleDuration: Duration = .seconds(3),
         now: @escaping @MainActor () -> Date = { Date() }
     ) {
@@ -67,6 +72,7 @@ final class HostLiveActivityCoordinator {
         self.connectionStatus = connectionStatus
         self.pinnedPaneIDs = pinnedPaneIDs
         self.rowLayout = rowLayout
+        self.registrationNotes = registrationNotes
         self.settleDuration = settleDuration
         self.now = now
     }
@@ -490,8 +496,14 @@ final class HostLiveActivityCoordinator {
                         deviceToken: token, over: transport)
                 }
             }
+            // The write landed, so a note from an earlier attempt is stale.
+            registrationNotes?.clearRegistrationNote(for: hostID)
             return true
         } catch {
+            // Used to be swallowed entirely: a Live Activity that never armed
+            // looked exactly like one that did. Now it shows on the Host's row.
+            registrationNotes?.recordRegistrationFailure(
+                error, source: .liveActivity, for: hostID)
             return false
         }
     }

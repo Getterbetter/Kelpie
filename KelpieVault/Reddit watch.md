@@ -98,17 +98,13 @@ holds a Reddit token: Anthony's call. Logging the job in was out of scope.
 ## Last run
 
 <!-- redditwatch:start -->
-_Last run: 2026-09-12T10-58-09Z UTC._
+_Last run: 2026-09-12T12-15-48Z UTC._
 
 | Post | Comments | New | Score | State |
 | --- | --- | --- | --- | --- |
 | r/alphaandbetausers | 0 | 0 | n/a | ok |
-| r/SideProject | 1 | 1 | n/a | ok |
+| r/SideProject | 1 | 0 | n/a | ok |
 | herdr Discussions, Show and tell | 0 | 0 | 1 | ok |
 
-### Waiting on a reply
-
-- **r/SideProject**, u/Training_Mail_973 (48 minutes ago): This is exactly the kind of tool that makes me wonder why nobody built it sooner. Having the same interface everywhere instead of learning some new mobile dash… — [comment](https://www.reddit.com/r/SideProject/comments/1we8kte/kelpie_the_herdr_terminal_ui_on_ipad_and_iphone/p9bp6zo/)
-
-Drafts, where the analyse lane wrote one, are in `~/.kelpie/redditwatch/drafts/`. Anthony posts every reply by hand.
+Nothing new since the last run.
 <!-- redditwatch:end -->

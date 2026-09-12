@@ -78,3 +78,46 @@ two-finger trackpad swipe and a wheel did nothing. A scroll-type
 `scrollTouch(translationY:)` — the same entry point the finger pan uses, so
 local scrollback and remote wheel reports keep one decision. Events carrying a
 touch belong to Ghostty's own pointer pan (drag selection) and are ignored.
+
+### Amended 2026-09-12: a Host path is not worth a tap
+
+The tap policy above had one more claimant: `TerminalLinkDetector` resolves an
+absolute or `~`-relative path with a file extension as well as a URL, and
+`handleTap` opened both, swallowing the tap. That was wrong for paths in a way
+it is not wrong for URLs. A URL genuinely has nowhere else to go — herdr would
+open it on the Mac, which is not where the person tapping is — but a path is
+ordinary agent output, dense in every build log and diff, and herdr's TUI wants
+that tap: to place a cursor, to dismiss its own menu, to pick a row. Claiming
+it sent nothing at all, with no way to say "no, I meant the click".
+
+So the tap is herdr's. The file viewer moved to the selection: a double tap, or
+a two-finger hold, already selects the whole whitespace-delimited run — the same
+token the detector reads — and the edit menu carries **Open** beside Copy and
+Select All when that selection is a path. A secondary affordance for a
+secondary action, on gestures that already exist, and the URL tap is unchanged.
+
+The matcher was tightened with it. Requiring the path to *exist* on the Host —
+an SFTP stat — was considered and rejected: the offer has to be decided
+synchronously while the menu is being built, and a network round trip per tap
+buys accuracy the extension rule mostly already has. Instead the tapped cell
+must land on the path's own characters, not on the bracket or quote wrapped
+around it and not on the `:12:3` a compiler appended — the extension and the
+leading `/` or `~/` were already required.
+
+### Amended 2026-09-12: the text rewrite runs on the alternate screen too
+
+`TerminalTextRewrite` takes characters back off the remote line with DEL before
+typing the keyboard's replacement (the "." shortcut, autocorrection). Refusing to
+do that while the remote application is on the alternate screen or tracking the
+mouse was considered and **rejected**: the root screen is *always* both — herdr's
+own client sets `?1049h` and mouse tracking the moment it attaches (see the
+scrolling facts in `CLAUDE.md`) — so the gate would have made the fix inert
+exactly where the bug was reported. The agent TUIs that matter inside it (claude,
+codex, grok) draw a line-editing input box that reads DEL as Backspace.
+
+The honest gates are the ones about the *line*, not the screen: marked text, a
+hardware keyboard, non-printable replaced text, a range that is not a suffix of
+the shadow, and — added the same day — a shadow caret that is not at the end of
+the line. Nothing calls `selectionDidChange` when an arrow key moves the remote
+caret, so UIKit can still offer a range ending at what it believes is the end of
+the document; the shadow's own caret is what decides.

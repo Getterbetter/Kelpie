@@ -59,6 +59,9 @@ struct HerdrClientView: View {
         // that has the keys already.
         screen.showsKeyBar = !hardwareKeyboard.isConnected
         screen.isLocalInputEnabled = true
+        // Scroll-to-dismiss asks this on every pan: a Magic Keyboard docked
+        // mid-session must keep its first responder through a scroll.
+        screen.isHardwareKeyboardConnected = { hardwareKeyboard.isConnected }
         screen.theme = terminal.themes.theme
         screen.fontSize = terminal.zoom.fontSize
         screen.fontFamily = terminal.fonts.familyName
@@ -139,7 +142,7 @@ struct HerdrClientView: View {
 
     @ViewBuilder
     private var statusOverlay: some View {
-        if let presentation = TerminalStatusPresentation(status: store.terminalStatus) {
+        if let presentation = store.statusPresentation {
             switch presentation.kind {
             case .connecting:
                 TerminalStatusDialog(

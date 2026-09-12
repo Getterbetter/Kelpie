@@ -182,7 +182,8 @@ struct AgentNotificationBannerStoreTests {
 
         store.agentsDidChange([agent("wV:p1", .blocked)])
         store.agentsDidChange([])
-        // Reappearing is a fresh baseline, not a transition.
+        // The baseline survives the clear (a reconnect looks exactly like
+        // this), so the pane coming back Blocked is not a transition either.
         store.agentsDidChange([agent("wV:p1", .blocked)])
 
         try await waitPastHold()
@@ -288,6 +289,129 @@ struct AgentNotificationBannerStoreTests {
         try await waitUntil("the newer banner should replace it") {
             store.banner?.target?.paneID == "wR:pC"
         }
+    }
+
+    // MARK: Reconnects and vanished panes
+
+    /// `HostConsoleProjection.invalidateSnapshot` clears `agentsByPane` on
+    /// every reconnect and revalidation — iPad sleep, a network change, a
+    /// missed keepalive — so the Host's rows disappear and come back. The
+    /// baseline must survive that, or a Blocked that happened while the link
+    /// was down reads as "first sight" and is swallowed.
+    @Test func aTransitionAcrossAReconnectStillBanners() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+
+        // The connection drops: every row for this Host goes at once.
+        store.agentsDidChange([])
+        // It comes back, and the Agent finished while it was away.
+        store.agentsDidChange([agent("wV:p1", .done)])
+
+        try await waitUntil("the post-reconnect transition should banner") {
+            store.banner != nil
+        }
+        #expect(store.banner?.alert.body == "Done")
+    }
+
+    /// A pane that really exited — its Host is still listing other Agents —
+    /// is forgotten, so a later pane reusing that address baselines afresh.
+    @Test func aPaneThatExitedWhileItsHostStayedLiveIsForgotten() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .working)])
+
+        store.agentsDidChange([agent("w1:pT", .working)])
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .blocked)])
+
+        try await waitPastHold()
+        #expect(store.banner == nil, "first sight of a new pane is baseline")
+    }
+
+    // MARK: Foreground pushes
+
+    /// A delivered push is presented as it is: the plugin already applied
+    /// every gate, and the app's own list may not have seen the change at
+    /// all (#1).
+    @Test func aForegroundPushBannersWithTheExtensionsCopy() async throws {
+        let store = makeStore()
+        let target = AgentNotificationTarget(hostID: hostID, paneID: "wV:p1")
+        let alert = AgentNotificationAlert(title: "Caterm · Claude", body: "Done")
+
+        store.presentPush(target: target, alert: alert)
+
+        #expect(store.banner == AgentNotificationBanner(target: target, alert: alert))
+        #expect(world.soundCount == 1)
+    }
+
+    /// Both pipelines carry the same transition; the push usually arrives a
+    /// second or two after the live event stream announced it.
+    @Test func aPushRepeatingAJustAnnouncedTransitionDoesNotAlertTwice() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+        store.agentsDidChange([agent("wV:p1", .done)])
+        try await waitUntil("the in-app banner should show") { store.banner != nil }
+        let announced = try #require(store.banner)
+        store.dismiss()
+
+        store.presentPush(target: try #require(announced.target), alert: announced.alert)
+
+        #expect(store.banner == nil)
+        #expect(world.soundCount == 1)
+    }
+
+    /// The race the other way round: the push arrives first, and the
+    /// Console's own hold fires a few seconds later. The de-duplication is
+    /// one key checked in both directions, so this is silent too.
+    @Test func aTransitionAPushAlreadyShowedDoesNotBannerAgain() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+        store.presentPush(
+            target: AgentNotificationTarget(hostID: hostID, paneID: "wV:p1"),
+            alert: AgentNotificationAlert(title: "Claude", body: "Done"))
+        store.dismiss()
+
+        store.agentsDidChange([agent("wV:p1", .done)])
+
+        try await waitPastHold()
+        #expect(store.banner == nil)
+        #expect(world.soundCount == 1)
+    }
+
+    /// A genuine second transition is not a duplicate: only a repeat from
+    /// the *other* pipeline is.
+    @Test func aRepeatedTransitionFromTheSamePipelineStillBanners() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+        try await waitUntil("the first banner should show") { store.banner != nil }
+        store.dismiss()
+
+        store.agentsDidChange([agent("wV:p1", .working)])
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+
+        try await waitUntil("the second Blocked should banner too") { store.banner != nil }
+        #expect(world.soundCount == 2)
+    }
+
+    /// A *different* transition for the same pane is not a duplicate.
+    @Test func aPushForALaterTransitionStillBanners() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+        try await waitUntil("the in-app banner should show") { store.banner != nil }
+        store.dismiss()
+
+        store.presentPush(
+            target: AgentNotificationTarget(hostID: hostID, paneID: "wV:p1"),
+            alert: AgentNotificationAlert(title: "Claude", body: "Done"))
+
+        #expect(store.banner?.alert.body == "Done")
+        #expect(world.soundCount == 2)
     }
 
     @Test func dismissClearsTheBanner() async throws {

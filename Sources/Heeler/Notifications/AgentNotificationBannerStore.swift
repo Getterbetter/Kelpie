@@ -13,9 +13,28 @@ struct AgentNotificationBanner: Equatable, Sendable {
     let alert: AgentNotificationAlert
 }
 
+/// The banner store the view hierarchy actually kept, for the code that
+/// cannot be handed one: `AgentNotificationCenterDelegate` is built by the
+/// UIKit app delegate, before any view exists, and must reach the live store
+/// when a foreground push arrives.
+///
+/// Adopted from `agentsDidChange`, not from `init`: SwiftUI builds a
+/// `ContentView` (and its `@State` initial values) more than once and keeps
+/// only one, so a store that registered itself at construction could publish
+/// an instance nothing draws. The Console feed reaches the retained store
+/// alone.
+@MainActor
+enum AgentNotificationBannerPresenter {
+    private(set) static weak var store: AgentNotificationBannerStore?
+
+    static func adopt(_ store: AgentNotificationBannerStore) {
+        self.store = store
+    }
+}
+
 /// Announces foreground Blocked/Done Agent transitions from the Console's
-/// live Agent list (#77), replacing system push banners while the app is
-/// foregrounded (`willPresent` is always `[]`).
+/// live Agent list (#77), and presents pushes that arrive while the app is
+/// foregrounded (`AgentNotificationCenterDelegate.willPresent`).
 ///
 /// The gates mirror the plugin's pipeline, app-side: a transition must hold
 /// `holdDuration` before announcing (herdr's status detection flaps), an
@@ -33,8 +52,15 @@ final class AgentNotificationBannerStore {
     /// In-flight anti-flap holds, cancelled when the status moves on.
     @ObservationIgnored private var holds: [ConsoleAgent.ID: Task<Void, Never>] = [:]
     @ObservationIgnored private var dismissal: Task<Void, Never>?
+    /// What was last announced for a pane, when, and by which pipeline. One
+    /// key, checked in both directions: whichever of the live event stream
+    /// and the push arrives second recognises the other's announcement and
+    /// stays quiet. Checking it one way only meant a push that won the race
+    /// was followed by the Console's own banner a hold later.
+    @ObservationIgnored private var announced: [ConsoleAgent.ID: Announcement] = [:]
     @ObservationIgnored private let holdDuration: Duration
     @ObservationIgnored private let dismissDelay: Duration
+    @ObservationIgnored private let duplicateWindow: Duration
     @ObservationIgnored private let presentedAgent: @MainActor () -> ConsoleAgent.ID?
     @ObservationIgnored private let triggers:
         @MainActor (Host.ID) -> NotificationTriggerPreferences?
@@ -49,15 +75,20 @@ final class AgentNotificationBannerStore {
     ///     unreachable, still loading) means no banner.
     ///   - playSound: the banner's sound; 1007 is the system SMS-alert tone,
     ///     played through the alert route so the ringer switch is honored.
+    ///   - duplicateWindow: how long an announced transition suppresses the
+    ///     matching push, which travels the plugin → relay → APNs path for
+    ///     the same status change and lands within seconds of it.
     init(
         holdDuration: Duration = .seconds(3),
         dismissDelay: Duration = .seconds(5),
+        duplicateWindow: Duration = .seconds(30),
         presentedAgent: @escaping @MainActor () -> ConsoleAgent.ID?,
         triggers: @escaping @MainActor (Host.ID) -> NotificationTriggerPreferences?,
         playSound: @escaping @MainActor () -> Void = { AudioServicesPlayAlertSound(1007) }
     ) {
         self.holdDuration = holdDuration
         self.dismissDelay = dismissDelay
+        self.duplicateWindow = duplicateWindow
         self.presentedAgent = presentedAgent
         self.triggers = triggers
         self.playSound = playSound
@@ -68,10 +99,25 @@ final class AgentNotificationBannerStore {
     /// transition — a killed-state launch must not banner every Agent that
     /// was already Blocked when it synced.
     func agentsDidChange(_ agents: [ConsoleAgent]) {
+        AgentNotificationBannerPresenter.adopt(self)
         let current = Dictionary(agents.map { ($0.id, $0) }) { _, last in last }
-        for id in statuses.keys where current[id] == nil {
-            statuses[id] = nil
+        // A Host still listing agents is a Host whose snapshot is live, so a
+        // pane missing from it really exited and its baseline goes.
+        //
+        // A Host listing none of them is almost always a cleared snapshot,
+        // not every Agent quitting at once: `HostConsoleProjection`
+        // invalidates `agentsByPane` on every reconnect and revalidation,
+        // which on an iPad happens on sleep, a network change, or a missed
+        // keepalive. Baselines are kept across that, so a Blocked or Done
+        // that happened while the link was down banners once on the first
+        // snapshot back instead of being swallowed as "first sight".
+        let hostsWithLiveRows = Set(agents.map(\.hostID))
+        for id in Array(statuses.keys) where current[id] == nil {
             cancelHold(for: id)
+            if hostsWithLiveRows.contains(id.hostID) {
+                statuses[id] = nil
+                announced[id] = nil
+            }
         }
         for (id, agent) in current {
             let previous = statuses[id]
@@ -90,12 +136,26 @@ final class AgentNotificationBannerStore {
     /// status to de-flap, and there is no pane to suppress it for. It shares
     /// the banner slot, so the newest message wins.
     func present(_ notification: TerminalDesktopNotification) {
-        banner = AgentNotificationBanner(
-            target: nil,
-            alert: AgentNotificationAlert(
-                title: notification.title, body: notification.body))
-        playSound()
-        armDismissal()
+        announce(
+            AgentNotificationBanner(
+                target: nil,
+                alert: AgentNotificationAlert(
+                    title: notification.title, body: notification.body)),
+            from: .liveStream)
+    }
+
+    /// A push that arrived while the app is foregrounded. None of the
+    /// transition gates apply: the plugin already decided this was worth
+    /// sending, and the app's own list may not even have seen the change
+    /// (a reconnecting Console, an unregistered-looking Host). The copy is
+    /// the service extension's, so the two paths still read identically.
+    ///
+    /// The one gate that stays is de-duplication: this store announces the
+    /// same transition from the live event stream, typically a second or two
+    /// before the push completes its trip through the relay and APNs, and
+    /// two alerts for one event is worse than either alone.
+    func presentPush(target: AgentNotificationTarget, alert: AgentNotificationAlert) {
+        announce(AgentNotificationBanner(target: target, alert: alert), from: .push)
     }
 
     func dismiss() {
@@ -130,10 +190,43 @@ final class AgentNotificationBannerStore {
         guard let notify = triggers(agent.hostID),
             status == .done ? notify.done : notify.blocked
         else { return }
-        banner = AgentNotificationBanner(
-            target: target,
-            alert: AgentNotificationRenderer.alert(
-                workspace: agent.workspaceLabel, agentKind: agent.agent.kind, status: status))
+        announce(
+            AgentNotificationBanner(
+                target: target,
+                alert: AgentNotificationRenderer.alert(
+                    workspace: agent.workspaceLabel, agentKind: agent.agent.kind,
+                    status: status)),
+            from: .liveStream)
+    }
+
+    /// Which pipeline announced a transition. Only a *cross*-pipeline repeat
+    /// is a duplicate: the same pipeline saying the same thing again is a
+    /// genuine second transition (Blocked, answered, Blocked again), and
+    /// swallowing that would be the original silence bug in miniature.
+    private enum AnnouncementSource: Equatable {
+        case liveStream
+        case push
+    }
+
+    private struct Announcement {
+        let alert: AgentNotificationAlert
+        let at: ContinuousClock.Instant
+        let source: AnnouncementSource
+    }
+
+    /// Shows a banner and records it, unless the other pipeline already
+    /// announced this exact transition within `duplicateWindow`.
+    private func announce(_ banner: AgentNotificationBanner, from source: AnnouncementSource) {
+        if let agentID = banner.target?.agentID {
+            if let previous = announced[agentID], previous.source != source,
+                previous.alert == banner.alert,
+                previous.at.duration(to: .now) < duplicateWindow
+            {
+                return
+            }
+            announced[agentID] = Announcement(alert: banner.alert, at: .now, source: source)
+        }
+        self.banner = banner
         playSound()
         armDismissal()
     }

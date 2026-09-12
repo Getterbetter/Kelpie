@@ -18,13 +18,36 @@ final class HostStore {
     private static let defaultsKey = "hosts"
     private static let catalogVersion = 1
 
-    private struct PersistedCatalog: Codable {
+    /// What is written. Reading goes through `DecodedCatalog` instead, which
+    /// is deliberately more forgiving than this.
+    private struct PersistedCatalog: Encodable {
         let version: Int
         let hosts: [Host]
     }
 
+    /// What is read: a version, and Hosts decoded one at a time. Unknown keys
+    /// are ignored by `JSONDecoder` already, and a Host this build cannot
+    /// decode leaves a hole rather than taking the catalog with it.
+    private struct DecodedCatalog: Decodable {
+        let version: Int
+        let hosts: [DecodedHost]
+    }
+
+    private struct DecodedHost: Decodable {
+        let host: Host?
+
+        init(from decoder: any Decoder) throws {
+            host = try? Host(from: decoder)
+        }
+    }
+
     private(set) var hosts: [Host]
     private(set) var catalogLoadError: HostStoreError?
+    /// One line about a catalog that was read but not wholly understood — a
+    /// newer build's file, or one with an entry this build could not decode.
+    /// Unlike `catalogLoadError` it never blocks a write: a user who cannot
+    /// add a Host has no way back, and that is worse than the notice.
+    private(set) var catalogNotice: String?
     /// Called after a Host leaves the catalog. iCloud pairing sync hangs on
     /// here so a deleted Host's synced record goes too — otherwise the next
     /// reconcile would adopt the Host straight back (ADR 0018).
@@ -42,26 +65,73 @@ final class HostStore {
         guard let data = defaults.data(forKey: Self.defaultsKey) else {
             hosts = []
             catalogLoadError = nil
+            catalogNotice = nil
             return
         }
-        do {
-            let decoder = JSONDecoder()
-            if let catalog = try? decoder.decode(PersistedCatalog.self, from: data) {
-                guard catalog.version == Self.catalogVersion else {
-                    throw HostStoreError.catalogUnreadable
-                }
-                hosts = catalog.hosts
-            } else {
-                // Version 0 was the bare Host array. Decode it once, then
-                // immediately persist the versioned envelope.
-                hosts = try decoder.decode([Host].self, from: data)
-                defaults.set(try Self.encodedCatalog(hosts), forKey: Self.defaultsKey)
-            }
-            catalogLoadError = nil
-        } catch {
-            hosts = []
-            catalogLoadError = .catalogUnreadable
+        let loaded = Self.loadCatalog(data)
+        hosts = loaded.hosts
+        catalogLoadError = loaded.error
+        catalogNotice = loaded.notice
+        if loaded.migratesInPlace, let encoded = try? Self.encodedCatalog(loaded.hosts) {
+            defaults.set(encoded, forKey: Self.defaultsKey)
         }
+    }
+
+    private struct LoadedCatalog {
+        var hosts: [Host] = []
+        var error: HostStoreError?
+        var notice: String?
+        /// Only a whole, clean legacy catalog is rewritten in place. Anything
+        /// partial is left exactly as it is on disk, so a build that can read
+        /// the rest still finds it there.
+        var migratesInPlace = false
+    }
+
+    /// Reads the persisted catalog as far as it can. A newer version, or an
+    /// entry this build cannot decode, yields the Hosts it did read plus a
+    /// notice; only bytes that are not a catalog at all are an error.
+    private static func loadCatalog(_ data: Data) -> LoadedCatalog {
+        let decoder = JSONDecoder()
+        var loaded = LoadedCatalog()
+        if let catalog = try? decoder.decode(DecodedCatalog.self, from: data) {
+            loaded.hosts = catalog.hosts.compactMap(\.host)
+            let dropped = catalog.hosts.count - loaded.hosts.count
+            // A newer build's catalog is read, not refused: refusing it left
+            // the list empty *and* blocked every add, with no way back but
+            // reinstalling the newer build.
+            if catalog.version > catalogVersion {
+                loaded.notice = newerCatalogNotice
+            }
+            if dropped > 0 {
+                loaded.notice = [loaded.notice, unreadableHostsNotice(dropped)]
+                    .compactMap { $0 }.joined(separator: " ")
+            }
+            return loaded
+        }
+        // Version 0 was the bare Host array. Decode it leniently too, and
+        // persist the versioned envelope only if nothing was lost.
+        guard let legacy = try? decoder.decode([DecodedHost].self, from: data) else {
+            loaded.error = .catalogUnreadable
+            return loaded
+        }
+        loaded.hosts = legacy.compactMap(\.host)
+        let dropped = legacy.count - loaded.hosts.count
+        if dropped > 0 {
+            loaded.notice = unreadableHostsNotice(dropped)
+        } else {
+            loaded.migratesInPlace = true
+        }
+        return loaded
+    }
+
+    private static let newerCatalogNotice =
+        "This Host list was last saved by a newer version of Kelpie. "
+        + "Anything that version added is not shown here, and saving a Host drops it."
+
+    private static func unreadableHostsNotice(_ count: Int) -> String {
+        count == 1
+            ? "One saved Host could not be read and is not shown."
+            : "\(count) saved Hosts could not be read and are not shown."
     }
 
     /// A process-local catalog for previews and development compositions.

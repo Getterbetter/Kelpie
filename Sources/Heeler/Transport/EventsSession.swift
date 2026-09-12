@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Synchronization
 
 /// Bounded backoff for transient events-channel failures (#18): capped
@@ -158,6 +159,22 @@ actor EventsSession {
     private let reconnectPolicy: ReconnectPolicy
     private let keepalive: KeepalivePolicy?
     private let terminalWaiterDidRegister: (@Sendable () -> Void)?
+    /// How long teardown waits for the Attach permit to come back before
+    /// proceeding without it. Teardown is what the app's background
+    /// assertion is waiting on (`ConsoleActivityDriver` →
+    /// `ConsoleStore.suspend` → `deactivate` → `windDown`), and iOS kills a
+    /// process that never ends its background task — so an SSH close that
+    /// ignores cancellation must cost a few seconds, not the app.
+    private let terminalIdleTimeout: Duration
+    /// How long a new Attach waits for the Host's single terminal permit.
+    /// The permit spans a terminal's whole lifetime, but two terminals never
+    /// coexist by design (the Client lets go before the Console attaches), so
+    /// a wait this long means the previous holder is wedged: fail the new
+    /// attach with something its surface can show a Reconnect against rather
+    /// than sit on "Connecting…" forever.
+    private let terminalAcquisitionTimeout: Duration
+    private static let log = Logger(
+        subsystem: "dev.bybee.heeler", category: "events-session")
 
     private var phase: Phase = .suspended
     /// The Host's live Transport. It never escapes this module; consumers
@@ -202,7 +219,7 @@ actor EventsSession {
     /// operation, including explicit terminal teardown.
     private var terminalInUse = false
     private var terminalWaiters: [TerminalWaiter] = []
-    private var terminalIdleWaiters: [CheckedContinuation<Void, Never>] = []
+    private var terminalIdleWaiters: [TerminalIdleWaiter] = []
     private var terminalTransportWaiters: [TerminalTransportWaiter] = []
     /// An action-required connection failure is sticky until the user starts a
     /// new activation. Requests arriving after the failed run must receive the
@@ -216,12 +233,16 @@ actor EventsSession {
         reconnectPolicy: ReconnectPolicy = .default,
         keepalive: KeepalivePolicy? = .default,
         updatesBufferLimit: Int = HerdrEventStream.bufferLimit,
+        terminalIdleTimeout: Duration = .seconds(5),
+        terminalAcquisitionTimeout: Duration = .seconds(30),
         terminalWaiterDidRegister: (@Sendable () -> Void)? = nil
     ) {
         self.subscriptions = subscriptions
         self.connect = connect
         self.reconnectPolicy = reconnectPolicy
         self.keepalive = keepalive
+        self.terminalIdleTimeout = terminalIdleTimeout
+        self.terminalAcquisitionTimeout = terminalAcquisitionTimeout
         self.terminalWaiterDidRegister = terminalWaiterDidRegister
         // Bounded (#22): dropping is safe because every drop is surfaced
         // through `yieldUpdate`'s marker; see the actor doc for the policy
@@ -351,9 +372,11 @@ actor EventsSession {
         _ operation: @escaping @Sendable (any Transport, UInt64) async throws -> Value
     ) async throws -> Value {
         try await acquireTerminal()
+        var acquired: UInt64?
         do {
             try Task.checkCancellation()
             let ready = try await awaitTerminalTransport()
+            acquired = ready.transportGeneration
             try Task.checkCancellation()
             guard terminalTransportIsCurrent(ready) else {
                 throw TransportError.cancelled
@@ -364,9 +387,82 @@ actor EventsSession {
             return value
         } catch {
             releaseTerminal()
+            await terminalDidFail(error, transportGeneration: acquired)
             throw error
         }
     }
+
+    /// An Attach channel died. The attach reader notices a severed link first
+    /// — it polls at 1 s, while the events session is parked on a stream a
+    /// dead socket never ends and the keepalive is up to its interval plus a
+    /// request timeout away (S2/#142's arithmetic). Without this the Host
+    /// still reads `.connected`, and a Reconnect re-attaches over the same
+    /// dead Transport. Marking the connection suspect and ending the live
+    /// channel puts the Host into its ordinary visible `.reconnecting`
+    /// sequence and forces the next `ensureTransport` to build a fresh one.
+    ///
+    /// Deliberate endings are not connection evidence: a cancelled attach, a
+    /// refused second reader (`terminalChannelAlreadyOpen`) and a herdr-level
+    /// rejection all leave the connection's credibility untouched.
+    private func terminalDidFail(_ error: any Error, transportGeneration: UInt64?) async {
+        guard
+            phase == .active,
+            let transportGeneration,
+            transportGeneration == self.transportGeneration,
+            !isWindingDown,
+            !(error is CancellationError)
+        else { return }
+        let failure = Self.transportFailure(error)
+        guard Self.indicatesDeadConnection(failure) else { return }
+        Self.log.notice("attach channel failed; marking the transport suspect")
+        transportSuspect = true
+        guard let stream = liveStream else { return }
+        pendingKeepaliveFailure = failure
+        await stream.end()
+    }
+
+    /// Failure shapes that mean the SSH connection underneath, not the one
+    /// channel that reported them.
+    ///
+    /// `.channelFailed` is deliberately **not** one of them. A remote process
+    /// that exits with a nonzero status arrives here as exactly that —
+    /// `HeelerSSHTransport.attachChannelFailure` renders every status != 0 as
+    /// `.channelFailed(detail: "attach channel: remote exit status N")` — and
+    /// a herdr that refuses its arguments is the most ordinary reason for one.
+    /// Now that the session name is user-editable, treating it as transport
+    /// death was self-sustaining: bad `--session` → herdr exits → transport
+    /// marked suspect → generation bumps → terminal replaced → herdr exits
+    /// again, forever, against a connection that was healthy throughout. A
+    /// remote exit is the *remote program's* verdict; only a link that could
+    /// not carry it counts here.
+    private static func indicatesDeadConnection(_ failure: TransportError) -> Bool {
+        switch failure {
+        case .timedOut, .sshUnreachable, .streamLocalOpenFailed: true
+        default: false
+        }
+    }
+
+    /// The network path under this connection changed (interface swap, a
+    /// VPN toggle, satisfied↔unsatisfied), so the socket may be dead while
+    /// still looking reusable. Marks the Transport suspect, ends the live
+    /// channel so the run loop re-dials, and cuts short any backoff already
+    /// under way — the path moving is new information, not another failure.
+    ///
+    /// No-op unless active: a suspended session is `resume()`'s business.
+    func networkPathDidChange() async {
+        guard phase == .active else { return }
+        Self.log.notice("network path changed; marking the transport suspect")
+        transportSuspect = true
+        backoffSleep?.cancel()
+        guard let stream = liveStream else { return }
+        pendingKeepaliveFailure = .sshUnreachable(
+            detail: "The network connection changed.")
+        await stream.end()
+    }
+
+    /// Whether the installed Transport is currently distrusted. Test and
+    /// diagnostic surface for the two entry points above.
+    var transportIsSuspect: Bool { transportSuspect }
 
     /// Every activation announces `.connecting` synchronously before `run`
     /// is spawned — a first dial, a return from Suspended, and a Reconnect
@@ -679,7 +775,7 @@ actor EventsSession {
             currentTransport = nil
             try? await transport.close()
         }
-        await waitForTerminalIdle()
+        await waitForTerminalIdle(timeout: terminalIdleTimeout)
         transportSuspect = false
         pendingKeepaliveFailure = nil
         resubscribeRequested = false
@@ -800,6 +896,7 @@ actor EventsSession {
 
     private struct TerminalWaiter {
         let id: UUID
+        var timeout: Task<Void, Never>?
         let continuation: CheckedContinuation<Void, any Error>
     }
 
@@ -821,6 +918,7 @@ actor EventsSession {
 
     private func acquireTerminal() async throws {
         let id = UUID()
+        let timeout = terminalAcquisitionTimeout
         try Task.checkCancellation()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation {
@@ -828,8 +926,16 @@ actor EventsSession {
                 if Task.isCancelled {
                     continuation.resume(throwing: CancellationError())
                 } else if terminalInUse {
+                    // Bounded: a permit that never comes back would leave the
+                    // new surface on "Connecting…" for the life of the
+                    // process with nothing to act on.
+                    let expiry = Task { [weak self] in
+                        try? await Task.sleep(for: timeout)
+                        guard !Task.isCancelled else { return }
+                        await self?.terminalWaitDidExpire(id: id, after: timeout)
+                    }
                     terminalWaiters.append(
-                        TerminalWaiter(id: id, continuation: continuation))
+                        TerminalWaiter(id: id, timeout: expiry, continuation: continuation))
                 } else {
                     terminalInUse = true
                     continuation.resume()
@@ -843,7 +949,17 @@ actor EventsSession {
     private func cancelTerminalWaiter(id: UUID) {
         guard let index = terminalWaiters.firstIndex(where: { $0.id == id }) else { return }
         let waiter = terminalWaiters.remove(at: index)
+        waiter.timeout?.cancel()
         waiter.continuation.resume(throwing: CancellationError())
+    }
+
+    private func terminalWaitDidExpire(id: UUID, after timeout: Duration) {
+        guard let index = terminalWaiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = terminalWaiters.remove(at: index)
+        Self.log.error(
+            "attach waited \(timeout, privacy: .public) for the Host's terminal permit; failing it"
+        )
+        waiter.continuation.resume(throwing: TransportError.timedOut)
     }
 
     private func awaitTerminalTransport() async throws -> TerminalTransportReady {
@@ -943,8 +1059,9 @@ actor EventsSession {
     }
 
     private func releaseTerminal() {
-        while !terminalWaiters.isEmpty {
+        if !terminalWaiters.isEmpty {
             let waiter = terminalWaiters.removeFirst()
+            waiter.timeout?.cancel()
             waiter.continuation.resume()
             return
         }
@@ -952,12 +1069,45 @@ actor EventsSession {
         let waiters = terminalIdleWaiters
         terminalIdleWaiters.removeAll()
         for waiter in waiters {
-            waiter.resume()
+            waiter.timeout?.cancel()
+            waiter.continuation.resume()
         }
     }
 
-    private func waitForTerminalIdle() async {
+    private struct TerminalIdleWaiter {
+        let id: UUID
+        var timeout: Task<Void, Never>?
+        let continuation: CheckedContinuation<Void, Never>
+    }
+
+    /// Waits for the Attach permit to come back, but never longer than
+    /// `terminalIdleTimeout`. This await is the last link in the chain the
+    /// app's background assertion hangs on, and the permit spans an SSH
+    /// teardown that may ignore cancellation, so it gets a deadline: on
+    /// expiry teardown proceeds without the permit and the abandoned
+    /// operation's own generation checks make its late result harmless.
+    private func waitForTerminalIdle(timeout: Duration) async {
         guard terminalInUse else { return }
-        await withCheckedContinuation { terminalIdleWaiters.append($0) }
+        let id = UUID()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let expiry = Task { [weak self] in
+                try? await Task.sleep(for: timeout)
+                guard !Task.isCancelled else { return }
+                await self?.terminalIdleWaitDidExpire(id: id, after: timeout)
+            }
+            terminalIdleWaiters.append(
+                TerminalIdleWaiter(id: id, timeout: expiry, continuation: continuation))
+        }
+    }
+
+    private func terminalIdleWaitDidExpire(id: UUID, after timeout: Duration) {
+        guard let index = terminalIdleWaiters.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let waiter = terminalIdleWaiters.remove(at: index)
+        Self.log.error(
+            "terminal teardown did not release the Attach permit within \(timeout, privacy: .public); proceeding"
+        )
+        waiter.continuation.resume()
     }
 }

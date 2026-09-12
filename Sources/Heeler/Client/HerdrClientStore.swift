@@ -22,7 +22,16 @@ final class HerdrClientStore {
     let hostID: Host.ID
     /// herdr's named session, when the Host names one; nil attaches to the
     /// default session, exactly as bare `herdr` does on the desktop.
-    let sessionName: String?
+    ///
+    /// Read live, not captured (M1). The root view keeps one store per Host
+    /// id for the life of that Host, and `Host.id` survives an edit, so a
+    /// store that snapshotted this at init would keep exec-ing
+    /// `herdr --session "<old name>"` on every reattach, reconnect and
+    /// transport-generation replacement until the app was relaunched. Every
+    /// other Host field the attach depends on is already late-bound through
+    /// `ConsoleStore.terminalRunner(for:)`, which resolves the Host's live
+    /// projection on each call; this was the one exception.
+    private(set) var sessionName: String?
     let input = TerminalInputController()
     private(set) var terminal: AttachTerminalStore
 
@@ -46,17 +55,37 @@ final class HerdrClientStore {
         runTerminal: @escaping TerminalSessionRunner
     ) {
         self.hostID = hostID
-        self.sessionName = sessionName
+        self.sessionName = Self.normalizedSessionName(sessionName)
         self.transportGeneration = transportGeneration
         self.runTerminal = runTerminal
         terminal = Self.makeTerminal(
-            sessionName: sessionName,
+            sessionName: Self.normalizedSessionName(sessionName),
             input: input,
             transportGeneration: transportGeneration,
             runTerminal: runTerminal)
     }
 
     private func isOnStage() -> Bool { isPresented }
+
+    /// The Host was edited. A changed herdr session name has to reach the
+    /// *next* attach, whenever that is: on stage the pipeline is replaced now,
+    /// off stage (the Console cover is up, or a rejoin is owed) the new name
+    /// is simply what `adoptReplacement` builds with when the Client comes
+    /// back. Trimming happens here so "  " and "" both mean the default
+    /// session, as `HostFormView` lets the user leave it.
+    func hostDidChange(sessionName: String?) {
+        let normalized = Self.normalizedSessionName(sessionName)
+        guard normalized != self.sessionName else { return }
+        self.sessionName = normalized
+        replaceTerminal()
+    }
+
+    /// nil means bare `herdr`, exactly as the desktop's default session does.
+    private static func normalizedSessionName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 
     /// The Console cover came up over the Client, or went away again. Coming
     /// back reattaches from scratch: herdr's scrollback lives on the Host, so
@@ -74,6 +103,41 @@ final class HerdrClientStore {
         guard lifecycleState == .active, isOnStage() else { return terminal.status }
         if isReplacing || terminal.status == .stopped { return .connecting }
         return terminal.status
+    }
+
+    /// Whether the Client is on screen but detached, owing a rejoin nothing
+    /// else will deliver (S3). Two shapes reach it:
+    ///
+    /// * `.rejoinRequired` — a queued replacement went invalid off stage, so
+    ///   `abortReplacementOffStage` parked the store deliberately.
+    /// * `.left` while still on stage — an `onDisappear` arrived without the
+    ///   balancing `onAppear` the pair assumes, so `leave()` stopped the
+    ///   pipeline under a view that is still visible.
+    ///
+    /// Both left a stopped terminal behind `terminalStatus`'s `.stopped`,
+    /// which `TerminalStatusPresentation` maps to no overlay at all: a frozen
+    /// last frame with no spinner, no message and no Reconnect.
+    var needsRejoin: Bool {
+        switch lifecycleState {
+        case .rejoinRequired: true
+        case .left: isOnStage()
+        case .active: false
+        }
+    }
+
+    /// What the screen draws over the terminal, for every state this store
+    /// can be in — the mapping ADR 0017 now enumerates.
+    var statusPresentation: TerminalStatusPresentation? {
+        if needsRejoin { return .rejoinRequired }
+        // Off stage: the Console cover is up and draws its own screen. The
+        // Client is deliberately detached, not broken.
+        if lifecycleState != .active { return nil }
+        // A remote exit is the remote program's verdict, not a connection
+        // problem, so it stops here and names the session it was given.
+        if case .ended(let message) = terminalStatus {
+            return .clientEnded(message: message, sessionName: sessionName)
+        }
+        return TerminalStatusPresentation(status: terminalStatus)
     }
 
     var pendingPaste: TerminalInputController.PasteReview? { input.pendingPaste }
@@ -106,6 +170,15 @@ final class HerdrClientStore {
     /// The visible Reconnect affordance, and the menu's Reconnect item: both
     /// rebuild the pipeline rather than nudging the live one.
     func reconnect() {
+        if needsRejoin {
+            // The tap came from the Client's own overlay, or from the menu
+            // that sits on top of it, so the Client is on screen whatever the
+            // last presentation signal said — and `rejoin()` refuses off
+            // stage, which is exactly what made this state a dead end (S3).
+            isPresented = true
+            rejoin()
+            return
+        }
         guard lifecycleState == .active, isOnStage() else { return }
         if terminal.status == .stopped || isReplacing {
             replaceTerminal()
