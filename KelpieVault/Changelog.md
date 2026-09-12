@@ -191,4 +191,12 @@ Five CI attempts to green. Two were the real fixes above; three were transient r
 
 Remaining low findings after the first runs: libghostty-spm has a newer release, and OpenSSL 3.6.4 is out.
 
+## Round 11 — iPhone, key bar, pairing sync, TestFlight — 2026-09-12
+
+Not yet written up here; see `resume.md` round 11 and [[Open items]] 10 to 13. Its hashes (`9799147`, `baefed9` and later) were rewritten twice (purge, then round 11b).
+
+## Round 11b — re-parenting after the purge — 2026-09-12
+
+No code change. `kelpie` rebased with `--onto` back onto upstream `375267c` after the round-11 `filter-repo` detached it (see [[Decisions]]). 77 commits replayed, no conflicts, tree identical. Old tip: tag `kelpie-pre-rerebase-20260912`. One docs commit follows (this vault and `resume.md`).
+
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
