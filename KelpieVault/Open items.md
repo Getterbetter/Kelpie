@@ -31,6 +31,8 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 - [ ] **11. iCloud pairing sync.** Built 2026-09-12 (`9799147`, ADR 0018): device key and per-Host records in iCloud Keychain, Settings toggle. Left: the two-device check (pair on the iPad, open the iPhone, the Host should be there and connect; then a notification to each device).
 - [ ] **12. Key bar on the device.** One keyboard-styled row replaced the chip bar + paste/newline row (`9799147`). Left: Anthony's look-and-feel verdict, sticky ctrl then b reaching herdr, Paste with a photo.
 
+- [ ] **13. Pairing sync carries edits.** Anthony 2026-09-12: his Host address must change from the LAN IP to the Tailscale IP (`100.65.54.52`, user `anthonytopalides`, port 22; the mini advertises no subnet route, so cellular + Tailscale cannot reach `192.168.x`). Today's sync adopts unknown Hosts only; a newer synced record should update an existing Host's address/port/user too (last writer wins by `updatedAt`, never over a local edit that is newer). Small change in `PairingSync.reconcile`.
+
 - [ ] **7. Consider a pull request upstream** for the iPad input work. Anthony's call; deliberately deferred while the fork is private.
 - [x] **8. Run the unit suite.** Answered by CI on the fork since 2026-09-12 (round 10, PR #2): every PR into `kelpie` runs the full suite (1648 tests, real-SSH fixtures included) on a GitHub macos-26 runner with an iPad Air 11-inch (M4) simulator. The real-SSH suites are flaky there (upstream sees the same): re-run a red run once before treating it as a regression. This Mac's simulator is still unusable.
 
