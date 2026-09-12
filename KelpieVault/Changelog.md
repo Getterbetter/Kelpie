@@ -217,7 +217,7 @@ No code change. `kelpie` rebased with `--onto` back onto upstream `375267c` afte
 
 | Commit | |
 | --- | --- |
-| `0b6aa14` | **round 12**: `scripts/check-round-closeout.sh` + `.githooks/pre-push` + `make hooks`/`closeout-check`; round 11 in the vault; 35 stale hashes repaired; pairing sync carries Host edits (`PairingSync.swift`, `ContentView.swift`, 7 tests, ADR 0018 amendment); `scripts/redditwatch.py`, `scripts/redditwatch-analyse.sh`, `scripts/launchd/com.kelpie.redditwatch.plist`, `docs/guides/reddit-watch.md`, [[Reddit watch]]. |
+| `a9fcba0` (+ `docs` hash fix) | **round 12**: `scripts/check-round-closeout.sh` + `.githooks/pre-push` + `make hooks`/`closeout-check`; round 11 in the vault; 35 stale hashes repaired; pairing sync carries Host edits (`PairingSync.swift`, `ContentView.swift`, 7 tests, ADR 0018 amendment); `scripts/redditwatch.py`, `scripts/redditwatch-analyse.sh`, `scripts/launchd/com.kelpie.redditwatch.plist`, `docs/guides/reddit-watch.md`, [[Reddit watch]]. |
 
 Reviewed twice (fresh-context Opus); every must-fix and should-fix applied. Not on a device; the launchd job not loaded; force push pending.
 
