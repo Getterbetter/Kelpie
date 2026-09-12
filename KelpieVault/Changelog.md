@@ -229,7 +229,7 @@ Force push done (`68e471e` on origin), `com.kelpie.community watch` loaded, the 
 
 | Commit | |
 | --- | --- |
-| `COMMIT12C` | **round 12b + 12c**: four reviews → [[Robustness review]] → four builders (notifications, identity, client/transport, screen) → integration → two reviews → fixes. New: `NetworkPathObserver`, `HostKeyConfirmationBroker`, `HerdrClientNotices`, tombstones in `PairingSync`, `APNSEnvironment` from the provisioning profile, `RegistrationFailureRecording`, `TerminalShadowInput`/`TerminalShadowDeleteEchoes`, `TerminalKeyBarMetrics`; ~90 new tests. |
+| `39ced10` | **round 12b + 12c**: four reviews → [[Robustness review]] → four builders (notifications, identity, client/transport, screen) → integration → two reviews → fixes. New: `NetworkPathObserver`, `HostKeyConfirmationBroker`, `HerdrClientNotices`, tombstones in `PairingSync`, `APNSEnvironment` from the provisioning profile, `RegistrationFailureRecording`, `TerminalShadowInput`/`TerminalShadowDeleteEchoes`, `TerminalKeyBarMetrics`; ~90 new tests. |
 
 Every must-fix and should-fix from the reviews applied; the set-aside items are listed in [[Robustness review]]. Compiled for a generic iOS device; not run on a device at close (both devices were locked).
 
