@@ -913,10 +913,12 @@ printf 'Claimed fixture port block %s-%s\n' \
 #
 # Candidates come back last-first, preserving the previous choice of the last
 # matching device for a run that finds the machine idle. The name is matched
-# as a literal prefix plus " (" so the default "iPhone 17" does not also
-# claim "iPhone 17 Pro", and names with parentheses (iPad Pro 13-inch (M5))
+# as a literal prefix plus " (" so a default like "iPhone 17" does not also
+# claim "iPhone 17 Pro", and names with parentheses (iPad Air 11-inch (M4))
 # stay literal rather than becoming an awk regex.
-ci_simulator_name="${HEELER_CI_SIMULATOR_NAME:-iPhone 17}"
+# Kelpie is iPad-only (TARGETED_DEVICE_FAMILY 2), so the device must be an
+# iPad; this model exists on the macos-26 runners and on Anthony's Mac.
+ci_simulator_name="${HEELER_CI_SIM_MODEL:-iPad Air 11-inch (M4)}"
 simulator_candidates=()
 while IFS= read -r candidate; do
     [[ -n "$candidate" ]] && simulator_candidates+=("$candidate")

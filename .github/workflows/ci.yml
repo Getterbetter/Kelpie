@@ -122,7 +122,8 @@ jobs:
       - name: Test CI watchdog
         run: scripts/test-run-with-timeout.sh
 
-      # The script selects one available iPhone 17 UDID, boots it, injects the
+      # The script selects one available iPad Air 11-inch (M4) UDID (Kelpie is
+      # iPad-only; HEELER_CI_SIM_MODEL overrides), boots it, injects the
       # fixture environment there, and targets that same device for every test
       # action. The app deployment target is iOS 26.
       - name: Build and test
