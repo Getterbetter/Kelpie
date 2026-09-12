@@ -150,7 +150,15 @@ struct HerdrClientView: View {
                     title: presentation.title,
                     message: presentation.message,
                     palette: themePalette,
-                    dimsBackground: presentation.dimsBackground)
+                    dimsBackground: presentation.dimsBackground
+                ) {
+                    // A reconnecting Host keeps the spinner — recovery really
+                    // is running — but the wait is the user's to cut short.
+                    if presentation.offersReconnect {
+                        Button("Reconnect") { store.reconnect() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
             case .ended:
                 TerminalStatusDialog(
                     glyph: .symbol("cable.connector.slash"),

@@ -16,7 +16,9 @@ struct EventsSessionTerminalChannelTests {
 
     private func makeSession(
         connect: @escaping @Sendable () async throws -> any Transport,
-        terminalIdleTimeout: Duration = .seconds(5)
+        terminalIdleTimeout: Duration = .seconds(5),
+        terminalAcquisitionTimeout: Duration = .seconds(30),
+        terminalWaiterDidRegister: (@Sendable () -> Void)? = nil
     ) -> EventsSession {
         EventsSession(
             subscriptions: subscriptions,
@@ -24,7 +26,9 @@ struct EventsSessionTerminalChannelTests {
             reconnectPolicy: ReconnectPolicy(
                 initialDelay: .milliseconds(10), multiplier: 2, maxDelay: .milliseconds(50)),
             keepalive: nil,
-            terminalIdleTimeout: terminalIdleTimeout)
+            terminalIdleTimeout: terminalIdleTimeout,
+            terminalAcquisitionTimeout: terminalAcquisitionTimeout,
+            terminalWaiterDidRegister: terminalWaiterDidRegister)
     }
 
     // MARK: A dead Attach channel distrusts the connection (S2)
@@ -149,16 +153,86 @@ struct EventsSessionTerminalChannelTests {
         await session.end()
     }
 
-    @Test func aNetworkPathChangeIsIgnoredWhileSuspended() async throws {
+    @Test func aNetworkPathChangeWhileSuspendedIsStillRecorded() async throws {
+        // A suspended session does no repair work — that is `resume()`'s
+        // business — but the suspicion has to survive until it does. iOS
+        // freezes sockets while the process is suspended and `isConnected` is
+        // the driver's own reusable flag rather than a probe, so a path move
+        // that went unrecorded came back as a "reusable" dead socket, handed
+        // straight to whichever Attach was waiting for it.
         let transport = ScriptedTransport()
         let connector = SequencedTransportConnector([transport])
         let session = makeSession(connect: { try await connector.connect() })
 
         await session.networkPathDidChange()
 
-        #expect(await session.transportIsSuspect == false)
+        #expect(await session.transportIsSuspect)
         #expect(await connector.connectCount == 0)
         await session.end()
+    }
+
+    // MARK: A parked Attach is bounded and told why
+
+    @Test func aParkedAttachFailsAtItsDeadlineRatherThanWaitingForever() async throws {
+        // The root screen's indefinite "Connecting…" off Wi-Fi: the Client's
+        // attach parks on a Transport the session has not installed, and a
+        // retryable reconnect loop resumed waiters only on success — so the
+        // spinner outlived the process with nothing on screen to act on.
+        let (registrations, registrationContinuation) = AsyncStream.makeStream(of: Void.self)
+        var registrationIterator = registrations.makeAsyncIterator()
+        let transport = ScriptedTransport()
+        let session = makeSession(
+            connect: { transport },
+            terminalAcquisitionTimeout: .milliseconds(100),
+            terminalWaiterDidRegister: { registrationContinuation.yield() })
+
+        // Never resumed: no Transport exists and no run loop is working on one.
+        let parked = Task {
+            try await session.withTerminalTransport { _, _ in
+                Issue.record("a parked attach was handed a Transport")
+            }
+        }
+        _ = await registrationIterator.next()
+
+        await #expect(throws: TransportError.timedOut) { try await parked.value }
+
+        await session.end()
+        registrationContinuation.finish()
+    }
+
+    @Test func aRetryableFailureFailsTheParkedAttachToo() async throws {
+        // The loop keeps retrying — that is right — but the surface waiting on
+        // it needs the reason in the meantime, and the backoff caps at
+        // `maxDelay` per attempt with no attempt limit.
+        let failure = TransportError.sshUnreachable(detail: "the tunnel is down")
+        let (registrations, registrationContinuation) = AsyncStream.makeStream(of: Void.self)
+        var registrationIterator = registrations.makeAsyncIterator()
+        let session = makeSession(
+            connect: { throw failure },
+            terminalWaiterDidRegister: { registrationContinuation.yield() })
+        var updates = session.updates.makeAsyncIterator()
+
+        let parked = Task {
+            try await session.withTerminalTransport { _, _ in
+                Issue.record("a failing session handed out a Transport")
+            }
+        }
+        _ = await registrationIterator.next()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+
+        await #expect(throws: failure) { try await parked.value }
+        // The session itself is unchanged: still retrying, not failed.
+        guard case .status(.reconnecting(_, _, let reported)) = await updates.next() else {
+            Issue.record("expected the session to keep retrying")
+            await session.end()
+            return
+        }
+        #expect(reported == failure)
+
+        await session.end()
+        registrationContinuation.finish()
     }
 
     // MARK: Teardown is bounded (M2)

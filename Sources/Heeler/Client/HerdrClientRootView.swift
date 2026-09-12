@@ -643,6 +643,8 @@ private struct HerdrClientHostView: View {
             hostID: host.id,
             sessionName: sessionName.isEmpty ? nil : sessionName,
             transportGeneration: console.hostConnectionGenerations[host.id],
+            hostStatus: console.hostStatuses[host.id],
+            retryHost: { await console.retryHost(host.id) },
             runTerminal: console.terminalRunner(for: host.id))
         let keyboardControl = TerminalKeyboardControl()
         _store = State(initialValue: store)
@@ -675,6 +677,14 @@ private struct HerdrClientHostView: View {
         )
         .onChange(of: console.hostConnectionGenerations[host.id]) { _, generation in
             store.transportGenerationDidChange(generation)
+        }
+        // The Console cover's own Host rows read this same value. Without it
+        // the root screen was the one surface that could not say why an attach
+        // was not starting: the pipeline parks on the Host's Transport, and a
+        // retryable reconnect loop gave it a bare spinner with no reason, no
+        // attempt and no Reconnect.
+        .onChange(of: console.hostStatuses[host.id], initial: true) { _, status in
+            store.hostStatusDidChange(status)
         }
         // M1. This view is identified by `host.id`, and `Host.id` survives
         // `HostStore.update`, so editing the Host updates this `host` value
