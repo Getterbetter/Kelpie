@@ -206,3 +206,11 @@ Read as: the day's wait before a standalone r/herdr post was my caution, not a r
 Anthony (2026-09-13, during the Release install): "might need to do one device at a time"
 
 Read as: the iPad and iPhone are not both reachable at once (one locked or off Wi-Fi while the other is up); install and check on the iPad first, then the iPhone when he has it unlocked, rather than treating a failed iPhone install as a fault.
+
+Anthony (2026-09-13, Open item 20 on the round-13 Release build): "b) works c) works d) it now connects to the host but outside of host settings it just spins at "connecting" indefinitely until i get back on the wifi e) not sure how to test this f) not sure how to test this"
+
+Read as: double-space and iPhone scroll-to-dismiss confirmed. The Tailscale edit synced and the Host-settings connection test succeeds over Tailscale, but the root screen's client stays on "connecting" for as long as the device is off Wi-Fi — a real bug in the root client's path, not in sync. (e) and (f) need a recipe from me; (f) also needs TestFlight build 3.
+
+Anthony (2026-09-13): "new item: artifacts that claude creates sometimes get pinned below the text bar as links. these would normally open on a terminal into the browser, Kelpie should do the same"
+
+Read as: Claude Code pins artifact links (claude.ai pages) under its input bar; a Mac terminal makes them clickable and opens the browser; on Kelpie a tap does nothing. Work out how the link is rendered (an OSC 8 hyperlink with display text rather than a bare URL is the likely gap in `TerminalLinkDetector`, which scans viewport text for URLs) and make a tap open it on the iPad, as URL taps already do.
