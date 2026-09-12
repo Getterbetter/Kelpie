@@ -286,10 +286,10 @@ final class PairingSync {
             return
         }
         let items = loadSyncedItems()
-        let tombstones = purgingExpired(items.tombstones)
+        var tombstones = purgingExpired(items.tombstones)
         let deviceKey = reconcileDeviceKey()
         var stamps = refreshedHostEditStamps()
-        applyTombstones(tombstones, stamps: &stamps)
+        applyTombstones(&tombstones, stamps: &stamps)
         await adopt(items.records, tombstones: tombstones, stamps: &stamps)
         hostEditStamps = stamps
         await publish(
@@ -534,13 +534,21 @@ final class PairingSync {
     /// password, its Notification Key and its device registration leave with
     /// it exactly as they do when the user deletes the Host here.
     private func applyTombstones(
-        _ tombstones: [UUID: PairingSyncTombstone], stamps: inout [String: HostEditStamp]
+        _ tombstones: inout [UUID: PairingSyncTombstone], stamps: inout [String: HostEditStamp]
     ) {
         guard !tombstones.isEmpty else { return }
         for host in hosts.hosts {
             guard let tombstone = tombstones[host.id] else { continue }
             let key = host.id.uuidString
-            guard tombstone.deletedAt > (stamps[key]?.at ?? .distantPast) else { continue }
+            guard tombstone.deletedAt > (stamps[key]?.at ?? .distantPast) else {
+                // The local edit is the newer writer, so the tombstone has
+                // lost and is spent. Retire it: left in place it would block
+                // `publish`'s concurrent-delete guard for the tombstone's
+                // whole lifetime, and the sibling that deleted the Host would
+                // never get the re-paired Host back.
+                retireTombstone(for: host.id, from: &tombstones)
+                continue
+            }
             isApplyingRemoteDeletion = true
             do {
                 try hosts.remove(host.id)
@@ -555,6 +563,20 @@ final class PairingSync {
             forgetHost(host.id)
             isApplyingRemoteDeletion = false
             stamps[key] = nil
+        }
+    }
+
+    /// Drops a defeated tombstone from the synced store and from the set this
+    /// reconcile carries on to `adopt` and `publish`, so the Host it no longer
+    /// suppresses is republished on this same pass.
+    private func retireTombstone(
+        for id: Host.ID, from tombstones: inout [UUID: PairingSyncTombstone]
+    ) {
+        tombstones[id] = nil
+        do {
+            try records.removeSecret(account: PairingSyncTombstone.account(for: id))
+        } catch {
+            logOnce("tombstone-retire", error)
         }
     }
 
