@@ -113,6 +113,12 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      # Kelpie vendors GhosttyTerminal; its GhosttyKit.xcframework is gitignored
+      # and fetched (checksum-verified) by this script, which `make generate`
+      # also runs. Without it package resolution fails on the runner.
+      - name: Fetch the pinned libghostty artifact
+        run: scripts/fetch-ghostty-artifact.sh
+
       - name: Test CI watchdog
         run: scripts/test-run-with-timeout.sh
 
