@@ -1012,7 +1012,13 @@ def check_herdr_mini(ctx):
             lane="none",
         )
     result = ctx.run(
-        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, "herdr --version"],
+        # A non-interactive login shell has no Homebrew or ~/.local/bin on PATH
+        # (the app's HerdrHostPath appends the same prefixes).
+        [
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host,
+            'PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH" '
+            "herdr --version",
+        ],
         timeout=NETWORK_TIMEOUT,
         tolerate=True,
     )
