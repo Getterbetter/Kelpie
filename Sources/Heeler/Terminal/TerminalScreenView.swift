@@ -210,6 +210,9 @@ struct TerminalScreenView: UIViewRepresentable {
     var isLocalInputEnabled = true
     /// Applied before the first focus claim, including Agent tools handoffs.
     var initialKeyboardMode = TerminalKeyboardMode.text
+    /// The chip row that rides the software keyboard. Empty — the Console's
+    /// arrangement — leaves nothing on the keyboard at all.
+    var keyboardAccessoryItems: [TerminalInputAccessoryItem] = []
     var textInputStyle = TerminalTextInputStyle.terminal
     var theme: TerminalTheme = .default
     var fontSize: Float = TerminalZoomSettings.defaultFontSize
@@ -245,6 +248,7 @@ struct TerminalScreenView: UIViewRepresentable {
         }
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
+        view.keyboardAccessoryItems = keyboardAccessoryItems
         // The feed holds the surface weakly so a replaced UIKit view cannot be
         // kept alive by an obsolete terminal pipeline.
         feed.attach(view)
@@ -304,6 +308,7 @@ struct TerminalScreenView: UIViewRepresentable {
             && (claimsKeyboard?() ?? false)
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
+        view.keyboardAccessoryItems = keyboardAccessoryItems
         if claimsKeyboardOnEnable, let keyboardHandoffID {
             DispatchQueue.main.async { [weak view, weak keyboardControl] in
                 guard let view,
@@ -1120,11 +1125,21 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             with: NSRange(location: range.location, length: range.length))
     }
 
-    /// Nothing rides the keyboard any more: the input row lives in the app
-    /// (see `ShellTerminalView`), where a keyboard-mode switch cannot tear it
-    /// down, and where UIKit's candidate-row teardown cannot move it.
+    /// The chips that ride the keyboard, and whether anything rides it at
+    /// all. The Console's input row is app content (see `ShellTerminalView`),
+    /// where a keyboard-mode switch cannot tear it down and UIKit's
+    /// candidate-row teardown cannot move it, so it leaves this empty. The
+    /// root screen has no mode switch and supplies items, which hands the
+    /// keyboard the vendored accessory bar.
+    var keyboardAccessoryItems: [TerminalInputAccessoryItem] = [] {
+        didSet {
+            guard keyboardAccessoryItems != oldValue else { return }
+            inputAccessoryItems = keyboardAccessoryItems  // its didSet reloads input views
+        }
+    }
+
     override var inputAccessoryView: UIView? {
-        nil
+        keyboardAccessoryItems.isEmpty ? nil : super.inputAccessoryView
     }
 
     /// Only a tap on the input row raises the keyboard, so the surface refuses

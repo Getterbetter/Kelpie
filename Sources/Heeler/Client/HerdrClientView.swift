@@ -1,3 +1,4 @@
+import GhosttyTerminal
 import SwiftUI
 import UIKit
 
@@ -7,9 +8,11 @@ import UIKit
 /// switcher, Composer, message-jump) is on it, because herdr already draws its
 /// own equivalents.
 ///
-/// The keyboard chrome is the shell terminal's, and it appears only when there
-/// is no hardware keyboard: a Magic Keyboard makes every key on the pad
-/// redundant and the screen space expensive.
+/// The keyboard chrome appears only when there is no hardware keyboard: a
+/// Magic Keyboard makes every key redundant and the screen space expensive.
+/// The keys are a chip row riding the software keyboard itself — the vendored
+/// terminal's own accessory bar, sticky modifiers included — with the shell
+/// terminal's input row above it for paste and Insert New Line.
 struct HerdrClientView: View {
     let store: HerdrClientStore
     let terminal: TerminalSettings
@@ -23,7 +26,6 @@ struct HerdrClientView: View {
     let keyboardControl: TerminalKeyboardControl
     let media: HerdrMediaStagingStore
 
-    @State private var keyboardMode: TerminalKeyboardMode = .text
     @State private var keyboardInset = TerminalKeyboardInset()
     @Environment(\.colorScheme) private var colorScheme
 
@@ -53,6 +55,11 @@ struct HerdrClientView: View {
         // keyboard while one is attached.
         screen.claimsKeyboard = { hardwareKeyboard.isConnected }
         screen.keyboardControl = keyboardControl
+        // With a hardware keyboard attached the bar is absent: iPadOS docks
+        // an accessory at the bottom of the screen, nowhere near a keyboard
+        // that has the keys already.
+        screen.keyboardAccessoryItems =
+            hardwareKeyboard.isConnected ? [] : Self.keyboardChips
         screen.isLocalInputEnabled = true
         screen.theme = terminal.themes.theme
         screen.fontSize = terminal.zoom.fontSize
@@ -65,7 +72,7 @@ struct HerdrClientView: View {
     private var keyboardPresentation: AgentComposerKeyboardPresentation {
         guard !hardwareKeyboard.isConnected else { return .hidden }
         return ShellTerminalView.keyboardPresentation(
-            mode: keyboardMode,
+            mode: .text,
             insetHeight: keyboardInset.height,
             keyboardIsUp: keyboardControl.isKeyboardUp)
     }
@@ -77,9 +84,17 @@ struct HerdrClientView: View {
             presentation: keyboardPresentation)
     }
 
-    private var isKeysDockPresented: Bool {
-        keyboardMode == .controls && !hardwareKeyboard.isConnected
-    }
+    /// Ctrl+B, herdr's prefix, is sticky Ctrl then b. No Paste chip: the
+    /// vendored one reads the pasteboard directly, skipping the paste review
+    /// sheet, bracketed paste and media staging behind the input row's button.
+    static let keyboardChips: [TerminalInputAccessoryItem] = [
+        .esc, .tab, .ctrl, .alt,
+        .divider,
+        .arrowLeft, .arrowUp, .arrowDown, .arrowRight,
+        .divider,
+        .symbol("|"), .symbol("~"), .symbol("/"), .symbol("-"),
+        .symbol("_"), .symbol("`"),
+    ]
 
     var body: some View {
         terminalScreen
@@ -88,29 +103,18 @@ struct HerdrClientView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if keyboardPresentation != .hidden {
                     ShellTerminalInputRow(
-                        mode: Binding(
-                            get: { keyboardMode },
-                            set: { setKeyboardMode($0) }),
+                        mode: .constant(.text),
                         paste: { keyboardControl.paste($0) },
                         insertNewLine: {
                             UIDevice.current.playInputClick()
                             keyboardControl.sendNewLine()
-                        })
+                        },
+                        showsModePicker: false)
                 }
             }
             .padding(.bottom, keyboardLayout.contentInset)
-            .overlay(alignment: .bottom) {
-                ShellTerminalKeysDock(
-                    settings: terminal,
-                    height: keyboardLayout.availableToolsHeight,
-                    sendControlKey: { keyboardControl.sendControlKey($0) })
-                .opacity(isKeysDockPresented ? 1 : 0)
-                .allowsHitTesting(isKeysDockPresented)
-                .accessibilityHidden(!isKeysDockPresented)
-            }
-            // After the keyboard inset, where the keys dock sits: an overlay
-            // applied before it aligns to the un-inset frame and ends up
-            // behind the input row.
+            // After the keyboard inset: an overlay applied before it aligns
+            // to the un-inset frame and ends up behind the input row.
             .overlay(alignment: .bottom) { HerdrMediaStagingBar(media: media) }
             // Keyboard avoidance is owned by `TerminalKeyboardInset`; UIKit's
             // keyboard safe area would resize Ghostty a second time.
@@ -146,34 +150,13 @@ struct HerdrClientView: View {
                 store.didBecomeActive(
                     afterPossibleSuspension: activity.lastAbsenceMayHaveSuspended)
             }
-            // A recovered terminal is a fresh surface with no keyboard raised;
-            // app-side mode state has to follow it back to Text.
+            // A recovered terminal is a fresh surface with no keyboard raised.
             .onChange(of: store.terminalID) { _, _ in
-                setKeyboardMode(.text)
                 if hardwareKeyboard.isConnected { keyboardControl.requestKeyboard() }
             }
             .onChange(of: hardwareKeyboard.isConnected, initial: true) { _, isConnected in
-                if isConnected {
-                    setKeyboardMode(.text)
-                    keyboardControl.requestKeyboard()
-                }
+                if isConnected { keyboardControl.requestKeyboard() }
             }
-    }
-
-    private func setKeyboardMode(_ mode: TerminalKeyboardMode) {
-        guard mode != keyboardMode else { return }
-        switch mode {
-        case .controls:
-            keyboardInset.pauseHeightCapture()
-        case .text:
-            keyboardInset.resumeHeightCapture()
-        }
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            keyboardMode = mode
-        }
-        keyboardControl.setKeyboardMode(mode)
     }
 
     private var themePalette: TerminalThemePalette {
