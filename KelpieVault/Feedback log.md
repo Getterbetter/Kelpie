@@ -198,3 +198,11 @@ Read as: nothing on his list was done by hand; the community posts cost a night 
 Anthony, shown the three post texts (r/SideProject reply, r/ClaudeCode showcase comment, r/herdr reply) and asked which may go out as written: "3. r/herdr reply, all of them".
 
 Read as: all three posts approved verbatim, including the r/herdr reply that had only been drafted; post them now through Chrome on his account, log each in the embed plan, then mark the r/SideProject comment answered in the Reddit watch and add the r/herdr thread to it.
+
+Anthony (2026-09-13, after the round-13 report): "were there other subreddits we were going to post into too?" → "what about r/herdr?" → "why wait for r/herdr?" → "proceed, then lets look at what else was remaining to do"
+
+Read as: the day's wait before a standalone r/herdr post was my caution, not a rule; check r/herdr's rules and the reception of this morning's reply, draft the standalone post for his yes, post it today, then go back to the remaining list (device checklist, the other held venues).
+
+Anthony (2026-09-13, during the Release install): "might need to do one device at a time"
+
+Read as: the iPad and iPhone are not both reachable at once (one locked or off Wi-Fi while the other is up); install and check on the iPad first, then the iPhone when he has it unlocked, rather than treating a failed iPhone install as a fault.

@@ -216,6 +216,8 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **A — Trust the watch logs in UTC.** A scout read the Reddit watch's last run (`21:24Z`) as an evening stop and reported that launchd had slept through the night; it was 07:24 local. Timestamps under `~/.kelpie/` are UTC; the mini is UTC+10.
 
+**A — A tombstone that loses to a newer local edit is retired, not skipped.** Round 12c's tombstones suppressed a deleted Host for a month; the device run showed that suppression also blocked republishing a Host re-paired after the deletion, so the sibling that deleted it never got it back. The defeated tombstone is now deleted from the synced store on the reconcile that defeats it. Found only because the suite finally ran on a device: six of the thirteen device failures were tests that read repo files from the Mac path and cannot run on hardware (CI's job), five were harness assumptions (a software keyboard, a foreground scene, an iOS 27 accessibility path), one was a test race, one was this.
+
 **Overtaken — the depwatch upstream check is now high.** Issue #3: 46 upstream commits, one conflicting file. The next rebase (Open item 5) is due, not optional; it waits for a session with the device unlocked so the rebased build can be confirmed.
 
 ## Distribution
