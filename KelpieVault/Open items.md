@@ -25,9 +25,11 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 - [x] **5. TestFlight upload.** Build 1 of 1.0 uploaded 2026-09-12 (VALID). Original note:
 - [x] **5-old. TestFlight upload.** Needs his yes. Now the upload step of [[App Store plan]], not a testing round. `scripts/ExportOptions.plist` already carries team `8JQWBQKEXX`; `make bump && make testflight` is the upstream path.
 - [x] **6. Rebase on Heeler upstream.** Done 2026-09-11 (round 7): 36 commits replayed onto upstream `375267c` (herdr 0.9.0 wire, muse agent kind, PR #307 paste key cap). Two `CHANGELOG.md` conflicts, nothing else; Release build clean. Pre-rebase history is kept as tag `kelpie-pre-rebase-20260911`. Still a recurring item — see [[Heeler upstream#Rebase strategy]] and `Archive/round7/rebase-summary.md`.
-- [ ] **9. Key chips above the keyboard.** Anthony 2026-09-12: the on-screen "keys section" should be a single row of chips attached above the software keyboard, not a separate section. Round 9 build.
+- [x] **9. Key chips above the keyboard.** Round 9: chip row, then reworked into item 12 on his feedback (two rows, round buttons).
 
-- [ ] **10. iPhone build.** Assessed 2026-09-12 ([[iPhone assessment]]): herdr's own mobile layout kicks in at ≤64 columns, so the concept carries; needs universal device family, an 11 pt phone default, prefix-key items in the Kelpie menu, iPhone screenshots for a 1.1. Anthony's call when.
+- [ ] **10. iPhone build.** Built 2026-09-12 (`9799147`, [[iPhone assessment]]): universal, 12 pt phone default, herdr submenu, installed on his iPhone 16 Pro Max. Left: device check on the phone, iPhone screenshots and a 1.1 listing after 1.0 clears.
+- [ ] **11. iCloud pairing sync.** Built 2026-09-12 (`9799147`, ADR 0018): device key and per-Host records in iCloud Keychain, Settings toggle. Left: the two-device check (pair on the iPad, open the iPhone, the Host should be there and connect; then a notification to each device).
+- [ ] **12. Key bar on the device.** One keyboard-styled row replaced the chip bar + paste/newline row (`9799147`). Left: Anthony's look-and-feel verdict, sticky ctrl then b reaching herdr, Paste with a photo.
 
 - [ ] **7. Consider a pull request upstream** for the iPad input work. Anthony's call; deliberately deferred while the fork is private.
 - [x] **8. Run the unit suite.** Answered by CI on the fork since 2026-09-12 (round 10, PR #2): every PR into `kelpie` runs the full suite (1648 tests, real-SSH fixtures included) on a GitHub macos-26 runner with an iPad Air 11-inch (M4) simulator. The real-SSH suites are flaky there (upstream sees the same): re-run a red run once before treating it as a regression. This Mac's simulator is still unusable.
