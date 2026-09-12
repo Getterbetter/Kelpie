@@ -47,6 +47,10 @@ Written 2026-09-12 after a trackpad right-click regression (introduced in round 
 - Automatic keyboard mode switching live as a hardware keyboard connects/disconnects. (`Open items.md:19`)
 - Notification deep links landing on the right agent. (`Open items.md:19`)
 
+## Before any commit of media
+
+- Open every new screenshot, clip or recording under the vault and look at its first and last frames and every visible window before `git add`. The round-8 review clip shipped a lock screen to the public repo because nobody did.
+
 ## Automatable now
 
 `scripts/drive-ipad.sh` (see `docs/guides/driving-the-ipad.md`) can already drive: opening the Kelpie menu and any item in it (`menu:Settings`, `menu:Setup`, `menu:Tip`), hardware key presses including `escape`, `cmd+.`, `return`, `ctrl+c`, arrows, typing text into a focused field, toggling switches, and back navigation — so the Console-cover-and-menu section and the Return-submits check above are scriptable today. It has no gesture step for a trackpad right-click, long-press, drag, or selection handle, so the Magic-keyboard-attached word-editing checks and everything pointer/touch-based in **Both** and **Keyboard detached** still need a human. With `-kelpie.key-trace YES` and the log pulled via `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier TME.Kelpie --source Documents/key-trace.log`, a trackpad right-click must produce a `right click reported sent=true` line and a touch hold must produce a `hold right click … sent=true` line — both assertable without a human once the trace is pulled.
