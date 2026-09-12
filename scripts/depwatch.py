@@ -1555,9 +1555,15 @@ def check_ci_fork(ctx):
             if not has_success
             else "fork CI latest: %s" % latest_conclusion
         ),
-        summary="Every fix the watch prepares is verified by CI on the fork. While Actions has never "
-        "run on `%s`, the verification ladder has a missing rung: the compile is the only gate a "
-        "`Sources/` change would get, and CLAUDE.md forbids merging on that alone." % FORK_REPO,
+        summary=(
+            "Every fix the watch prepares is verified by CI on the fork. While Actions has never "
+            "run on `%s`, the verification ladder has a missing rung: the compile is the only gate a "
+            "`Sources/` change would get, and CLAUDE.md forbids merging on that alone." % FORK_REPO
+            if not has_success
+            else "CI runs on the fork; the latest run on `%s` finished %s. The real-SSH suites are "
+            "flaky on hosted runners (upstream sees the same), so a red run is re-run once before "
+            "it counts as a regression." % (FORK_REPO, latest_conclusion)
+        ),
         evidence=evidence,
         lane="infra",
         actions=[
