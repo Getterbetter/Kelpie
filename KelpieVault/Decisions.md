@@ -150,6 +150,10 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **The mini is watched through a dedicated key.** `~/.ssh/kelpie-depwatch`, passphrase-less, installed once from Terminal.app because the session runner cannot answer a password prompt, with a `Host mac-mini` block over Tailscale. The check also extends `PATH` with `~/.local/bin`, Homebrew and Cargo, because a non-interactive login has none of them. Until a key is in place the check reports info, never error, so an unconfigured Mac does not produce a permanent false alarm.
 
+## 2026-09-12 — round 11b: re-parenting after the purge
+
+**A history purge must be followed by a re-parent onto upstream.** Round 11's `git filter-repo` rewrote every commit back to 2026-07-18, not only the ones after the leaked clip, so `kelpie` shared no object with `upstream/main` and `git rev-list upstream/main..kelpie` reported 1252. The dependency watch's rebase rehearsal would have replayed upstream's own commits. The fix was `git tag kelpie-pre-rerebase-20260912`, then `git rebase --onto 375267c <rewritten twin> kelpie` — the twin found by subject, confirmed by identical tree hash — 77 commits, no conflicts, working tree unchanged. The cost is a second hash rewrite for rounds 8 to 11 and a force push. Rule going forward: after any `filter-repo`, check `git merge-base --is-ancestor <upstream base> kelpie` before pushing.
+
 ## Distribution
 
 **A — Xcode sideload now, TestFlight later, App Store possibly.** *(Overtaken 2026-09-11 to 12: the App Store became the plan. `scripts/ExportOptions.plist` carries team `8JQWBQKEXX`; build 1 of 1.0 was uploaded 2026-09-12 and version 1.0 plus the three tips were submitted for review at 02:20 UTC that day as **Kelpie for herdr**. A TestFlight public beta went in alongside it. See [[App Store plan]].)*
