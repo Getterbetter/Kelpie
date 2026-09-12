@@ -4,13 +4,13 @@ Kelpie is Anthony's private iPadOS fork of [[Heeler upstream|Heeler]], an open-s
 
 Named for the Australian kelpie, a herding dog — a sibling to Heeler.
 
-## Status — 2026-09-11
+## Status — 2026-09-12
 
-- Branch `kelpie`, 17 commits on top of upstream Heeler. Remote `upstream` only. **Nothing has ever been pushed.**
+- Branch `kelpie`, 56 commits on top of upstream Heeler `375267c`. Remotes `origin` (public github.com/Getterbetter/Kelpie, branch kelpie, pushed) and `upstream` (Heeler).
 - Round 1 (evening of 2026-09-10): rebrand, iPad device family, trackpad/mouse right-click reaching herdr, touch long-press as right-click, trackpad and wheel scrolling, split-view collapse. Built, reviewed, two fixes applied.
 - Round 2 (2026-09-11): herdr's own client became the root screen, Heeler's console demoted behind a floating menu, automatic keyboard mode, tappable URLs, 12 pt default font on iPad. Built, reviewed, six fixes applied (`58199a7`).
-- The round-2 Release build is installed on Anthony's iPad Pro and paired with the mini. **He is testing it now and will bring feedback** — record it in [[Feedback log]] before acting.
-- Distribution: Xcode sideload today. TestFlight later, App Store possibly. No pull request upstream for now.
+- The round-2 Release build is installed on Anthony's iPad Pro and paired with the mini.
+- Distribution: App Store 1.0 in preparation: ASC record filled, build 1 uploaded, three uploads and the submit remain — see [[App Store plan]]. No pull request upstream for now.
 
 ## The notes
 
@@ -20,6 +20,7 @@ Named for the Australian kelpie, a herding dog — a sibling to Heeler.
 | [[Architecture]] | The stack, root navigation, key files, how input flows |
 | [[herdr]] | What herdr is and the facts about it Kelpie depends on |
 | [[Heeler upstream]] | The fork's parent: author, licence, differences, rebase and push relay |
+| [[App Store plan]] | The path to a free Kelpie on the App Store: decisions, gates, status |
 | [[Build and deploy]] | The exact commands that work on this Mac, and the two quirks |
 | [[Pairing and setup]] | Mini-side and iPad-side setup, the clipboard trick |
 | [[Onboarding proposal]] | First-run Welcome screen (round 3, built) |
