@@ -153,3 +153,11 @@ publish: ## Cut a release from CHANGELOG [Unreleased] (VERSION=x.y.z DRY_RUN=1 Y
 
 clean: ## Remove local build products
 	rm -rf build
+
+# The dependency watch (scripts/depwatch.py, docs/guides/dependency-watch.md).
+# Calls the watcher directly, not scripts/depwatch.sh: the wrapper holds the
+# launchd lock and would exit quietly while a scheduled run is in flight.
+# Options are make variables, not flags, for the same reason as `publish`.
+.PHONY: depwatch
+depwatch: ## Run the dependency watch once (dry run: DRY=1)
+	@/usr/bin/python3 scripts/depwatch.py $(if $(DRY),--dry-run)

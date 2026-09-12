@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Kelpie dependency watch. NOT loaded by the repo: copy it to
+     ~/Library/LaunchAgents/ and bootstrap it by hand — see
+     docs/guides/dependency-watch.md. 05:45 local, twenty minutes before the
+     06:05 morning-brief build, so the brief can read the handoff file. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>            <string>com.kelpie.depwatch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/anthonytopalides/Developer/Kelpie/scripts/depwatch.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>   <integer>5</integer>
+        <key>Minute</key> <integer>45</integer>
+    </dict>
+    <key>RunAtLoad</key>        <false/>
+    <key>ProcessType</key>      <string>Background</string>
+    <key>StandardOutPath</key>  <string>/Users/anthonytopalides/.kelpie/depwatch/launchd.out.log</string>
+    <key>StandardErrorPath</key><string>/Users/anthonytopalides/.kelpie/depwatch/launchd.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key> <string>/Users/anthonytopalides</string>
+        <key>PATH</key> <string>/Users/anthonytopalides/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
