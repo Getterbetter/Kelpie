@@ -6,6 +6,8 @@ note: What herdr is, and the facts about it Kelpie is built on.
 
 [herdr.dev](https://herdr.dev) — a Rust terminal multiplexer and runtime built for AI coding agents. A tmux replacement in shape: a `herdr-server` keeps panes alive and a client attaches to them. Workspaces, tabs and panes, with a sidebar. TUI built on ratatui 0.30 + crossterm 0.29; it vendors libghostty-vt for per-pane terminal state. Single binary, `brew install herdr`. On Anthony's Mac mini it is what actually runs the agents; [[Kelpie]] is a window onto it.
 
+On the mini, `herdr` is `~/.local/bin/herdr`, version **0.8.2** on 2026-09-12 (not on a non-interactive login's `PATH`; both the app and the [[Dependency watch]] add the well-known prefixes). Kelpie's committed API schema snapshot is 0.9.0 (protocol 22); the app admits older servers by a protocol floor. The watch reads the mini's version daily and flags it when it runs ahead of the snapshot.
+
 Beyond the TUI, herdr exposes a documented **Socket API** over a Unix socket — that is what [[Heeler upstream|Heeler]] and therefore Kelpie use for everything that is not a terminal. See [[Architecture]].
 
 ## Attaching — the CLI facts that matter

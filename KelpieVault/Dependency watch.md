@@ -47,6 +47,13 @@ Findings of medium or high become GitHub issues on the fork, one per check,
 labelled `depwatch`. New high findings that need judgement rather than typing
 get a short written analysis from a headless Claude run attached to the issue.
 
+## How it was switched on
+
+- 2026-09-12: built, reviewed (six fixes), committed, pushed; `com.kelpie.depwatch` loaded with Anthony's yes, publishing on. First live run opened issue #1 (CI had never run on the fork).
+- PR #2, the first into `kelpie`, made CI real: fetch the vendored libghostty artifact on the runner, boot an iPad simulator, drop `libghostty-spm` from the licence inventory's Package.resolved coverage, pin the phone idiom in the zoom tests. Five attempts to green; three were transient real-SSH fixture failures, so a red run is re-run once before it counts.
+- The mini is watched through a dedicated key (`~/.ssh/kelpie-depwatch`, `Host mac-mini`); it runs herdr 0.8.2 against a 0.9.0 snapshot, which is behind, not ahead, so info.
+- Still open: the morning brief does not read the handoff file yet ([[Open items]] 12).
+
 ## Where things live
 
 - Reports, state and logs: `~/.kelpie/depwatch/` — never in the repo.
@@ -60,22 +67,11 @@ Everything between the markers below is rewritten by the watcher on every run.
 Prose above and below them survives, so notes here are safe.
 
 <!-- depwatch:begin -->
-_Last run: 2026-09-12T02-30-51Z UTC._
+_Last run: 2026-09-12T08-43-25Z UTC._
 
 | Check | Severity | State | Headline |
 | --- | --- | --- | --- |
-| `herdr-release` | info | repeat | herdr v0.9.0, snapshot current |
-| `herdr-mini` | info | repeat | mini_host not configured |
-| `heeler-upstream` | info | repeat | level with upstream/main |
-| `libghostty-spm` | low | repeat | libghostty upstream.1.3.1 pinned, upstream.82938b633ba6 available |
-| `heeler-ssh-pins` | low | repeat | OpenSSL 3.6.3 pinned, openssl-3.6.4 in line |
-| `node` | info | repeat | npm audit: 0 vulnerabilities |
-| `toolchain` | info | repeat | Xcode 26.4.1, MomentRender2 26.4.1 |
-| `ci-fork` | high | repeat | no successful CI run on the fork |
-| `relay` | info | repeat | push relay healthy (HTTP 404) |
-| `review-host` | info | repeat | review host reachable |
+| `herdr-mini` | info | new | mini runs herdr 0.8.2 (snapshot v0.9.0) |
 
-### Needs attention
-
-- **no successful CI run on the fork** — Enable Actions on the fork: Settings -> Actions -> Allow all actions, or `gh api -X PUT repos/Getterbetter/Kelpie/actions/permissions -f enabled=true`.
+Nothing needs attention.
 <!-- depwatch:end -->

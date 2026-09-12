@@ -30,7 +30,10 @@ note: The Kelpie checklist — open work in priority order, plus the reviewer ni
 - [ ] **10. iPhone build.** Assessed 2026-09-12 ([[iPhone assessment]]): herdr's own mobile layout kicks in at ≤64 columns, so the concept carries; needs universal device family, an 11 pt phone default, prefix-key items in the Kelpie menu, iPhone screenshots for a 1.1. Anthony's call when.
 
 - [ ] **7. Consider a pull request upstream** for the iPad input work. Anthony's call; deliberately deferred while the fork is private.
-- [ ] **8. Run the unit suite** on any machine whose CoreSimulator can install an app. Every suite is platform-independent logic.
+- [x] **8. Run the unit suite.** Answered by CI on the fork since 2026-09-12 (round 10, PR #2): every PR into `kelpie` runs the full suite (1648 tests, real-SSH fixtures included) on a GitHub macos-26 runner with an iPad Air 11-inch (M4) simulator. The real-SSH suites are flaky there (upstream sees the same): re-run a red run once before treating it as a regression. This Mac's simulator is still unusable.
+
+- [ ] **11. The mini runs herdr 0.8.2** (`~/.local/bin/herdr`, read 2026-09-12) while the committed schema snapshot is 0.9.0. Nothing is broken (the app enforces a protocol floor), but the load-bearing facts in `CLAUDE.md` were verified on 0.8.0 to 0.9.0 sources; when the mini is upgraded the [[Dependency watch]] reports it and the 0.9.0 facts should be re-verified live.
+- [ ] **12. Morning-brief consumer for the watch.** `~/.memoryos/kelpie-depwatch-briefing.json` is written every run; one function in `~/.memoryos/briefing_build.py` (modelled on `territory_update`) would put new medium/high findings in the brief. Outside this repo.
 
 ## Reviewer nits not taken
 
@@ -59,7 +62,7 @@ All eight taken in round 7 (2026-09-11, `98187d3`, reviewed — `Archive/round7/
 ## Known and accepted
 
 - **Push notifications** now go through Kelpie's own relay; the pipeline was verified with a hand-run hook (APNs answered through the relay). A real delivery to the iPad is still to be observed by Anthony.
-- **Unit tests cannot be executed on this Mac.** Item 8; do not spend more time on the simulator.
+- **Unit tests cannot be executed on this Mac.** CI on the fork runs them instead (item 8); do not spend more time on the local simulator.
 - **The test target cannot compile for a device destination** — `SidebarConsoleIntegrationTests` depends on simulator-only demo code. Pre-existing upstream.
 - **Only the forward wrapped-URL join is implemented:** a tap on the *continuation* row of a wrapped URL returns nil. The first row is the larger target.
 

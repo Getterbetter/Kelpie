@@ -4,11 +4,58 @@ note: What has actually been verified, per feature, and by what means.
 
 # Testing status
 
-As of 2026-09-11, with the round-2 Release build installed on Anthony's iPad.
+As of 2026-09-12, ten rounds in, with 1.0 submitted for App Review.
 
-The headline: **no automated test has been executed against round 2.** The XCTest suite compiles but the simulator on this Mac cannot launch a host app ([[Build and deploy#2. The iOS simulator does not run reliably|why]]), and the test target cannot compile for a device destination at all. Round 1 got one lucky iPhone-simulator run out of it; round 2 got none.
+The headline through rounds 1 to 9 was that **no automated test could be executed at all**: the simulator on this Mac cannot launch a host app ([[Build and deploy#2. The iOS simulator does not run reliably|why]]), and the test target cannot compile for a device destination. That changed on **2026-09-12**, when round 10's first pull request into `kelpie` turned GitHub Actions on for the fork and the whole suite ran there. The Mac's own simulator still does not run, and that has not changed.
 
-Legend: **Device** = seen working on the iPad · **Unit** = executed unit tests · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
+Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
+
+## Rounds 3 to 10 — what the device has actually seen
+
+Anthony tests on his 11-inch iPad Pro with a Magic Keyboard, one build per round. The verbatim reports are in [[Feedback log]]; this is the ledger.
+
+### Confirmed on the device
+
+| Feature | Round | Notes |
+| --- | --- | --- |
+| Escape and Cmd+. reaching herdr | 3b | "escape works, thank you." The first round-3 build failed; `b54a6c3` fixed it the same day. |
+| Option+Backspace deleting a word | 3 | Confirmed; Option+arrows were not called out separately. |
+| The labelled host capsule, Switch Host and Hosts | 3 | "great stuff". |
+| The Welcome screen | 3b | Seen through Setup Guide in the Kelpie menu. "Looks good." |
+| Photos and files by copy and paste, and Attach from the menu | 4 | "Media works for copy and paste. Attaching from the menu works." |
+| Clipboard out, herdr text into other iPad apps | 4 | Gap closed with no code. |
+| Split View | 5 | "Split view works well." The four-orientation fix is what did it. |
+| Touch selection handles, dragged | 6b | The first build lost the selection on handle touch; fixed. |
+| Selection staying inside the pane | 6b | "The ring works and the selection stays in the pane now." |
+| Hold-then-drag resizing herdr's sidebar by touch | 6 | Seen working on the second try, with the trace on. |
+| The 64 pt hold ring | 6c | "the ring is good." |
+| Return submitting on the **on-screen** keyboard in a shell pane | 9 | 2026-09-12. This closes [[Open items]] 3, open since round 2. |
+| The tip sheet listing all three tips | 9 | The earlier capture that showed only Medium and Large was wrong, not the app. |
+| Trackpad right-click reaching herdr | 9 | "right-click is working again", after `18651c5`. See below. |
+
+### Not confirmed on the device
+
+| Feature | Round | Why it is still open |
+| --- | --- | --- |
+| Drag and drop from Files onto the terminal | 4 fixed in 5 | Reported broken in round 4 ("the item just disappears"), fixed in `4480834`, never re-tried. [[Open items]] 1f. |
+| Cmd+←/→/↑/↓ as Home/End/Page keys | 5 | [[Open items]] 1f. |
+| The bell haptic (`printf '\a'`) | 5 | [[Open items]] 1f. |
+| Tapping a file path, Quick Look and share | 5 | [[Open items]] 1f. |
+| herdr's desktop notifications | 5 | Gated on `ui.toast.delivery = "terminal"` in the mini's herdr config. |
+| The font stepping down as the window narrows | 5 | [[Open items]] 1f. |
+| The Welcome root with zero Hosts | 3b | Only the sheet has been seen; the no-Host root needs the Host removed first. [[Open items]] 1b. |
+| Paste Pairing Code from the Welcome screen | 3b | Pairing itself is confirmed (round 2, pasted code); this particular entry point is not. |
+| The QR scanner | 3b | Deliberate: he will not test it. [[Open items]] 1c. |
+| The round-7 nit fixes | 7 | Press-lift on the capsule and padding taps not opening links. Reviewed, never seen by hand. |
+| A real push notification arriving on the iPad | 8 | The relay pipeline was verified end to end with a hand-run hook; a delivery to the device has not been watched. |
+| A test tip purchase | 7c | The three tips are listed in Settings; nobody has bought one on the device. |
+| The keyboard chip row | 9 | `2eb612c`, built after the round-9 feedback. |
+
+### The regression lesson, 2026-09-12
+
+Trackpad right-click broke and nobody noticed for three rounds. Round 6's touch-selection `UIEditMenuInteraction` answered every trackpad secondary click itself and cancelled the touch before the right click was reported. Anthony found it on a tab, then: "to confirm, looks like its happening everywhere in the app - we lost functionality meaning we lost functionality and we need better testing."
+
+The vault never held a device confirmation for it. Round 1's table below records it as **Reviewed** only, so it either broke in round 6 or never worked on the device, and no round re-ran the earlier checks. The standing rule from that: **every device build re-runs a fixed regression list of previously confirmed behaviour, not only the new feature.** The list is [[Device regression list]].
 
 ## Round 2 — herdr's client as the screen
 
@@ -24,8 +71,8 @@ Legend: **Device** = seen working on the iPad · **Unit** = executed unit tests 
 | Primary host selection (default, persistence, healing) | **Compiled** + **Reviewed** | |
 | Automatic keyboard mode resolution | **Compiled** + **Reviewed** | Tests use a stubbed keyboard-connected flag; `GCKeyboard` itself is untested. |
 | Floating menu, Agents cover, deep links | **Reviewed** | The channel-handover race was found and fixed in review (`58199a7`); the fix itself is untested. |
-| Live Activities and push still alive behind the cover | **Reviewed** | Traced: every store and `.task` stays on `ContentView`. Push itself cannot work at all yet — see [[Heeler upstream]]. |
-| Return submitting in the console's Keyboard mode | **Partial fix, unconfirmed** | First-responder claim added; the remaining suspect (UIKit loaning Return to the IME under the agent terminal's `.naturalLanguage` traits) needs a device. |
+| Live Activities and push still alive behind the cover | **Reviewed** | Traced: every store and `.task` stays on `ContentView`. *Push could not work at all until 2026-09-11, when Kelpie's own relay went up; the pipeline is verified, a delivery to the iPad is not. See [[Heeler upstream]].* |
+| Return submitting in the console's Keyboard mode | **Device**, 2026-09-12 | Was "partial fix, unconfirmed" for seven rounds. Anthony confirmed on-screen Return in a shell pane after the round-9 build: "return on the on-screen keyboard works now". |
 
 ## Round 1 — iPad input
 
@@ -41,26 +88,36 @@ Legend: **Device** = seen working on the iPad · **Unit** = executed unit tests 
 
 ## What Anthony is checking right now
 
-The round-2 build is in his hands with a Magic Keyboard. The list to ask about if he does not raise it himself:
+The open device checks, in [[Open items]] order. Record what comes back in [[Feedback log]] before acting on it.
 
-- trackpad two-finger scroll inside a pane
-- trackpad right-click opening herdr's menu
-- one-finger long-press as a right click
-- tapping a URL (especially one that ends a line, which is what the grid-width fix was for)
-- the keyboard pad appearing when the Magic Keyboard is detached
-- Ctrl+B prefix
-- the floating menu and the Agents cover
-- whether Return submits in the old console's Keyboard mode
+**1. Round 3 leftovers.** Option+Backspace deleting one word and only one word · Option+Left/Right jumping words · plain Backspace and Return unchanged. (Escape, Cmd+. and the host capsule are confirmed.) If Option+Backspace deletes a word *plus* a character, the UIKit echo arrived after the press ended; see the note in `scheduleHardwareKeyClaimReset`.
 
-Record what comes back in [[Feedback log]] before acting on it. Anything still unverified stays in [[Open items]].
+**1f. Round 5 on the device.** Drop from Files · Cmd+←/→/↑/↓ in a shell · tapping a file path in Claude's output, then Quick Look and share · Open File on Host… · the bell haptic (`printf '\a'`) · the font stepping down as the window narrows · a desktop notification, once the `ui.toast.delivery = "terminal"` line is in the mini's config.
+
+**1g. Round 6 on the device.** Double-tap a word, handles appear, drag a handle, then Copy or Cmd+C · long-press the sidebar edge until the translucent ring shows under the finger, then drag · long-press without moving, and herdr's menu on lift.
+
+**1a. Media into herdr.** Copy a photo in Photos, then Cmd+V in a Claude Code pane inside herdr, expecting an upload capsule and a staged path typed into the pane · drag a file from Files in Split View onto the terminal · Attach Photo and Attach File in the Kelpie menu · a paste of plain text still pasting as text. Then ask Claude what is in the image.
+
+**1b. The Welcome screen at the root.** Setup Guide shows it as a sheet; the no-Host root needs the Host removed first. Try Paste Pairing Code with a fresh code from the mini, and the typed field.
+
+Anything still unverified stays in [[Open items]].
 
 ## Build results on record
+
+**Since 2026-09-12, the whole unit suite runs in GitHub Actions on the fork.** `ci.yml` runs on every pull request into `kelpie` (its `pull_request` trigger has no branch filter, while its `push` trigger is `main`-only and never fires here): a `macos-26` runner, an **iPad Air 11-inch (M4)** simulator, **1648 tests in 155 suites**, the real-SSH fixtures included. That is what [[Open items]] 8, "run the unit suite on any machine", now means in practice. It is answered by CI, not by a local simulator.
+
+Three things had to be true before it worked, all in PR #2: the runner fetches the vendored `GhosttyKit.xcframework` (it is gitignored, and only `make generate` used to fetch it), it boots an iPad rather than the iPhone 17 the upstream gate assumed (Kelpie is device family 2), and the licence-inventory and zoom tests were taught Kelpie's iPad defaults.
+
+**The flakiness caveat.** Getting that PR green took five attempts. Two were the real fixes above; three were transient real-SSH fixture failures with a **different test failing each time**, and upstream's own PR runs show the same pattern. So a red real-SSH run gets one re-run before it counts as a regression.
+
+**This Mac's simulator still does not run.** Nothing about CI changes that: `xcodebuild test` locally still wedges with "Mach error -308, server died", and the test target still cannot compile for a device destination (`SidebarConsoleIntegrationTests` depends on simulator-only demo code, which is pre-existing upstream). Do not spend time on it.
+
+Older results, kept for the record:
 
 - iPad-simulator build, round 1 final tree: `BUILD SUCCEEDED`.
 - iPad-simulator build, round 2 final tree and again after the review fixes: `BUILD SUCCEEDED`, zero new warnings. (Two `SettingsView.swift` actor-isolation warnings and one `TerminalAgentSwitcher.swift` Sendable warning are pre-existing, in files neither round touched.)
 - Test-target compile for the simulator: `TEST BUILD SUCCEEDED` — every suite, including the four added or updated in round 2, builds into `Kelpie.app/PlugIns/HeelerTests.xctest`.
-- Device Release build: succeeded, installed, launched.
-
-**Worth re-running** `-only-testing:HeelerTests` on `platform=iOS Simulator,name=iPhone 17` on any machine whose CoreSimulator can install an app. Every suite is platform-independent logic, so no result should differ.
+- Device Release build: succeeded, installed, launched. Every round from 3 to 9 ended with one.
+- `TerminalLinkDetector`'s suite was run natively with `swiftc` in round 2 when nothing else could be: 20/20.
 
 Source: [[Archive/round1/notes|round 1 notes]] · [[Archive/round1/verify-notes|the verification attempt]] · [[Archive/round2/notes|round 2 notes]] · [[Archive/round1/review|round 1 review]] · [[Archive/round2/review|round 2 review]]
