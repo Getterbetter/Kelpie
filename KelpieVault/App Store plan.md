@@ -25,7 +25,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 - Round 7c: iPad-only on all three targets; StoreKit 2 tip jar (`TME.Kelpie.tip.small|medium|large`) from Settings and the Kelpie menu, `Kelpie.storekit` on the scheme for local testing — confirm once in Xcode (Edit Scheme → Run → Options) that the StoreKit configuration is picked up, then buy a test tip on the iPad.
 
-- Visible rebrand leftovers fixed (camera usage string, extension display names, Settings and privacy links), `NOTICE` added, Heeler credited on the Acknowledgements screen, `PRIVACY.md` rewritten for Kelpie, `NSLocalNetworkUsageDescription` added, relay config topic set to `TME.Kelpie`, `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`, version reset to 1.0.0 (1). Detail in `Archive/round7/appstore-build.md`.
+- Visible rebrand leftovers fixed (camera usage string, extension display names, Settings and privacy links), `NOTICE` added, Heeler credited on the Acknowledgements screen, `PRIVACY.md` rewritten for Kelpie, `NSLocalNetworkUsageDescription` added, relay config topic set to `TME.Kelpie`, `publish.sh` takes `PUBLISH_REMOTE`/`PUBLISH_BRANCH`, version reset to 1.0 (1). Detail in `Archive/round7/appstore-build.md`.
 - Internal identifiers deliberately left: Keychain service names and access groups (changing them orphans keys on the iPad), the logger subsystem, module/target/scheme names.
 
 ## Status at 2026-09-12 (round 8)
@@ -35,10 +35,10 @@ Done: repo public; relay deployed and keyed; ASC record filled by `scripts/asc-k
 ## Gates, in order
 
 1. ~~Push the repo~~ Done 2026-09-11: public `https://github.com/Getterbetter/Kelpie`; the in-app privacy link resolves.
-2. ~~Deploy the relay~~ Done 2026-09-11: `https://kelpie-apns.getter-tilbury-0m.workers.dev` (Cloudflare account under his iCloud address, `workers_dev`). App and plugin defaults point at it; Heeler's old relay is on the legacy list so an existing install migrates. **Still needed: the APNs key** — `cd relay && npx wrangler secret put APNS_KEY_P8` with the `.p8` contents, and `APNS_KEY_ID` in `wrangler.toml`, then redeploy. Until then the relay answers 500 `relay_misconfigured`.
-3. Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.
-4. `make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.
-5. Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running.
+2. ~~Deploy the relay~~ Done 2026-09-11: `https://kelpie-apns.getter-tilbury-0m.workers.dev` (Cloudflare account under his iCloud address, `workers_dev`). App and plugin defaults point at it; Heeler's old relay is on the legacy list so an existing install migrates. APNs key 7RJ68B8QX8 added as a Wrangler secret 2026-09-11; the relay answers 404 `not_found` at the root, not 500.
+3. ~~Create the app record in App Store Connect (bundle `TME.Kelpie`, name, subtitle, category Developer Tools, age rating 4+, privacy labels: Identifiers → Device ID, linked to nothing, not used for tracking), sign the Paid Apps agreement (bank + tax, once), and create the three consumable IAPs with the ids above.~~ Done 2026-09-11: record 6811004082 filled by `scripts/asc-kelpie.py`.
+4. ~~`make bump && make testflight` uploads the archive (do not use `make publish` for 1.0 without `VERSION=1.0`: it derives 0.1.7 from Heeler's CHANGELOG) (TestFlight is just the upload path; no tester groups). Export compliance answers: uses encryption, standard algorithms only, exempt.~~ Done 2026-09-12: build 1 uploaded, VALID.
+5. Screenshots from the iPad itself (13" set is mandatory; 11" captures are accepted and scaled) — Anthony's hands, herdr running. (panels rendered in `Design/Store Screenshots/final-13in/`, upload is `--apply --screenshots`)
 6. Submit for review with the notes and video from decision 3.
 
 ## Apple rules that bit, verified 2026-09-11
