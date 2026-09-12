@@ -70,7 +70,9 @@ struct TerminalSurfaceLinkQueryTests {
     }
 
     /// The probe's own report, in both encodings a tracking application can ask
-    /// for: SGR button 35, legacy `Cb` 67.
+    /// for: SGR button 35, legacy `Cb` 67 — each also carrying the modifier
+    /// bits the probe's shift adds, which is the shape measured on the iPad
+    /// (SGR 39 = 35 + shift).
     @Test func buttonlessMotionReportsAreRecognized() {
         #expect(
             TerminalSurfaceLinkQuery.isButtonlessMotionReport(
@@ -80,7 +82,16 @@ struct TerminalSurfaceLinkQueryTests {
                 Data("\u{1B}[<35;1;1m".utf8)))
         #expect(
             TerminalSurfaceLinkQuery.isButtonlessMotionReport(
+                Data("\u{1B}[<39;5;5M".utf8)))
+        #expect(
+            TerminalSurfaceLinkQuery.isButtonlessMotionReport(
+                Data("\u{1B}[<51;5;5M".utf8)))
+        #expect(
+            TerminalSurfaceLinkQuery.isButtonlessMotionReport(
                 Data([0x1B, 0x5B, 0x4D, 67, 52, 34])))
+        #expect(
+            TerminalSurfaceLinkQuery.isButtonlessMotionReport(
+                Data([0x1B, 0x5B, 0x4D, 71, 52, 34])))
     }
 
     /// Nothing Kelpie reports for a real touch may be mistaken for one: every
@@ -157,22 +168,13 @@ struct TerminalSurfaceLinkQueryTests {
         let context: Comment =
             "point=\(point) mapper=\(mapper) viewport=\(terminal.terminalSession.readViewportText() ?? "nil")"
 
-        // The probe reaches the core — the device run logs
-        // `surface mousePos x=46.81 y=96.53 mods=0x0` for this very call — and
-        // the core answers nothing, because it reports a hovered link only when
-        // the mouse mods match its link modifier (super on Apple platforms) and
-        // every call that can pass mods is internal to the vendored package.
-        // Verified on the iPad for an OSC 8 hyperlink *and* for a bare
-        // `https://` run, with `link-url = true` and the surface focused. This
-        // is the one thing missing; the moment `sendMousePos` (or a hit-test
-        // helper) is reachable with `GHOSTTY_MODS_SUPER`, these two
-        // expectations pass and this `withKnownIssue` fails loudly.
-        withKnownIssue(
-            "libghostty needs the link modifier in the mouse position; the vendored package keeps every mods-carrying call internal"
-        ) {
-            #expect(terminal.linkMatch(at: point) == .url(expected), context)
-            #expect(terminal.didReportHoverLinkSynchronously, context)
-        }
+        // The probe moves the core's mouse with the link modifier — mods 0
+        // reports nothing at all — and the core answers from inside that call.
+        let resolved = terminal.linkMatch(at: point)
+        let wasSynchronous = terminal.didReportHoverLinkSynchronously
+        let probed: Comment = "\(context) probe=\(terminal.lastLinkProbeTrace)"
+        #expect(resolved == .url(expected), probed)
+        #expect(wasSynchronous, probed)
 
         // A cell outside any link stays unresolved either way.
         let bare = CGPoint(
