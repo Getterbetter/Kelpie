@@ -161,3 +161,22 @@ clean: ## Remove local build products
 .PHONY: depwatch
 depwatch: ## Run the dependency watch once (dry run: DRY=1)
 	@/usr/bin/python3 scripts/depwatch.py $(if $(DRY),--dry-run)
+
+# The community watch (scripts/community watch.py, docs/guides/reddit-watch.md).
+# Same shape as `depwatch`: options are make variables, not flags. ANALYSE=1
+# asks the drafting lane for a reply per new comment; it writes drafts under
+# ~/.kelpie/community watch/drafts/ and never posts anything.
+.PHONY: community watch
+community watch: ## Run the community watch once (dry run: DRY=1; draft replies: ANALYSE=1)
+	@/usr/bin/python3 scripts/community watch.py $(if $(DRY),--dry-run) $(if $(ANALYSE),--analyse)
+
+# The round close-out guard (scripts/check-round-closeout.sh). `make hooks`
+# points git at .githooks, so the pre-push hook runs the same script; it is a
+# per-checkout git config, not something a clone inherits.
+.PHONY: hooks closeout-check
+hooks: ## Enable the repo's git hooks (pre-push round close-out guard)
+	git config core.hooksPath .githooks
+	@echo "core.hooksPath = $$(git config core.hooksPath)"
+
+closeout-check: ## Check upstream ancestry, vault reconciliation and item numbering
+	@scripts/check-round-closeout.sh

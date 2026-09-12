@@ -45,6 +45,8 @@ The vault is the durable record; a round is not finished until it is reconciled.
 - Facts about herdr, Heeler upstream, the build or the mini go in the matching note (`herdr.md`, `Heeler upstream.md`, `Build and deploy.md`), not only in chat.
 - Commit the vault with the code it describes. Specs, reviews and worker reports go under `KelpieVault/Archive/round<n>/`.
 
+This is enforced, not only asked for. `scripts/check-round-closeout.sh` runs from the `.githooks/pre-push` hook (enable it once per checkout with `make hooks`) and on demand as `make closeout-check`. It refuses a push whose branch no longer descends from the upstream base commit, and — when the push carries `kelpie` — a push whose `resume.md` claims a round that `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md` do not write up, or an `Open items.md` with two items sharing a number. **A `git filter-repo` must always be followed by re-parenting onto upstream** (`git rebase --onto <upstream base> <rewritten twin> kelpie`): the purge rewrites the shared history too, so the branch is left with no common commit with upstream and every later rebase would replay upstream's own commits. That is the ancestry check's whole reason to exist.
+
 The upstream Heeler guidance follows and still applies.
 
 # Heeler

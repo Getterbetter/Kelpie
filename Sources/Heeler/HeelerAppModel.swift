@@ -207,6 +207,13 @@ final class HeelerAppModel {
             console.setHosts(hosts)
             notificationPreferences.setHosts(hosts)
             liveActivities.layoutsDidChange()
+            // An edited Host — the mini moving to its Tailscale address —
+            // must reach the other device now, not at its next launch.
+            // `HostStore` rewrites `hosts` exactly once per add, edit or
+            // delete, and the observer ignores a write that changed nothing,
+            // so a save reconciles once. It never fires on appear; the launch
+            // adopt in `start()` stays the only one.
+            Task { await self.pairingSync.reconcile() }
         }
         observe({ console.agents }) { [weak self] agents in
             self?.bannerStore.agentsDidChange(agents)

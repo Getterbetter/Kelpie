@@ -4,15 +4,15 @@ note: What has actually been verified, per feature, and by what means.
 
 # Testing status
 
-As of 2026-09-12, ten rounds in, with 1.0 submitted for App Review.
+As of 2026-09-12, eleven rounds in, with 1.0 submitted for App Review and a TestFlight public beta live on build 2.
 
 The headline through rounds 1 to 9 was that **no automated test could be executed at all**: the simulator on this Mac cannot launch a host app ([[Build and deploy#2. The iOS simulator does not run reliably|why]]), and the test target cannot compile for a device destination. That changed on **2026-09-12**, when round 10's first pull request into `kelpie` turned GitHub Actions on for the fork and the whole suite ran there. The Mac's own simulator still does not run, and that has not changed.
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
-## Rounds 3 to 10 — what the device has actually seen
+## Rounds 3 to 11 — what the device has actually seen
 
-Anthony tests on his 11-inch iPad Pro with a Magic Keyboard, one build per round. The verbatim reports are in [[Feedback log]]; this is the ledger.
+Anthony tests on his 11-inch iPad Pro with a Magic Keyboard — and, since round 11, on his iPhone 16 Pro Max as well — one build per round. The verbatim reports are in [[Feedback log]]; this is the ledger.
 
 ### Confirmed on the device
 
@@ -31,7 +31,8 @@ Anthony tests on his 11-inch iPad Pro with a Magic Keyboard, one build per round
 | The 64 pt hold ring | 6c | "the ring is good." |
 | Return submitting on the **on-screen** keyboard in a shell pane | 9 | 2026-09-12. This closes [[Open items]] 3, open since round 2. |
 | The tip sheet listing all three tips | 9 | The earlier capture that showed only Medium and Large was wrong, not the app. |
-| Trackpad right-click reaching herdr | 9 | "right-click is working again", after `18651c5`. See below. |
+| Trackpad right-click reaching herdr | 9 | "right-click is working again", after `c23b766`. See below. |
+| The iPhone build running herdr's own TUI | 11 | Built and installed on his iPhone 16 Pro Max: "ios version works". The only fault he found was the Kelpie capsule overlapping herdr's mobile header, fixed the same day (`68bc332`) and not re-checked. |
 
 ### Not confirmed on the device
 
@@ -49,7 +50,16 @@ Anthony tests on his 11-inch iPad Pro with a Magic Keyboard, one build per round
 | The round-7 nit fixes | 7 | Press-lift on the capsule and padding taps not opening links. Reviewed, never seen by hand. |
 | A real push notification arriving on the iPad | 8 | The relay pipeline was verified end to end with a hand-run hook; a delivery to the device has not been watched. |
 | A test tip purchase | 7c | The three tips are listed in Settings; nobody has bought one on the device. |
-| The keyboard chip row | 9 | `2eb612c`, built after the round-9 feedback. |
+| The keyboard chip row | 9 | `a756361`, built after the round-9 feedback. Superseded unseen: round 11's key bar replaced it. |
+| The key bar's look and feel, and sticky ctrl then b reaching herdr | 11 | `4beeecd`. Anthony's verdict is the point of the check. [[Open items]] 12. |
+| Paste of a photo from the key bar's `UIPasteControl` | 11 | [[Open items]] 12. The control is the system one, so it should need no clipboard prompt — unwitnessed. |
+| Two-device pairing sync | 11 | [[Open items]] 11: pair nothing on the iPhone, open it, and the Host should be there and connect; then a notification to each device. The code is covered by unit tests, the ceremony by nobody. |
+| The phone in portrait | 11 | Only the landscape screenshot has been seen. [[Open items]] 10, with the iPhone screenshots for a 1.1 listing. |
+| The capsule in its new bottom-trailing corner on a phone | 11 | `68bc332` went in from the screenshot; the fix itself has not been seen. |
+
+### Round 12 — compiled, not run
+
+Pairing sync carrying Host edits: app and test targets build for `generic/platform=iOS`; the seven new `PairingSync` tests (coordinate adoption, older/equal records losing, local edit after adoption, unstamped Host, rename not outranking an address, overlapping reconciles coalescing) have never executed — no device was connected and the simulator is off limits. The close-out guard and the Reddit watch were exercised for real (negative cases, dry runs, a seeded state).
 
 ### The regression lesson, 2026-09-12
 
@@ -109,6 +119,8 @@ Anything still unverified stays in [[Open items]].
 Three things had to be true before it worked, all in PR #2: the runner fetches the vendored `GhosttyKit.xcframework` (it is gitignored, and only `make generate` used to fetch it), it boots an iPad rather than the iPhone 17 the upstream gate assumed (Kelpie is device family 2), and the licence-inventory and zoom tests were taught Kelpie's iPad defaults.
 
 **The flakiness caveat.** Getting that PR green took five attempts. Two were the real fixes above; three were transient real-SSH fixture failures with a **different test failing each time**, and upstream's own PR runs show the same pattern. So a red real-SSH run gets one re-run before it counts as a regression.
+
+**Round 11's pairing-sync suite ran on the iPad.** The 22 unit tests covering `PairingSync` and `PairingSyncRecord` execute on the device, which is why the simulator-only integration suite is gated out of a device test build. They cover reconciliation, digests, conflict resolution by `updatedAt` and the pending-key handover — not the two-device ceremony, which no test can stand in for.
 
 **This Mac's simulator still does not run.** Nothing about CI changes that: `xcodebuild test` locally still wedges with "Mach error -308, server died", and the test target still cannot compile for a device destination (`SidebarConsoleIntegrationTests` depends on simulator-only demo code, which is pre-existing upstream). Do not spend time on it.
 

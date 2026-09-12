@@ -75,3 +75,34 @@ role in making a second device work, and a password Host still prompts.
   iCloud" off removes the records this device published and stops adopting. It
   never deletes the shared Device Key, which siblings still depend on, and it
   never touches `authorized_keys` on any Host.
+
+## Amendment — 2026-09-12: a newer record moves an existing Host
+
+Adoption used to stop at unknown Hosts, so a Host that *moved* never reached
+the sibling: Anthony's mini changed from its LAN address to its Tailscale one
+(`100.65.54.52`, no subnet route advertised, so `192.168.x` is unreachable off
+the LAN) and the iPhone kept an address it could not dial. `PairingSync` now
+also takes a record's **address, port and username** onto a Host this device
+already holds — those three and nothing else. The name, the session, the jump
+host, the fingerprints, the Notification Key and every key line are untouched,
+and nothing is ever deleted by adoption. This supersedes "adoption never edits
+an existing local Host" above.
+
+Last writer still wins by `updatedAt`, but it is now weighed against a real
+local last-modified time rather than against when this device last published.
+`Host` carries no such timestamp and did not grow one: `PairingSync` keeps its
+own stamp per Host (`kelpie.pairing-sync.host-edits`) — a digest of the three
+fields a record governs, and when this device first saw them — and a reconcile
+that finds the digest changed stamps the Host as edited now. The digest covers
+those three fields only: a rename is not a claim on the address, and stamping
+one would both block a newer remote address and push the stale local one back
+over it. Saving a Host runs the reconcile, so an edit republishes then rather
+than only at the next launch or foreground. A Host that predates the stamp, or
+one this device has never edited, is stamped `.distantPast`, so the
+first record that disagrees with it wins. A record is adopted only when it is
+**strictly newer** than that stamp, and this device republishes its own Host
+payload only when its stamp is strictly newer than the record; equal never
+overwrites either way. The cost of stamping at reconcile rather than at the
+moment of editing is granularity: an edit is dated when the app next
+reconciles — which a save now triggers — and that rounds in favour of the local
+edit, never against it.

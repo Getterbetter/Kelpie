@@ -191,6 +191,11 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - Pairings sync through iCloud Keychain: a Host paired on the iPad is ready on
   the iPhone, with its own notifications, and vice versa. (Kelpie)
 
+- Pairing sync carries edits, not just new Hosts: changing a Host's address,
+  port or username on one device moves it on the other too. The most recent
+  edit wins, and a change made on this device is never overwritten by an older
+  one from elsewhere. (Kelpie)
+
 ### Changed
 
 - Kelpie does not appear as "Designed for iPad" on Mac or Vision. (Kelpie)

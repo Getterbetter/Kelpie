@@ -8,7 +8,7 @@ Written 2026-09-11 from two reconnaissance passes (`Archive/round7/appstore-repo
 
 ## Answers (2026-09-11, see [[Feedback log]])
 
-1 iPad-only: **yes, done** (`a42e62e`). 2 public repo: **public, pushed**. 3 reviewer VPS: **yes**; runbook at `docs/guides/app-review-host.md`; provider account still his. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: draft 2 chosen and in the Icon Composer bundle (`5584d9c`). 7 `r/KelpieConsole`: confirmed. 8 tip jar: **in 1.0, built** (`a42e62e`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
+1 iPad-only: **yes, done** (`540b8d6`). 2 public repo: **public, pushed**. 3 reviewer VPS: **yes**; runbook at `docs/guides/app-review-host.md`; provider account still his. 4 relay: he is doing `wrangler login` in Terminal.app (the session shell's two-minute cap killed the first OAuth callback) and will create the APNs key. 5 name/subtitle: fine. 6 icon: draft 2 chosen and in the Icon Composer bundle (`ea19e7c`). 7 `r/KelpieConsole`: confirmed. 8 tip jar: **in 1.0, built** (`540b8d6`; needs the Paid Apps agreement and the three consumables created in App Store Connect — gate).
 
 ## Decisions only Anthony can make (original list)
 
@@ -38,7 +38,7 @@ Submitted for App Review 2026-09-12 02:20 UTC: version 1.0 (build 1) and the thr
 
 ## Public-repo sweep (2026-09-12)
 
-Sweep before the community push found the App Review clip (`Design/Store Screenshots/review/app-review.mp4`, committed in round 8) opening on Anthony's lock screen: a family photo, a child's birthday calendar entry with the venue address, and later his Mac's LAN SSH login. Purged from every commit with `git filter-repo` in a fresh clone and force-pushed (Anthony's yes); **every commit hash after `baefed9` quoted in this vault is now stale** (the rewrite re-hashed the branch and the pre-rebase tag). The clip lives at `~/Developer/kelpie-private/app-review.mp4`, outside the repo; `.gitignore` now excludes `*.mp4`/`*.mov` under the vault. GitHub may still serve the old blobs by SHA until support purges them; ask via https://support.github.com if it matters. Rule from now on: no recording or screenshot is committed until someone has looked at its first and last frames.
+Sweep before the community push found the App Review clip (`Design/Store Screenshots/review/app-review.mp4`, committed in round 8) opening on Anthony's lock screen: a family photo, a child's birthday calendar entry with the venue address, and later his Mac's LAN SSH login. Purged from every commit with `git filter-repo` in a fresh clone and force-pushed (Anthony's yes); **every commit hash after `cf45aea` quoted in this vault is now stale** (the rewrite re-hashed the branch and the pre-rebase tag). The clip lives at `~/Developer/kelpie-private/app-review.mp4`, outside the repo; `.gitignore` now excludes `*.mp4`/`*.mov` under the vault. GitHub may still serve the old blobs by SHA until support purges them; ask via https://support.github.com if it matters. Rule from now on: no recording or screenshot is committed until someone has looked at its first and last frames.
 
 ## Gates, in order
 

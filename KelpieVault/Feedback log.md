@@ -145,7 +145,7 @@ Anthony: "how much of what we've built could be made available on the iPhone? Co
 
 Read as: an assessment first, not a build. Preference: herdr's own TUI on the phone too (Kelpie's concept, minimal surface to keep in step with herdr), sidebar collapsed, the agent pane filling the screen, the Kelpie menu as the fallback navigation.
 
-Anthony, later: "right-click is working again." — trackpad right-click confirmed on the iPad after the round-9 fix (`74e2e47` amended).
+Anthony, later: "right-click is working again." — trackpad right-click confirmed on the iPad after the round-9 fix (`c23b766` amended).
 
 ### Vault upkeep (2026-09-12)
 
@@ -162,3 +162,9 @@ Read as: Beta App Review cleared (confirmed via the API: APPROVED, link live). D
 Anthony, on the iPhone build (2026-09-12, screenshot): "ios version works, but our button slightly overlaps the menu button in herdr" — the Kelpie capsule (icon-only at compact width, top-trailing) sits on herdr's mobile-header "switch" button. Also: "ill get some posts into r/ClaudeAI if that's important, but this is a free app in a community that is likely already using herdr." Draft notes: "1- lets give heaps of props to Heeler since we forked his design 2- this is now an iOS app that keeps the herdr UI + sync over iCloud so you don't have to re-pair devices 3- do we need to do a sweep of the github repo to make sure there's nothing in there that shouldn't be since it's public? Otherwise drafts are great."
 
 Read as: move the capsule off herdr's mobile header on compact widths; the posts credit Heeler generously and lead with iPad + iPhone + iCloud pairing sync; a public-repo sweep before publicising; r/ClaudeAI is in, dwell served lightly by his own comments.
+
+## Round 12 — 2026-09-12 (evening, `/delegate check resume.md`)
+
+After the round-11b re-parenting report (the purge had detached `kelpie` from upstream; fixed locally, force push gated; round 11 missing from the vault notes; hashes stale; depwatch rehearsal to watch), Anthony: "how do we fix the above from happening next time? on the remaining items /delegate all of this 1- can we make sure that doesn't happen again too and fix it? 2- fix it 3- can we /update-config for claude in chrome to allow reddit posts so the remaining posts can be handled 4- ok, on hold. More items: 5- connecting ios kelpie over tailscale and 6- can we set up an hourly job overnight to check for comments to the reddit posts, this process shoudl be /delegate too"
+
+Read as: (0) a guard so a purge can never again leave the branch detached; (1) write round 11 into the vault and add a guard that a round cannot close unreconciled; (2) repair the stale hashes; (3) a `settings.json` allow rule for the Chrome tools so the Reddit posts can go out (each post still shown for his yes); (4) the depwatch rehearsal check is on hold; (5) open item 13 — pairing sync carries Host edits so the Tailscale address is set once; (6) an hourly overnight job that collects new comments on the Reddit posts and drafts replies for his approval, built through `/delegate`. The force push is still gated.

@@ -2,7 +2,7 @@
 
 Cold runs: 45 unit tests pass on `/usr/bin/python3`; `--dry-run` completes all ten checks with no `error`, leaves no `~/.kelpie`, no worktree. Forced herdr drift (state tag set to v0.8.2): the v0.9.0 schema was downloaded, drift computed as identical, severity `low`, regen worktree created and removed; with a doctored cached schema (protocol 23, `pane.read` removed, `agent.list` changed) the finding went `high` and `--prepare --dry-run` printed the full would-do list without creating anything.
 
-Must-fix: none. Should-fix, all applied by Fable before commit `ab73f1a`:
+Must-fix: none. Should-fix, all applied by Fable before commit `bef44c7`:
 
 1. Worktree cleanup had no `try/finally`; a raise in prepare or publish leaked a worktree.
 2. `snapshot_tag` never advanced, so `herdr-release` could never return to `info` and its issue never closed.
