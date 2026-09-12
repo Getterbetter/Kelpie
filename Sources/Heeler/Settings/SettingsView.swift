@@ -60,6 +60,10 @@ struct SettingsView: View {
 
     static let agentListDestination = SettingsAgentListDestination.fields
     @Environment(\.dismiss) private var dismiss
+    /// Optional for the same reason `inputMode` is: previews and tests that
+    /// never compose the root screen leave the pairing-sync row out.
+    @Environment(PairingSyncSettings.self) private var pairingSyncSettings:
+        PairingSyncSettings?
     @State private var isShowingTipJar = false
 
     static let repositoryURL = URL(string: KelpieLinks.repository)
@@ -147,6 +151,10 @@ struct SettingsView: View {
                     }
                 }
 
+                if let pairingSyncSettings {
+                    pairingSyncSection(pairingSyncSettings)
+                }
+
                 Section {
                     ForEach(Self.aboutRows) { row in
                         aboutRow(row)
@@ -172,6 +180,29 @@ struct SettingsView: View {
             }
         }
     }
+
+    /// Sits beside the Hosts and notification settings because that is what
+    /// it carries: the Hosts themselves, their fingerprints, their
+    /// Notification Keys and the device SSH key (ADR 0018).
+    private func pairingSyncSection(_ settings: PairingSyncSettings) -> some View {
+        Section {
+            Toggle(
+                "Sync Pairings with iCloud",
+                isOn: Binding(
+                    get: { settings.isEnabled },
+                    set: { settings.setEnabled($0) }))
+                .accessibilityIdentifier(Self.pairingSyncToggleID)
+        } footer: {
+            Text(
+                """
+                Hosts, host fingerprints, notification keys and the device SSH \
+                key are kept in iCloud Keychain, end-to-end encrypted by \
+                Apple, so a Host paired on one device is ready on the others.
+                """)
+        }
+    }
+
+    static let pairingSyncToggleID = "settings.pairingSync.toggle"
 
     @ViewBuilder
     private func aboutRow(_ row: AboutRow) -> some View {

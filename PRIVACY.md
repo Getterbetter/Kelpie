@@ -17,9 +17,10 @@ The developer of Kelpie is Anthony Topalides.
 ## Data stored on your device and Hosts
 
 - **SSH credentials.** The Device Key's private half is generated on your
-  device, remains in the iOS Keychain, and never leaves the device. Host
-  fingerprints are stored locally. A saved Host password is also stored in the
-  Keychain.
+  device and remains in the iOS Keychain; it is never sent to Kelpie or to any
+  server other than the Hosts you pair with (see iCloud Keychain sync below).
+  Host fingerprints are stored locally. A saved Host password is also stored in
+  the Keychain and is never synced.
 - **Notification Keys.** A separate Notification Key is generated on your
   device for each Host. It is stored in the shared Keychain and mirrored in the
   app's shared container so Live Activities can be decrypted while the device
@@ -30,6 +31,13 @@ The developer of Kelpie is Anthony Topalides.
 - **Host list and settings.** Your Hosts and Kelpie settings are stored
   locally. Each Host stores its own notification registration and delivery
   preferences.
+- **iCloud Keychain sync.** So that a Host paired on one of your devices is
+  ready on the others, Kelpie keeps your Hosts, their host fingerprints, their
+  Notification Keys and the Device Key in iCloud Keychain. These items are
+  end-to-end encrypted by Apple between your own devices; Kelpie has no server
+  and no iCloud database, and neither Kelpie nor Apple can read them. Saved
+  Host passwords are never included. Turn it off with "Sync Pairings with
+  iCloud" in Settings, which also removes the records this device published.
 - **Live agent activity.** Terminal output, prompts, and pane contents travel
   only over the direct SSH connection between your device and your Host. The
   limited notification data described below takes a separate route.

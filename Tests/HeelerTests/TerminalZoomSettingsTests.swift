@@ -13,13 +13,13 @@ struct TerminalZoomSettingsTests {
         return (defaults, { defaults.removePersistentDomain(forName: suiteName) })
     }
 
-    // Kelpie: the default is per idiom (8 on a phone, 12 in a full-width iPad
+    // Kelpie: the default is per idiom (12 on a phone and in a full-width iPad
     // window), so the idiom is pinned here rather than taken from the simulator.
-    @Test func defaultsToEightPoints() throws {
+    @Test func defaultsToElevenPointsOnAPhone() throws {
         let (defaults, cleanup) = try makeDefaults()
         defer { cleanup() }
 
-        #expect(TerminalZoomSettings(defaults: defaults, idiom: .phone).fontSize == 8)
+        #expect(TerminalZoomSettings(defaults: defaults, idiom: .phone).fontSize == 12)
     }
 
     @Test func defaultsToTwelvePointsOnAnIPad() throws {
@@ -48,7 +48,7 @@ struct TerminalZoomSettingsTests {
         settings.adjust(by: 1)
         settings.adjust(by: -1)
 
-        #expect(settings.fontSize == 9)
+        #expect(settings.fontSize == 13)
     }
 
     @Test func fractionalZoomLandsOnWholePoints() throws {

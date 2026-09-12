@@ -36,6 +36,10 @@ final class HeelerAppModel {
     let bannerStore: AgentNotificationBannerStore
     let liveActivities: HostLiveActivityCoordinator
     let activity: AppActivityCoordinator
+    /// iCloud pairing sync (ADR 0018). App-wide like the other stores: one
+    /// reconcile per process, not one per window.
+    let pairingSyncSettings: PairingSyncSettings
+    let pairingSync: PairingSync
 
     private var isStarted = false
     private var observers: [AnyObject] = []
@@ -106,6 +110,18 @@ final class HeelerAppModel {
                 console?.pins.pinnedPaneIDs(for: id) ?? []
             },
             rowLayout: { [weak console] id in console?.rowLayout(for: id) })
+        // iCloud pairing sync (ADR 0018). It reads and writes the persisted
+        // primary-Host id directly rather than holding a `PrimaryHostStore`,
+        // whose cached selection could overwrite a Host the user switched to
+        // mid-session.
+        let pairingSyncSettings = PairingSyncSettings()
+        self.pairingSyncSettings = pairingSyncSettings
+        pairingSync = PairingSync(
+            hosts: hostStore,
+            settings: pairingSyncSettings,
+            transports: console,
+            deviceToken: { [weak pushRegistration] in pushRegistration?.deviceToken },
+            relayBaseURL: { [weak relaySettings] in relaySettings?.relayURL })
     }
 
     var terminal: TerminalSettings {
@@ -148,6 +164,13 @@ final class HeelerAppModel {
         NotificationKeyStore().refreshMirror()
         liveActivities.start()
 
+        // Adopt before anything else needs the catalog, and hang the deletion
+        // hook on the store the app kept.
+        hostStore.didRemoveHost = { [weak pairingSync] id in
+            pairingSync?.hostWasDeleted(id)
+        }
+        Task { await pairingSync.reconcile() }
+
         observeStores()
     }
 
@@ -160,6 +183,9 @@ final class HeelerAppModel {
             // period or not: the user may have flipped it in the Settings
             // app while we were backgrounded.
             Task { await pushRegistration.refresh() }
+            // A pairing made on the other device lands while this one is
+            // away; every return is a chance to pick it up.
+            Task { await pairingSync.reconcile() }
         case .background:
             activity.didEnterBackground()
         default:
@@ -203,6 +229,21 @@ final class HeelerAppModel {
             guard let self else { return }
             Task { await self.notificationPreferences.refresh() }
             liveActivities.connectionsDidChange()
+            // A Host that just came up is the only moment pairing sync can
+            // enrol a sibling's key or register this device for an adopted
+            // Host's notifications (ADR 0018); both are no-ops otherwise.
+            let connected = console.hostStatuses
+                .filter { $0.value == .connected }
+                .map(\.key)
+            if !connected.isEmpty {
+                Task { await self.pairingSync.hostsDidConnect(connected) }
+            }
+        }
+        // Turning the setting off withdraws this device's records; turning it
+        // back on republishes them.
+        observe({ [pairingSyncSettings] in pairingSyncSettings.isEnabled }) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.pairingSync.reconcile() }
         }
         observe({ console.hostsAwaitingSnapshot }) { [weak self] _ in
             self?.liveActivities.connectionsDidChange()

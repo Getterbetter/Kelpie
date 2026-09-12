@@ -210,9 +210,9 @@ struct TerminalScreenView: UIViewRepresentable {
     var isLocalInputEnabled = true
     /// Applied before the first focus claim, including Agent tools handoffs.
     var initialKeyboardMode = TerminalKeyboardMode.text
-    /// The chip row that rides the software keyboard. Empty — the Console's
+    /// Whether the key bar rides the software keyboard. Off — the Console's
     /// arrangement — leaves nothing on the keyboard at all.
-    var keyboardAccessoryItems: [TerminalInputAccessoryItem] = []
+    var showsKeyBar = false
     var textInputStyle = TerminalTextInputStyle.terminal
     var theme: TerminalTheme = .default
     var fontSize: Float = TerminalZoomSettings.defaultFontSize
@@ -248,7 +248,7 @@ struct TerminalScreenView: UIViewRepresentable {
         }
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
-        view.keyboardAccessoryItems = keyboardAccessoryItems
+        view.showsKeyBar = showsKeyBar
         // The feed holds the surface weakly so a replaced UIKit view cannot be
         // kept alive by an obsolete terminal pipeline.
         feed.attach(view)
@@ -308,7 +308,7 @@ struct TerminalScreenView: UIViewRepresentable {
             && (claimsKeyboard?() ?? false)
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
-        view.keyboardAccessoryItems = keyboardAccessoryItems
+        view.showsKeyBar = showsKeyBar
         if claimsKeyboardOnEnable, let keyboardHandoffID {
             DispatchQueue.main.async { [weak view, weak keyboardControl] in
                 guard let view,
@@ -1130,21 +1130,44 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             with: NSRange(location: range.location, length: range.length))
     }
 
-    /// The chips that ride the keyboard, and whether anything rides it at
-    /// all. The Console's input row is app content (see `ShellTerminalView`),
-    /// where a keyboard-mode switch cannot tear it down and UIKit's
-    /// candidate-row teardown cannot move it, so it leaves this empty. The
-    /// root screen has no mode switch and supplies items, which hands the
-    /// keyboard the vendored accessory bar.
-    var keyboardAccessoryItems: [TerminalInputAccessoryItem] = [] {
+    /// Whether ``TerminalKeyBar`` rides the keyboard. The Console's input row
+    /// is app content (see `ShellTerminalView`), where a keyboard-mode switch
+    /// cannot tear it down and UIKit's candidate-row teardown cannot move it,
+    /// so it leaves this off. The root screen has no mode switch and turns it
+    /// on, which hands the keyboard one row of Kelpie-drawn keys. The
+    /// vendored `inputAccessoryItems` stays empty either way: its bar is a
+    /// blurred pill of round buttons, not a keyboard.
+    var showsKeyBar = false {
         didSet {
-            guard keyboardAccessoryItems != oldValue else { return }
-            inputAccessoryItems = keyboardAccessoryItems  // its didSet reloads input views
+            guard showsKeyBar != oldValue else { return }
+            if !showsKeyBar { dropKeyBar() }
+            guard isFirstResponder else { return }
+            UIView.performWithoutAnimation { reloadInputViews() }
         }
     }
 
+    private var keyBar: TerminalKeyBar?
+
     override var inputAccessoryView: UIView? {
-        keyboardAccessoryItems.isEmpty ? nil : super.inputAccessoryView
+        guard showsKeyBar else { return nil }
+        if let keyBar { return keyBar }
+        let bar = TerminalKeyBar(handler: self, pasteTarget: self)
+        // The terminal owns the sticky state machine, so it is the terminal
+        // that tells the bar its Ctrl and Alt keys have changed — including
+        // when a keystroke consumes an armed modifier.
+        setStickyModifierChangeHandler { [weak bar] in bar?.refreshStickyKeys() }
+        keyBar = bar
+        return bar
+    }
+
+    /// Drops the bar and the handler pointing at it together. Not `deinit`'s
+    /// job: under Swift 6 a `@MainActor` view's `deinit` cannot reach the
+    /// vendored setter, and the handler holds the bar weakly, so it dies with
+    /// this view anyway.
+    private func dropKeyBar() {
+        guard keyBar != nil else { return }
+        setStickyModifierChangeHandler(nil)
+        keyBar = nil
     }
 
     /// Only a tap on the input row raises the keyboard, so the surface refuses

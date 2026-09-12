@@ -1,3 +1,7 @@
+// The demo composition this suite mounts is compiled only for the simulator
+// (see DemoScreenshotMode.swift), so the suite is too; on a device the test
+// target must still build.
+#if DEBUG && targetEnvironment(simulator)
 import Foundation
 import Observation
 import Synchronization
@@ -472,3 +476,4 @@ struct SidebarConsoleIntegrationTests {
         }
     }
 }
+#endif

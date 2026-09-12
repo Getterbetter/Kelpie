@@ -305,6 +305,25 @@ struct HerdrClientRootView: View {
                 hostSheet = HostSheet(hostID: nil)
             }
             Divider()
+            // herdr's own prefix keys, typed for the user. A convenience with
+            // a hardware keyboard on the iPad; on a phone it is the
+            // navigation, because herdr's mobile layout drops the sidebar and
+            // its header has nothing to tap.
+            Menu("herdr", systemImage: "rectangle.3.group") {
+                Button("Next Tab", systemImage: "arrow.right") {
+                    commands.sendHerdrPrefixed("n")
+                }
+                Button("Previous Tab", systemImage: "arrow.left") {
+                    commands.sendHerdrPrefixed("p")
+                }
+                Button("Toggle Sidebar", systemImage: "sidebar.leading") {
+                    commands.sendHerdrPrefixed("b")
+                }
+                Button("Zoom Pane", systemImage: "arrow.up.left.and.arrow.down.right") {
+                    commands.sendHerdrPrefixed("z")
+                }
+            }
+            Divider()
             Button("Agents", systemImage: "rectangle.on.rectangle") {
                 presentConsole()
             }
@@ -429,7 +448,16 @@ final class HerdrClientCommands {
     /// menu outlives every Host switch.
     weak var files: HostFileViewerStore?
 
+    /// The live surface's keyboard handle, for the menu's herdr keys. Weak
+    /// like the rest: a Host switch rebuilds the terminal under the menu.
+    weak var keyboard: TerminalKeyboardControl?
+
     func reconnect() { store?.reconnect() }
+
+    /// herdr's own prefix (Ctrl+B) plus the letter naming the command. The
+    /// menu is the only way to these on a phone, where herdr's mobile header
+    /// draws no tap targets of its own.
+    func sendHerdrPrefixed(_ letter: Character) { keyboard?.sendHerdrPrefixed(letter) }
 
     /// Fetches one Host file and previews it. The menu's "Open File on
     /// Host…" calls this; so should a tap on a path in the terminal, once
@@ -527,6 +555,7 @@ private struct HerdrClientHostView: View {
             commands.store = store
             commands.media = media
             commands.files = files
+            commands.keyboard = keyboardControl
             store.rejoin()
         }
         .onDisappear { store.leave() }

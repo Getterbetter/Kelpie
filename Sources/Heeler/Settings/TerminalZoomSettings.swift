@@ -15,9 +15,12 @@ import UIKit
 @MainActor
 @Observable
 final class TerminalZoomSettings {
-    /// The phone's default, and the floor every other default is compared
-    /// against.
-    static let defaultFontSize: Float = 8
+    /// The phone's default. A phone in portrait wants to land inside herdr's
+    /// own 64-column mobile threshold and a phone in landscape wants to stay
+    /// readable; 12 pt does both on every phone width (a 6.9" phone at 11 pt
+    /// lands two columns outside the threshold and gets the sidebar), where
+    /// 8 pt only bought columns nobody on a 6-inch screen can see.
+    static let defaultFontSize: Float = 12
     /// An iPad window at full width is wide enough that 8 pt reads as a
     /// squint; herdr's own sidebar, tabs and panes all still fit at 12. Only
     /// the *unzoomed* default differs — once the user pinches, the offset is

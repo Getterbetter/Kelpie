@@ -74,7 +74,7 @@ struct WelcomeView: View {
                 .foregroundStyle(.tint)
             Text("Kelpie")
                 .font(.largeTitle.bold())
-            Text("herdr on your Mac, full screen on your iPad.")
+            Text("herdr on your Mac, full screen on your iPad or iPhone.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
             Text(
@@ -107,14 +107,14 @@ struct WelcomeView: View {
                     description:
                         "The popup opens inside herdr's own window, not in the shell. Press Return "
                         + "to make a code, then press C to copy it. With iCloud clipboard on, it is "
-                        + "already on this iPad.",
+                        + "already on this device.",
                     command: "herdr plugin action invoke heeler.pair")
             }
         }
     }
 
     private var iPadSection: some View {
-        card(title: "On this iPad") {
+        card(title: "On this device") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Pair with the code you just copied, or add the Mac over SSH yourself.")
                     .font(.subheadline)

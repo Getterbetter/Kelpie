@@ -1,4 +1,3 @@
-import GhosttyTerminal
 import SwiftUI
 import UIKit
 
@@ -10,9 +9,9 @@ import UIKit
 ///
 /// The keyboard chrome appears only when there is no hardware keyboard: a
 /// Magic Keyboard makes every key redundant and the screen space expensive.
-/// The keys are a chip row riding the software keyboard itself — the vendored
-/// terminal's own accessory bar, sticky modifiers included — with the shell
-/// terminal's input row above it for paste and Insert New Line.
+/// It is one row and one row only — ``TerminalKeyBar``, riding the software
+/// keyboard itself, drawn as keyboard keys and carrying Paste. A second row
+/// of app content above it read as a stack of unrelated bars.
 struct HerdrClientView: View {
     let store: HerdrClientStore
     let terminal: TerminalSettings
@@ -58,8 +57,7 @@ struct HerdrClientView: View {
         // With a hardware keyboard attached the bar is absent: iPadOS docks
         // an accessory at the bottom of the screen, nowhere near a keyboard
         // that has the keys already.
-        screen.keyboardAccessoryItems =
-            hardwareKeyboard.isConnected ? [] : Self.keyboardChips
+        screen.showsKeyBar = !hardwareKeyboard.isConnected
         screen.isLocalInputEnabled = true
         screen.theme = terminal.themes.theme
         screen.fontSize = terminal.zoom.fontSize
@@ -84,34 +82,10 @@ struct HerdrClientView: View {
             presentation: keyboardPresentation)
     }
 
-    /// Ctrl+B, herdr's prefix, is sticky Ctrl then b. No Paste chip: the
-    /// vendored one reads the pasteboard directly, skipping the paste review
-    /// sheet, bracketed paste and media staging behind the input row's button.
-    static let keyboardChips: [TerminalInputAccessoryItem] = [
-        .esc, .tab, .ctrl, .alt,
-        .divider,
-        .arrowLeft, .arrowUp, .arrowDown, .arrowRight,
-        .divider,
-        .symbol("|"), .symbol("~"), .symbol("/"), .symbol("-"),
-        .symbol("_"), .symbol("`"),
-    ]
-
     var body: some View {
         terminalScreen
             .id(store.terminalID)
             .overlay { statusOverlay }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if keyboardPresentation != .hidden {
-                    ShellTerminalInputRow(
-                        mode: .constant(.text),
-                        paste: { keyboardControl.paste($0) },
-                        insertNewLine: {
-                            UIDevice.current.playInputClick()
-                            keyboardControl.sendNewLine()
-                        },
-                        showsModePicker: false)
-                }
-            }
             .padding(.bottom, keyboardLayout.contentInset)
             // After the keyboard inset: an overlay applied before it aligns
             // to the un-inset frame and ends up behind the input row.

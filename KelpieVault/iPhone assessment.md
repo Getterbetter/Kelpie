@@ -29,4 +29,8 @@ Everything on the touch path: the root screen (`exec herdr` over SSH), touch lon
 
 Effort: a day, most of it screenshots and the menu items. Risk: low — the whole phone layout is herdr's, so herdr updates keep working the way they do on the iPad.
 
+## Built (2026-09-12)
+
+Points 1–3 are done. `TARGETED_DEVICE_FAMILY` is `"1,2"` on all four targets (app, notification service, widgets, UI-test runner) and `Heeler.xcodeproj` is regenerated; the orientation keys already read the way a phone wants them — three for the iPhone, all four for the iPad, no `UIRequiresFullScreen`. `TerminalZoomSettings.defaultFontSize` is 12 pt (the builder tried 11 and its own estimate put a 6.9" phone two columns outside the threshold), so a phone that has never been pinched starts there and the iPad's width-aware stepping is untouched. The Kelpie menu gains a **herdr** submenu between Hosts and Agents — Next Tab, Previous Tab, Toggle Sidebar, Zoom Pane — each typing `ctrl+b` and the letter through `TerminalKeyboardControl.sendHerdrPrefixed`, on every idiom. Estimated at the vault's 0.6 × pt cell width: portrait ≈ 59 columns at 393 pt and ≈ 66 at 440 pt, landscape ≈ 129 and ≈ 145. So a 6.1" phone sits inside the 64-column threshold and a 6.9" one lands a couple of columns outside it — at 12 pt both sit inside (≈54 and ≈61); measure on the real phone. Points 4–6 (rows with the keyboard up, iPhone screenshots for a 1.1, testing on a real phone) are untouched, and the Welcome screen still says "iPad" in its copy.
+
 Related: [[App Store plan]] · [[Open items]] · [[Mac vs iPad gaps]]

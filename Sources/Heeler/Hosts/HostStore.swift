@@ -25,6 +25,10 @@ final class HostStore {
 
     private(set) var hosts: [Host]
     private(set) var catalogLoadError: HostStoreError?
+    /// Called after a Host leaves the catalog. iCloud pairing sync hangs on
+    /// here so a deleted Host's synced record goes too — otherwise the next
+    /// reconcile would adopt the Host straight back (ADR 0018).
+    @ObservationIgnored var didRemoveHost: (@MainActor (Host.ID) -> Void)?
     // UserDefaults is documented thread-safe; Sendable modulo that promise.
     @ObservationIgnored private nonisolated(unsafe) let defaults: UserDefaults?
     @ObservationIgnored private let secrets: any SecretStore
@@ -99,6 +103,7 @@ final class HostStore {
         try secrets.removeSecret(account: Self.passwordAccount(for: id))
         hosts.remove(at: index)
         try persist()
+        didRemoveHost?(id)
     }
 
     /// The stored password for a Host, or nil when none was saved.

@@ -837,6 +837,98 @@ actor HeelerSSHTransport: Transport {
         try await readPluginConfigFile(named: Self.sidebarLayoutFileName)
     }
 
+    // MARK: Sibling device enrolment
+
+    /// Adds a sibling device's public key line to `~/.ssh/authorized_keys`
+    /// (ADR 0018). Read-modify-write through a private temp file in the same
+    /// directory, then an atomic rename — the shape the plugin's
+    /// `editAuthorizedKeys` uses, so StrictModes never sees a partial file.
+    /// There is no cross-writer lock here: the plugin's pairing edits and
+    /// this one are seconds apart at worst, and the loser of a race is a
+    /// re-append on the next connect, not a corrupt file.
+    func appendAuthorizedKeyLine(_ line: String) async throws {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(where: \.isNewline),
+            Self.authorizedKeyMaterial(trimmed) != nil
+        else {
+            throw TransportError.channelFailed(
+                detail: "The public key line is not a single OpenSSH public key.")
+        }
+        let home = try await remoteHomeDirectory()
+        let directory = "\(home)/.ssh"
+        let path = "\(directory)/authorized_keys"
+        try await withRequestDeadline {
+            try await self.channelAdmission.withChannel(.ordinarySession) {
+                try await self.performAuthorizedKeyAppend(
+                    trimmed, at: path, sshDirectory: directory)
+            }
+        }
+    }
+
+    private func performAuthorizedKeyAppend(
+        _ line: String,
+        at path: String,
+        sshDirectory: String
+    ) async throws {
+        let sftp = try await connection.openSFTP(timeout: requestTimeout)
+        let temporaryPath = "\(path).kelpie-\(UUID().uuidString.lowercased()).tmp"
+        do {
+            try Task.checkCancellation()
+            // `.ssh` may not exist on an account that has only ever used
+            // password auth; sshd requires 0700 on it.
+            try? await sftp.createDirectory(
+                at: sshDirectory, permissions: 0o700, timeout: requestTimeout)
+            let existing = try await sftp.readFileIfPresent(
+                at: path,
+                maximumByteCount: Self.maximumAuthorizedKeysBytes,
+                timeout: requestTimeout)
+            let current = existing.map { String(decoding: $0, as: UTF8.self) } ?? ""
+            let lines = current.split(separator: "\n", omittingEmptySubsequences: false)
+                .map(String.init)
+                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            let material = Self.authorizedKeyMaterial(line)
+            guard !lines.contains(where: { Self.authorizedKeyMaterial($0) == material }) else {
+                try await sftp.close(timeout: .seconds(2))
+                return
+            }
+            let body = Data((lines + [line]).joined(separator: "\n").appending("\n").utf8)
+            let file = try await sftp.openFileForWriting(
+                at: temporaryPath, permissions: 0o600, timeout: requestTimeout)
+            do {
+                try await file.write(body, timeout: requestTimeout)
+                try await file.close(timeout: requestTimeout)
+            } catch {
+                try? await file.close(timeout: .seconds(2))
+                throw error
+            }
+            try await sftp.renameFileAtomically(
+                from: temporaryPath, to: path, timeout: requestTimeout)
+            try await sftp.close(timeout: .seconds(2))
+        } catch {
+            try? await sftp.removeFileForCompensation(at: temporaryPath, timeout: .seconds(2))
+            try? await sftp.close(timeout: .seconds(2))
+            if !(await connection.isConnected) { connected = false }
+            throw error
+        }
+    }
+
+    /// The key type and blob of an `authorized_keys` line, ignoring options
+    /// and the trailing comment — two lines carrying the same public key are
+    /// the same enrolment however they were written.
+    private static func authorizedKeyMaterial(_ line: String) -> String? {
+        let fields = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard
+            let index = fields.firstIndex(where: {
+                $0.hasPrefix("ssh-") || $0.hasPrefix("ecdsa-")
+            }),
+            index + 1 < fields.count
+        else { return nil }
+        return fields[index] + " " + fields[index + 1]
+    }
+
+    /// A sane ceiling for a key file; a path that streams forever is not one.
+    private static let maximumAuthorizedKeysBytes = 512 * 1024
+
     private func readPluginConfigFile(named name: String) async throws -> Data? {
         try await withNotificationFileRequestDeadline {
             guard await self.notificationConnectionIsAvailable() else {
