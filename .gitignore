@@ -44,3 +44,7 @@ Packages/GhosttyTerminal/Artifacts/
 
 # Kelpie: Obsidian per-machine workspace state
 KelpieVault/.obsidian/workspace*.json
+
+# Recordings and clips under the vault never go public (the round-8 review clip leaked a lock screen).
+KelpieVault/**/*.mp4
+KelpieVault/**/*.mov
