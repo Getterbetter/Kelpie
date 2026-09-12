@@ -33,6 +33,10 @@ struct TerminalStatusPresentation: Equatable {
     let title: String
     let message: String?
     let dimsBackground: Bool
+    /// Whether the overlay offers Reconnect. An `.ended` overlay always does;
+    /// a `.connecting` one only when it is reporting a connection the user can
+    /// act on rather than ordinary startup.
+    let offersReconnect: Bool
 
     static let connecting = TerminalStatusPresentation(
         kind: .connecting,
@@ -83,6 +87,44 @@ struct TerminalStatusPresentation: Equatable {
             dimsBackground: true)
     }
 
+    /// What the Host's own events session is doing, for the surfaces whose
+    /// attach cannot proceed until it recovers — the root Client, which parks
+    /// on the session's Transport with nothing of its own to say.
+    ///
+    /// Only the two states the user can act on produce an overlay. A healthy,
+    /// connecting or suspended session returns nil, leaving the terminal's own
+    /// status in charge exactly as before. The reason text is the Console
+    /// rows' (`ConsoleHostStatusPresentation`): a reconnecting Host shows the
+    /// failure's summary, because automatic recovery is still running; a
+    /// failed one shows the whole presentation, recovery suggestion included.
+    init?(hostSessionStatus: EventsSessionStatus?) {
+        switch hostSessionStatus {
+        case .reconnecting(let attempt, _, let failure):
+            self = TerminalStatusPresentation(
+                kind: .connecting,
+                title: attempt > 1 ? "Reconnecting… (attempt \(attempt))" : "Reconnecting…",
+                message: failure.presentation.summary,
+                dimsBackground: false,
+                offersReconnect: true)
+        case .failed(let failure):
+            self = TerminalStatusPresentation(
+                kind: .ended,
+                title: "Disconnected",
+                message: failure.presentation.message,
+                dimsBackground: true,
+                offersReconnect: true)
+        case .connecting:
+            // A first dial, or a Reconnect Request: work is under way and
+            // there is no failure to name yet. Still worth claiming, because
+            // an attach that ran out its own deadline waiting for this dial
+            // would otherwise draw the "Session Ended" dialog over a Host
+            // that is merely slow.
+            self = .connecting
+        case .connected, .suspended, .ended, nil:
+            return nil
+        }
+    }
+
     init?(status: AttachTerminalStore.Status) {
         switch status {
         case .waitingForSize, .connecting:
@@ -98,12 +140,14 @@ struct TerminalStatusPresentation: Equatable {
         kind: Kind,
         title: String,
         message: String?,
-        dimsBackground: Bool
+        dimsBackground: Bool,
+        offersReconnect: Bool = false
     ) {
         self.kind = kind
         self.title = title
         self.message = message
         self.dimsBackground = dimsBackground
+        self.offersReconnect = offersReconnect
     }
 }
 

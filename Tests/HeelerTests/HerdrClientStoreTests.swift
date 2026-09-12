@@ -204,6 +204,145 @@ struct HerdrClientStoreTests {
         #expect(store.statusPresentation?.kind == .ended)
     }
 
+    // MARK: The Host's session state reaches the root screen
+
+    @Test func aReconnectingHostNamesItsReasonAndAttempt() async throws {
+        // The bug: off Wi-Fi, with the Host reached over a tunnel, the
+        // session's retryable reconnect loop left the attach parked and the
+        // root screen on a bare, reasonless spinner — while the Console cover
+        // one tap behind it showed the attempt and the failure.
+        let store = HerdrClientStore(
+            hostID: Host.fixture().id,
+            sessionName: "work",
+            transportGeneration: 0
+        ) { _, _ in
+            // Parked, as an attach waiting on a Transport that never lands is.
+            await Task.detached { try? await Task.sleep(for: .seconds(30)) }.value
+        }
+        store.viewDidResize(cols: 80, rows: 24)
+
+        let failure = TransportError.sshUnreachable(detail: "the tunnel is down")
+        store.hostStatusDidChange(
+            .reconnecting(attempt: 3, delay: .seconds(4), failure: failure))
+
+        let presentation = try #require(store.statusPresentation)
+        // Still a spinner: recovery really is running.
+        #expect(presentation.kind == .connecting)
+        #expect(presentation.title.contains("3"))
+        #expect(presentation.message == failure.presentation.summary)
+        #expect(presentation.offersReconnect)
+
+        // A first attempt has no count to report.
+        store.hostStatusDidChange(
+            .reconnecting(attempt: 1, delay: .seconds(1), failure: failure))
+        #expect(store.statusPresentation?.title == "Reconnecting…")
+
+        // Healthy again: the ordinary spinner, with nothing added.
+        store.hostStatusDidChange(.connected)
+        #expect(store.statusPresentation == .connecting)
+    }
+
+    @Test func aFailedHostSessionSaysSoAndOffersReconnect() async throws {
+        let store = HerdrClientStore(
+            hostID: Host.fixture().id,
+            sessionName: nil,
+            transportGeneration: 0,
+            hostStatus: .failed(.herdrBinaryNotFound)
+        ) { _, _ in
+            await Task.detached { try? await Task.sleep(for: .seconds(30)) }.value
+        }
+        store.viewDidResize(cols: 80, rows: 24)
+
+        let presentation = try #require(store.statusPresentation)
+        #expect(presentation.kind == .ended)
+        #expect(presentation.message == TransportError.herdrBinaryNotFound.presentation.message)
+        #expect(presentation.offersReconnect)
+    }
+
+    @Test func aRecoveredSessionRebuildsAnAttachThatFailedWithIt() async throws {
+        // The gap this closes: when only the events channel died,
+        // `ensureTransport` reuses the connection it still trusts, so the
+        // Transport generation never advances and nothing tells the Client the
+        // Host is back. Its attach — failed with that same retryable failure —
+        // would sit on the overlay until the user tapped Reconnect.
+        let log = AttachLog()
+        let store = makeStore(sessionName: nil, log: log)
+        store.viewDidResize(cols: 80, rows: 24)
+        try await waitUntil("the attach should fail with the Host") {
+            store.terminal.status != .connecting && store.terminal.status != .waitingForSize
+        }
+        let failedSurface = store.terminalID
+
+        store.hostStatusDidChange(.connected)
+
+        try await waitUntil("a recovered Host should rebuild the pipeline") {
+            store.terminalID != failedSurface
+        }
+        store.viewDidResize(cols: 80, rows: 24)
+        try await waitUntil("the rebuilt pipeline should attach again") {
+            log.recorded.count == 2
+        }
+
+        // Idempotent: the same status arriving again is not new information.
+        let recoveredSurface = store.terminalID
+        store.hostStatusDidChange(.connected)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(store.terminalID == recoveredSurface)
+    }
+
+    /// Counts the Host-session repairs a store asked for.
+    @MainActor private final class RetryLog {
+        var count = 0
+    }
+
+    @Test func reconnectRepairsTheHostSessionOnlyWhenItIsTheBrokenThing() async throws {
+        // Rebuilding the pipeline cannot fix a stopped session: the attach
+        // parks on its Transport, and a `.failed` one answers every new attach
+        // with the same sticky failure. So the overlay's button and the Kelpie
+        // menu's item were both no-ops in exactly that state.
+        let retries = RetryLog()
+        let log = AttachLog()
+        let store = HerdrClientStore(
+            hostID: Host.fixture().id,
+            sessionName: nil,
+            transportGeneration: 0,
+            hostStatus: .failed(.herdrBinaryNotFound),
+            retryHost: { retries.count += 1 }
+        ) { request, _ in
+            log.record(request.target)
+            throw TransportError.sshUnreachable(detail: "not connected")
+        }
+        store.viewDidResize(cols: 80, rows: 24)
+        try await waitUntil("the first attach should happen") { !log.recorded.isEmpty }
+
+        store.reconnect()
+        try await waitUntil("Reconnect should repair the Host's session") {
+            retries.count == 1
+        }
+        // A second tap inside the settle window must not restart the dial that
+        // is already under way.
+        store.reconnect()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(retries.count == 1)
+
+        // A healthy session is not the Reconnect's business: restarting its
+        // events channel would cost every other surface its connection.
+        let healthy = HerdrClientStore(
+            hostID: Host.fixture().id,
+            sessionName: nil,
+            transportGeneration: 0,
+            hostStatus: .connected,
+            retryHost: { retries.count += 1 }
+        ) { request, _ in
+            log.record(request.target)
+            throw TransportError.sshUnreachable(detail: "not connected")
+        }
+        healthy.viewDidResize(cols: 80, rows: 24)
+        healthy.reconnect()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(retries.count == 1)
+    }
+
     // MARK: The Console hand-off is bounded (S4)
 
     @Test func theConsoleHandoffGivesUpRatherThanHangingForever() async throws {

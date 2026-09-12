@@ -32,10 +32,33 @@ final class HerdrClientStore {
     /// `ConsoleStore.terminalRunner(for:)`, which resolves the Host's live
     /// projection on each call; this was the one exception.
     private(set) var sessionName: String?
+    /// Where the Host's own events session stands, as `ConsoleStore.hostStatuses`
+    /// reports it for this Host.
+    ///
+    /// The attach does not own its connection: it parks on the session's
+    /// ping-proven Transport (`EventsSession.withTerminalTransport`). While
+    /// that session is in its retryable reconnect loop the pipeline has
+    /// nothing to say, so before this input the root screen showed a bare,
+    /// reasonless spinner for as long as the Host stayed unreachable — while
+    /// the Console cover, one tap behind it, named the failure and its
+    /// attempt. Observed, not `@ObservationIgnored`: the overlay is redrawn
+    /// from it.
+    private(set) var hostStatus: EventsSessionStatus?
     let input = TerminalInputController()
     private(set) var terminal: AttachTerminalStore
 
     @ObservationIgnored private let runTerminal: TerminalSessionRunner
+    /// Repairs the Host's own events session — `ConsoleStore.retryHost`.
+    ///
+    /// Rebuilding the pipeline cannot fix a session that has stopped: the
+    /// attach parks on that session's Transport, and a `.failed` one answers
+    /// every new attach with its sticky failure. So Reconnect — the overlay's
+    /// button and the Kelpie menu's item alike — has to reach the session too,
+    /// or it is a no-op exactly when the user needs it.
+    @ObservationIgnored private let retryHost: (@MainActor @Sendable () async -> Void)?
+    /// The repair in flight, if any. Reconnect is a button on a screen that
+    /// invites a second tap; a second dial would restart the first.
+    @ObservationIgnored private var hostRetryTask: Task<Void, Never>?
     /// False while the native Console covers the Client. A Transport serves
     /// one Attach channel at a time, so the Client has to be off stage — and
     /// its channel closed — before an Agent Attach can open.
@@ -52,11 +75,15 @@ final class HerdrClientStore {
         hostID: Host.ID,
         sessionName: String?,
         transportGeneration: UInt64?,
+        hostStatus: EventsSessionStatus? = nil,
+        retryHost: (@MainActor @Sendable () async -> Void)? = nil,
         runTerminal: @escaping TerminalSessionRunner
     ) {
+        self.retryHost = retryHost
         self.hostID = hostID
         self.sessionName = Self.normalizedSessionName(sessionName)
         self.transportGeneration = transportGeneration
+        self.hostStatus = hostStatus
         self.runTerminal = runTerminal
         terminal = Self.makeTerminal(
             sessionName: Self.normalizedSessionName(sessionName),
@@ -78,6 +105,25 @@ final class HerdrClientStore {
         guard normalized != self.sessionName else { return }
         self.sessionName = normalized
         replaceTerminal()
+    }
+
+    /// The Host's events session changed state. Presentation only: the
+    /// pipeline is not disturbed, because the session's own loop owns its
+    /// recovery and the parked attach resumes when a Transport lands.
+    func hostStatusDidChange(_ status: EventsSessionStatus?) {
+        let previous = hostStatus
+        hostStatus = status
+        // A recovered session does not always announce a new Transport: when
+        // the events channel alone died, `ensureTransport` reuses the
+        // connection it still trusts, so the generation never advances and
+        // `transportGenerationDidChange` never fires. The attach, meanwhile,
+        // was failed with that retryable failure and is sitting on an overlay.
+        // Nothing else would ever bring it back.
+        guard status == .connected, previous != .connected, !isReplacing else { return }
+        switch terminal.status {
+        case .ended, .stopped: replaceTerminal()
+        case .waitingForSize, .connecting, .live: break
+        }
     }
 
     /// nil means bare `herdr`, exactly as the desktop's default session does.
@@ -132,6 +178,18 @@ final class HerdrClientStore {
         // Off stage: the Console cover is up and draws its own screen. The
         // Client is deliberately detached, not broken.
         if lifecycleState != .active { return nil }
+        // Nothing the pipeline reports while it is not live outranks the
+        // Host's own connection state: the attach is parked on that session's
+        // Transport, or ended because it went away, and the session is the
+        // only place the reason and the attempt exist. A live terminal is
+        // never covered — a stale reconnecting status must not draw over
+        // output that is arriving — and a healthy session returns nil here,
+        // leaving every other state exactly as it was.
+        if terminalStatus != .live,
+            let session = TerminalStatusPresentation(hostSessionStatus: hostStatus)
+        {
+            return session
+        }
         // A remote exit is the remote program's verdict, not a connection
         // problem, so it stops here and names the session it was given.
         if case .ended(let message) = terminalStatus {
@@ -170,6 +228,7 @@ final class HerdrClientStore {
     /// The visible Reconnect affordance, and the menu's Reconnect item: both
     /// rebuild the pipeline rather than nudging the live one.
     func reconnect() {
+        repairHostSessionIfNeeded()
         if needsRejoin {
             // The tap came from the Client's own overlay, or from the menu
             // that sits on top of it, so the Client is on screen whatever the
@@ -184,6 +243,30 @@ final class HerdrClientStore {
             replaceTerminal()
         } else {
             terminal.retry()
+        }
+    }
+
+    /// Kicks the Host's session repair when the session is the thing that is
+    /// broken, and only then: a healthy Host's Reconnect is about this
+    /// pipeline, and restarting its events channel would cost every other
+    /// surface its connection for nothing.
+    ///
+    /// Deliberately not awaited on the caller's path — Reconnect must stay a
+    /// synchronous tap that rebuilds the pipeline now; the session's own loop
+    /// publishes its progress through `hostStatus`.
+    private func repairHostSessionIfNeeded() {
+        switch hostStatus {
+        case .failed, .reconnecting: break
+        case .connecting, .connected, .suspended, .ended, nil: return
+        }
+        guard let retryHost, hostRetryTask == nil else { return }
+        hostRetryTask = Task { @MainActor [weak self] in
+            await retryHost()
+            // The same settle the Host sheet's manual Reconnect uses: a dial
+            // is under way, and a second tap inside this window would only
+            // restart it.
+            try? await Task.sleep(for: .milliseconds(1_200))
+            self?.hostRetryTask = nil
         }
     }
 
@@ -240,6 +323,10 @@ final class HerdrClientStore {
         replacementID &+= 1
         isReplacing = false
         activationRecovery.clear()
+        // Nothing is left to show the repair's outcome, and its settle window
+        // would otherwise refuse the first Reconnect after the Client returns.
+        hostRetryTask?.cancel()
+        hostRetryTask = nil
         input.cancelPaste()
         return enqueueLifecycleTransition { [self] in
             await terminal.stop()

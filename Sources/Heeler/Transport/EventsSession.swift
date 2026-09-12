@@ -448,11 +448,16 @@ actor EventsSession {
     /// channel so the run loop re-dials, and cuts short any backoff already
     /// under way — the path moving is new information, not another failure.
     ///
-    /// No-op unless active: a suspended session is `resume()`'s business.
+    /// The suspicion is recorded whatever the phase; only the repair work
+    /// below needs an active session. A path that moved while the app was
+    /// backgrounded or suspended is exactly the case that used to be lost:
+    /// `isConnected` is the driver's own `isReusable` flag, not a probe, so on
+    /// resume `ensureTransport` handed the dead socket straight to a parked
+    /// Attach and the attach then sat on it until its deadline.
     func networkPathDidChange() async {
+        transportSuspect = true
         guard phase == .active else { return }
         Self.log.notice("network path changed; marking the transport suspect")
-        transportSuspect = true
         backoffSleep?.cancel()
         guard let stream = liveStream else { return }
         pendingKeepaliveFailure = .sshUnreachable(
@@ -583,6 +588,15 @@ actor EventsSession {
                     return
                 }
                 dropSnapshotSubscriptions()
+                // A retryable failure is still the only news a parked Attach
+                // is going to get for a while: the loop below can back off for
+                // up to `maxDelay` per attempt, without limit. Hand it over so
+                // the surface can name the reason and offer a Reconnect rather
+                // than spin; the loop itself carries on regardless, and the
+                // failure is deliberately not made sticky
+                // (`recordTerminalTransportFailure`) — the next attach should
+                // wait for the recovery this one could not.
+                failTerminalTransportWaiters(failure, for: generation)
                 attempt += 1
                 await emitReconnectingAndBackOff(
                     attempt: attempt, failure: failure, generation: generation)
@@ -645,6 +659,8 @@ actor EventsSession {
                 return
             }
             dropSnapshotSubscriptions()
+            // As above: a waiter parked through this iteration learns why.
+            failTerminalTransportWaiters(failure, for: generation)
             attempt += 1
             await emitReconnectingAndBackOff(
                 attempt: attempt, failure: failure, generation: generation)
@@ -913,6 +929,9 @@ actor EventsSession {
         /// activation so retry, Host replacement, and background invalidation
         /// cannot hand them a later Transport accidentally.
         let activationGeneration: UInt64?
+        /// Bounds the park, as `TerminalWaiter`'s does. Cancelled whenever the
+        /// waiter leaves the list by any other route.
+        var timeout: Task<Void, Never>?
         let continuation: CheckedContinuation<TerminalTransportReady, any Error>
     }
 
@@ -962,8 +981,19 @@ actor EventsSession {
         waiter.continuation.resume(throwing: TransportError.timedOut)
     }
 
+    /// The Transport a new Attach needs, waiting for one if the session is
+    /// still establishing it.
+    ///
+    /// Bounded by the same deadline as the permit wait above, and for the same
+    /// reason. A session in its retryable reconnect loop resumes waiters only
+    /// on success, so off Wi-Fi — a Host reached over a tunnel that has to be
+    /// re-established — a parked attach used to sit here for the life of the
+    /// process behind an information-free "Connecting…" spinner. Failing at the
+    /// deadline gives the surface something to show and a Reconnect to offer;
+    /// the session's own loop keeps retrying regardless.
     private func awaitTerminalTransport() async throws -> TerminalTransportReady {
         let id = UUID()
+        let timeout = terminalAcquisitionTimeout
         try Task.checkCancellation()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation {
@@ -983,10 +1013,16 @@ actor EventsSession {
                 } else if let terminalTransportFailure {
                     continuation.resume(throwing: terminalTransportFailure)
                 } else {
+                    let expiry = Task { [weak self] in
+                        try? await Task.sleep(for: timeout)
+                        guard !Task.isCancelled else { return }
+                        await self?.terminalTransportWaitDidExpire(id: id, after: timeout)
+                    }
                     terminalTransportWaiters.append(
                         TerminalTransportWaiter(
                             id: id,
                             activationGeneration: phase == .active ? activationGeneration : nil,
+                            timeout: expiry,
                             continuation: continuation))
                     terminalWaiterDidRegister?()
                 }
@@ -1017,6 +1053,7 @@ actor EventsSession {
         let waiters = terminalTransportWaiters
         terminalTransportWaiters.removeAll()
         for waiter in waiters {
+            waiter.timeout?.cancel()
             if let expected = waiter.activationGeneration,
                 expected != activationGeneration
             {
@@ -1039,10 +1076,24 @@ actor EventsSession {
             {
                 retained.append(waiter)
             } else {
+                waiter.timeout?.cancel()
                 waiter.continuation.resume(throwing: failure)
             }
         }
         terminalTransportWaiters = retained
+    }
+
+    /// A parked Attach outlived its deadline: the session never installed a
+    /// Transport for it. Fails that one waiter with the same `timedOut` the
+    /// permit wait uses, leaving the session's reconnect loop untouched.
+    private func terminalTransportWaitDidExpire(id: UUID, after timeout: Duration) {
+        guard let index = terminalTransportWaiters.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let waiter = terminalTransportWaiters.remove(at: index)
+        Self.log.error(
+            "attach waited \(timeout, privacy: .public) for the Host's Transport; failing it")
+        waiter.continuation.resume(throwing: TransportError.timedOut)
     }
 
     private func recordTerminalTransportFailure(_ failure: TransportError) {
@@ -1055,6 +1106,7 @@ actor EventsSession {
             return
         }
         let waiter = terminalTransportWaiters.remove(at: index)
+        waiter.timeout?.cancel()
         waiter.continuation.resume(throwing: CancellationError())
     }
 
