@@ -118,3 +118,15 @@ Read as: iPad-only for 1.0 (done); public-vs-private repo needs explaining (the 
 Anthony: "1- I think the Weights project in ~/Developer/ already has these 2- make it public 3- yes 4- lets go with two."
 
 Read as: reuse the APNs key from his Weights app (one APNs auth key serves every app on the team); the GitHub repo is public; the reviewer VPS is approved; icon draft 2 (front-facing head, `>_` eyes) is the icon.
+
+### Dependency watch (2026-09-12)
+
+Anthony, `/delegate` while another session works in the same directory: "Kelpie has dependencies and could break if things change. I'm looking for a routine that runs on a recurring basis to check for these dependencies and feed the pipeline of development needed to respond to changes quickly. the goal would be to optimise for automation to respond to change quickly where fixes dont then break something else."
+
+Read as: a scheduled watcher (his launchd fleet pattern) over everything Kelpie depends on (herdr releases and the API schema, Heeler upstream, libghostty-spm, libssh2 and OpenSSL, the Node plugin and relay, the Xcode toolchain, the relay Worker and the review host), which detects change, opens the work as GitHub issues on the public repo, prepares the mechanical fixes on branches, and gates every fix behind the existing checks (wire-type drift check, a compile, CI on the fork, a device build) so a fix cannot land unverified. Outward-facing steps (loading the launchd job, publishing issues, pushing) wait for his yes.
+
+### Round 9 device checks and feedback (2026-09-12)
+
+Anthony, after the App Store submit: "return on the on-screen keyboard works now but feature: the 'keys section' should be a row of chips sitting above the keyboard instead of separate section. tips are showing in the settings menu, all three. the other unprompted suggestions i think are fine to do later unless you think they need to be done now."
+
+Read as: on-screen Return in a shell pane is confirmed; the tip sheet lists all three tips (the earlier capture was wrong, not the app); the key pad that appears with the software keyboard should become a keyboard-attached chip row (an input accessory above the keyboard) rather than its own section of the screen; the Hetzner teardown, the universal test target and the review watch can wait.
