@@ -99,6 +99,60 @@ struct HostStoreTests {
         #expect(defaults.data(forKey: "hosts") == corrupt)
     }
 
+    /// Going back to an older build (or any future version bump) used to
+    /// present an empty Host list *and* refuse every add — no way out but
+    /// reinstalling the newer build.
+    @Test func newerCatalogVersionIsReadAndStillWritable() throws {
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
+        let id = UUID()
+        let future = """
+            {"version":99,"hosts":[
+              {"id":"\(id.uuidString)","name":"Studio","address":"a.example","port":22,
+               "username":"anthony","authMethod":"deviceKey","somethingNew":true}],
+             "aFutureField":7}
+            """
+        defaults.set(Data(future.utf8), forKey: "hosts")
+
+        let store = HostStore(defaults: defaults, secrets: InMemorySecretStore())
+
+        #expect(store.hosts.map(\.id) == [id])
+        #expect(store.catalogLoadError == nil)
+        #expect(store.catalogNotice != nil)
+        // And the file is not rewritten just for having been read.
+        #expect(
+            String(decoding: try #require(defaults.data(forKey: "hosts")), as: UTF8.self)
+                .contains("somethingNew"))
+        try store.add(Host.fixture(name: "Added"))
+        #expect(store.hosts.count == 2)
+    }
+
+    /// One Host this build cannot decode is one hole, not the whole catalog.
+    @Test func oneUnreadableHostDoesNotTakeTheCatalogWithIt() throws {
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
+        let good = UUID()
+        let mixed = """
+            {"version":1,"hosts":[
+              {"id":"not-a-uuid","name":"Broken","address":"b.example","port":22,
+               "username":"dev","authMethod":"deviceKey"},
+              {"id":"\(good.uuidString)","name":"Good","address":"a.example","port":22,
+               "username":"anthony","authMethod":"deviceKey"}]}
+            """
+        defaults.set(Data(mixed.utf8), forKey: "hosts")
+
+        let store = HostStore(defaults: defaults, secrets: InMemorySecretStore())
+
+        #expect(store.hosts.map(\.id) == [good])
+        #expect(store.catalogLoadError == nil)
+        #expect(store.catalogNotice?.contains("could not be read") == true)
+        // The bytes stay as they are: a build that can read the other Host
+        // must still find it there.
+        #expect(
+            String(decoding: try #require(defaults.data(forKey: "hosts")), as: UTF8.self)
+                .contains("Broken"))
+    }
+
     @Test func updateReplacesTheStoredHost() throws {
         let (defaults, cleanup) = try makeDefaults()
         defer { cleanup() }
@@ -223,6 +277,39 @@ struct HostStoreTests {
         #expect(removal.errorMessage != nil)
         removal.dismissError()
         #expect(removal.errorMessage == nil)
+    }
+}
+
+@MainActor
+@Suite("Host credentials")
+struct HostCredentialsProviderTests {
+    /// The adopted-Host state: a password Host whose password stayed on the
+    /// other device. Distinct from a password that was offered and refused.
+    @Test func aPasswordHostWithNoStoredPasswordNeedsEntryHere() throws {
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
+        let secrets = InMemorySecretStore()
+        let store = HostStore(defaults: defaults, secrets: secrets)
+        let credentials = HostCredentialsProvider(
+            deviceKeys: DeviceKeyStore(secrets: InMemorySecretStore()), secrets: secrets)
+        let adopted = Host.fixture(authMethod: .password)
+        try store.add(adopted)
+
+        #expect(credentials.needsPasswordEntry(for: adopted))
+        #expect(throws: HostCredentialsError.passwordNotSet) {
+            _ = try credentials.credentials(for: adopted)
+        }
+
+        try store.update(adopted, password: "hunter2")
+        #expect(!credentials.needsPasswordEntry(for: adopted))
+        // A device-key Host never asks for one.
+        #expect(!credentials.needsPasswordEntry(for: Host.fixture()))
+    }
+
+    private func makeDefaults() throws -> (UserDefaults, cleanup: () -> Void) {
+        let suiteName = "hm-credentials-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        return (defaults, { defaults.removePersistentDomain(forName: suiteName) })
     }
 }
 

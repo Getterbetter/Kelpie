@@ -18,29 +18,64 @@ final class AgentNotificationCenterDelegate: NSObject, UNUserNotificationCenterD
 {
     private let directory: AgentSceneDirectory
     private let loadKeys: @Sendable () -> [NotificationKeyRecord]
+    private let bannerStore: @MainActor @Sendable () -> AgentNotificationBannerStore?
 
     init(
         directory: AgentSceneDirectory,
         loadKeys: @escaping @Sendable () -> [NotificationKeyRecord] = {
             (try? NotificationKeyStore().allRecords()) ?? []
+        },
+        bannerStore: @escaping @MainActor @Sendable () -> AgentNotificationBannerStore? = {
+            AgentNotificationBannerPresenter.store
         }
     ) {
         self.directory = directory
         self.loadKeys = loadKeys
+        self.bannerStore = bannerStore
     }
 
-    /// Foreground pushes never present (#77): while the app is foregrounded
-    /// the live event stream announces transitions through the in-app banner
-    /// (`AgentNotificationBannerStore`), so the system banner is fully
-    /// silenced. Background and killed-state delivery is untouched —
-    /// willPresent only runs for a foregrounded app.
+    /// A push delivered while the app is foregrounded (#77, revised round
+    /// 12b). It used to return `[]` unconditionally, on the assumption that
+    /// the Console's live event stream would announce the same transition
+    /// through the in-app banner. The two pipelines are independent and
+    /// neither knows about the other: whenever the banner's own gates do not
+    /// fire — the Host's confirmed flags unknown, the Console reconnecting,
+    /// its list not yet synced — the one message that *did* arrive was
+    /// thrown away, and the user saw nothing at all.
+    ///
+    /// So the push is always presented: in-app when it resolves to an Agent
+    /// (the banner store de-duplicates it against a transition it just
+    /// announced itself), through iOS otherwise. Only the Agent the user is
+    /// actually looking at stays silent.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions)
             -> Void
     ) {
-        completionHandler([])
+        // Resolved on the callback queue; only Sendable values cross. The
+        // copy is the service extension's: decrypted and rewritten there, or
+        // the relay's generic fallback when it could not be.
+        let content = notification.request.content
+        let target = AgentNotificationRouting.target(
+            userInfo: content.userInfo, keys: loadKeys())
+        let alert = AgentNotificationAlert(title: content.title, body: content.body)
+        let complete = UncheckedSendable(completionHandler)
+        Task { @MainActor [directory, bannerStore] in
+            let store = bannerStore()
+            switch AgentNotificationRouting.foregroundPresentation(
+                target: target, presentedAgent: directory.keyScenePresentedAgent,
+                canPresentInApp: store != nil)
+            {
+            case .inAppBanner(let target):
+                store?.presentPush(target: target, alert: alert)
+                complete.value([])
+            case .suppressed:
+                complete.value([])
+            case .systemBanner:
+                complete.value([.banner, .list, .sound])
+            }
+        }
     }
 
     /// A tap (the default action) deep-links to the Agent's Attach through
@@ -58,7 +93,16 @@ final class AgentNotificationCenterDelegate: NSObject, UNUserNotificationCenterD
             : nil
         let complete = UncheckedSendable(completionHandler)
         Task { @MainActor [directory] in
-            if isDefaultTap { directory.open(target) }
+            if isDefaultTap {
+                directory.open(target)
+                // `open(nil)` sets `path = []`, which on Kelpie's root is not
+                // a change at all — the tap would otherwise do literally
+                // nothing. Say so, and present the Console behind the notice
+                // (N5).
+                if target == nil {
+                    HerdrClientNoticeStore.shared.post(.unreadableNotification)
+                }
+            }
             complete.value()
         }
     }

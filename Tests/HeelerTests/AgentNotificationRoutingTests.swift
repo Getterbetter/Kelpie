@@ -122,4 +122,56 @@ struct AgentNotificationRoutingTests {
                 target: nil, presentedAgent: ConsoleAgent.ID(hostID: UUID(), paneID: "wV:p1")))
         #expect(!AgentNotificationRouting.shouldSuppressBanner(target: nil, presentedAgent: nil))
     }
+
+    // MARK: Foreground presentation
+
+    /// The rule that replaced `willPresent` returning `[]` unconditionally:
+    /// a delivered push is the only evidence the whole chain works, so it is
+    /// presented one way or the other.
+    @Test func aForegroundPushGoesToTheInAppBanner() {
+        let target = AgentNotificationTarget(hostID: UUID(), paneID: "wV:p1")
+
+        #expect(
+            AgentNotificationRouting.foregroundPresentation(
+                target: target, presentedAgent: nil, canPresentInApp: true)
+                == .inAppBanner(target))
+    }
+
+    /// The gap that made Open item 19 silent in both directions: with no
+    /// banner store to hand it to, the push used to be dropped.
+    @Test func aForegroundPushFallsBackToTheSystemBannerWithNoInAppPath() {
+        let target = AgentNotificationTarget(hostID: UUID(), paneID: "wV:p1")
+
+        #expect(
+            AgentNotificationRouting.foregroundPresentation(
+                target: target, presentedAgent: nil, canPresentInApp: false)
+                == .systemBanner)
+    }
+
+    /// An undecryptable envelope has nowhere to tap through to, so iOS
+    /// presents it; a tap at least opens the app.
+    @Test func anUnresolvableForegroundPushUsesTheSystemBanner() {
+        #expect(
+            AgentNotificationRouting.foregroundPresentation(
+                target: nil, presentedAgent: nil, canPresentInApp: true)
+                == .systemBanner)
+    }
+
+    /// The one case that stays silent: the user is looking at that Agent.
+    @Test func theWatchedAgentsOwnPushIsSuppressed() {
+        let hostID = UUID()
+        let target = AgentNotificationTarget(hostID: hostID, paneID: "wV:p1")
+
+        #expect(
+            AgentNotificationRouting.foregroundPresentation(
+                target: target,
+                presentedAgent: ConsoleAgent.ID(hostID: hostID, paneID: "wV:p1"),
+                canPresentInApp: true) == .suppressed)
+        // Even with nowhere to present it: silence is the point.
+        #expect(
+            AgentNotificationRouting.foregroundPresentation(
+                target: target,
+                presentedAgent: ConsoleAgent.ID(hostID: hostID, paneID: "wV:p1"),
+                canPresentInApp: false) == .suppressed)
+    }
 }

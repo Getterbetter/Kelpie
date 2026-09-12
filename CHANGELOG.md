@@ -113,6 +113,10 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
+- Scrolling the terminal by touch puts the software keyboard away, the way
+  Messages does on a drag. iPadOS keyboards keep their own dismiss key, and a
+  hardware keyboard is never affected; a tap on the pane brings the keyboard
+  back. (Kelpie)
 - Kelpie runs on the iPhone: herdr's own mobile layout below 64 columns, a
   12 pt default, and Next Tab / Previous Tab / Toggle Sidebar / Zoom Pane in
   the Kelpie menu. (Kelpie)
@@ -223,6 +227,133 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   without flashing gray or shrinking. (PR #302)
 - Fixed missed taps on terminal controls near the left edge, where the
   swipe-back gesture could intercept them. (PR #302)
+- Editing a Host's herdr session name takes effect without relaunching. The
+  root screen read the name once, when it first attached to that Host, so
+  every later attach — a reconnect, a recovery after the app was away, coming
+  back from the Agents console — kept opening the session you had renamed
+  away from. (Kelpie)
+- The screen says so when it loses the connection. A herdr client that was
+  detached and never reattached used to sit on a frozen last frame with no
+  message and no way back, and the menu's Reconnect did nothing; it now shows
+  Disconnected with a Reconnect that reattaches. (Kelpie)
+- Moving between Wi-Fi, cellular and a VPN reconnects straight away. The old
+  connection could look alive for the best part of a minute — a live-looking
+  but frozen terminal — before the app noticed; a network change now
+  distrusts it immediately and dials again. (Kelpie)
+- A terminal that dies takes the Host's status with it. The Host used to keep
+  reading connected while its terminal was plainly dead, and Reconnect
+  re-used the dead connection and failed again. (Kelpie)
+- Opening the Agents console always opens it. It waits for the herdr client
+  to hand the Host's terminal back, and a hand-off that stalled left the
+  console unreachable for the rest of the session with nothing on screen to
+  say so; the wait is now bounded, shows progress on the menu chip, and the
+  console opens with a line explaining what happened and a Retry. (Kelpie)
+- A tapped notification this device cannot read says so instead of doing
+  nothing. (Kelpie)
+- The menu chip is easier to hit. It kept its size but its tap target is now
+  the full 44 pt, so a near miss opens the menu instead of being forwarded to
+  herdr as a click — which matters most on a phone, where it sits over
+  herdr's own header. (Kelpie)
+- Backgrounding the app can no longer hang on a stalled connection. Every
+  step of the teardown iOS waits for is now bounded, so the app finishes
+  suspending instead of being killed for taking too long. (Kelpie)
+- A Host that moves reaches the second device with its host key. Taking a
+  sibling's new address — the mini moving to its Tailscale address — used to
+  leave that device with no trusted key for the new endpoint, and the root
+  screen, which never asked, refused every connection with nothing on screen
+  to say why. The record's fingerprints now travel with its address, and an
+  unknown key on a Host you already have asks for confirmation instead of
+  being refused silently. A key that *changed* is still a hard failure. (Kelpie)
+- Deleting a Host deletes it on the other device too. The sibling still held
+  it, so its next sync put the Host, its key and its notifications straight
+  back; a deletion is now carried across and the Host stays gone. Pairing the
+  same machine again is a fresh Host, unaffected. (Kelpie)
+- Pairing a machine again after deleting it on another device keeps it. The
+  deletion still counted as the newer change, so the next sync removed the
+  Host that had just been paired; and a Host deleted at the moment the app was
+  publishing came back on both devices. (Kelpie)
+- Pairing a machine this device already has updates that Host instead of
+  adding a second row for it. Two rows for one machine silently broke the
+  older one's notifications. The Host's name and session are kept, and the
+  confirmation says "Updated" rather than "Added". (Kelpie)
+- A Host that arrived from another device without its password says so.
+  Passwords deliberately never sync, and the Host read as "Authentication
+  failed" with nothing pointing at the missing password. (Kelpie)
+- A Host list saved by a newer version of Kelpie can still be read, and Hosts
+  can still be added. It used to read as empty *and* block every add, which
+  left no way back. A single Host the app cannot read no longer takes the
+  whole list with it, and neither case rewrites the saved file. (Kelpie)
+- One unreadable entry in the trusted-host-key store no longer discards the
+  rest. It made every Host's key read as missing and the next confirmation
+  wrote that emptiness back. (Kelpie)
+- The iOS double-space full stop lands where iOS means it. Two spaces on the
+  software keyboard rewrite the trailing space as ". ", and Kelpie typed the
+  stop after the space it had already sent; the replaced characters are now
+  taken back from the pane first. Autocorrection in the Agents console is
+  corrected the same way. (Kelpie)
+- Autocorrect no longer rewrites the wrong characters after an arrow key. The
+  app keeps a model of the line it has typed so it knows what a rewrite takes
+  back, and arrow keys, Esc and the word-wise editing chords used to leave
+  that model describing a line that no longer existed — so a correction could
+  delete characters the user never meant. Cursor moves and deletions are
+  tracked now, and anything the app cannot model makes the next rewrite stand
+  down instead of guessing. (Kelpie)
+- Tapping a file path in the terminal reaches herdr. The path used to swallow
+  the tap whole and open the Host file viewer instead, so a tap meant to place
+  a cursor, dismiss a menu or pick a row sent nothing at all — and agent
+  output is full of paths. The tap is herdr's again; to open a file, select
+  the path (double tap it, or hold with two fingers) and choose Open from the
+  menu beside Copy. Tapping a URL is unchanged. (Kelpie)
+- The keyboard's extra row follows the text size, and its keys meet the
+  minimum touch target. They were 38 pt with fixed 16 pt captions that ignored
+  Dynamic Type entirely. (Kelpie)
+- Docking or undocking a Magic Keyboard while Kelpie is in the background is
+  noticed on the way back. The answer is re-read on every activation rather
+  than relying on a notification delivered to a suspended app, so the key row,
+  the keyboard focus and the Agent input mode are no longer left wrong until
+  the next relaunch. (Kelpie)
+- Hiding the key row no longer leaves Ctrl or Alt armed. Arming Ctrl and then
+  attaching a keyboard took the row away with the modifier still held, and the
+  next letter typed went out as a control chord — `c` as `^C`, which kills the
+  agent. (Kelpie)
+- Scrolling only takes the keyboard down when the pane actually scrolled, and
+  it now also takes down the Agents console's own input field. (Kelpie)
+- Notifications survive a change of push token or APNs environment. A Host
+  registered from a development build kept that entry after the same install
+  moved to TestFlight, so every push went to the sandbox APNs host and was
+  dropped; the app now records what it last registered on each Host and
+  rewrites the entry — same notify flags — as soon as either changes. A
+  second device that adopts a Host through iCloud also registers once its
+  push token arrives, instead of only on a later connection. (Kelpie)
+- The APNs environment comes from how the app was signed, not from how it was
+  built. A Release build installed on a development profile got sandbox tokens
+  and told the Host they were production ones, so every push went to the wrong
+  Apple server — which answers "bad token" rather than "gone", so nothing was
+  ever retried or cleaned up. (Kelpie)
+- A notification that arrives while Kelpie is open is shown. It used to be
+  discarded on the assumption the in-app banner would announce the same thing,
+  which left nothing at all whenever that banner's own conditions were not met
+  — the case Anthony hit. The Agent you are actually looking at still stays
+  quiet, and the two paths no longer double up. (Kelpie)
+- An Agent that finishes while the Host is reconnecting still notifies. Every
+  reconnect cleared the Agent list, and the first list back was treated as
+  "nothing has changed yet", so a Blocked or Done that happened over an iPad
+  sleep or a network change was swallowed. (Kelpie)
+- Turning notifications off in iOS Settings now shows up in Kelpie. The app
+  stopped re-checking permission once it held a token, so Settings kept
+  claiming notifications were ready while iOS dropped every push. (Kelpie)
+- Each Host's notification row says whether it is actually armed: when the
+  entry was written, which Apple server it points at, and a warning when that
+  disagrees with this build or when permission has been withdrawn. Failures
+  from Live Activity and paired-device registration are shown there too,
+  instead of only in a log line. (Kelpie)
+- Kelpie re-reads each Host's notification settings when it comes back to the
+  foreground, so a device the Host dropped re-registers itself instead of
+  looking healthy for hours. A reinstall registers again on its own too.
+  (Kelpie)
+- Deleting a Host deletes this device's notification key and its entry on the
+  Host, so a removed Host cannot keep pushing to a device that can no longer
+  say where the notification came from. (Kelpie)
 - Escape and Cmd+. reach the remote client. As a text-input first responder
   the terminal lost both to iPadOS before the key ever arrived; they are now
   claimed as shortcuts, the way the Ctrl chords already were. (Kelpie)

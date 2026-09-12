@@ -83,3 +83,60 @@ still wins and still persists, and Settings offers all three. The Client screen
 reads the same observer: with a keyboard it takes first responder on appear and
 shows no control pad, without one it shows the shell terminal's pad above the
 software keyboard.
+
+## Amendment (round 12): what the Client reads live, and what it draws
+
+Three gaps in the original implementation, all of the same shape — state the
+screen held but never revalidated, and states the screen could reach but never
+drew.
+
+**The Host is read live, not captured.** `HerdrClientHostView` is identified by
+`host.id`, and `Host.id` survives `HostStore.update`, so editing a Host does
+not rebuild the store. Everything the attach needs is therefore late-bound:
+`ConsoleStore.terminalRunner(for:)` already resolved the Host's live projection
+on every call, and the herdr session name — the one field the store had
+captured — now arrives through `HerdrClientStore.hostDidChange(sessionName:)`
+from an `onChange` on the live `Host`. On stage that replaces the pipeline at
+once; off stage the new name is simply what the next `adoptReplacement` builds
+with. Trimming lives in the store, so an emptied field means bare `herdr`.
+
+**Every state the store can be in has a visible representation.**
+`HerdrClientStore.statusPresentation` is the single mapping the screen draws
+from:
+
+| Store state | Overlay |
+|---|---|
+| active, on stage, waiting for size / connecting / replacing / stopped | "Connecting…", progress, no dim |
+| active, on stage, live | none |
+| active, on stage, ended | "Session Ended" + Reconnect |
+| left, off stage (the Console cover is up) | none — the cover draws its own screen |
+| left, still on stage (an `onDisappear` with no balancing `onAppear`) | "Disconnected" + Reconnect |
+| rejoin required (a replacement abandoned off stage) | "Disconnected" + Reconnect |
+
+The last two are what `needsRejoin` names, and `reconnect()` now handles them
+by rejoining rather than guarding itself into a no-op. Before this they fell
+through `.stopped` to no overlay at all: a frozen last frame with no spinner,
+no message and no Reconnect, recoverable only by a background round trip.
+
+**The Console hand-off is bounded and visible.** A Transport serves one Attach
+channel at a time, so `prepareForConsole()` still ends the Client's attach
+before the cover comes up — but against a deadline
+(`HerdrClientCommands.consoleHandoffTimeout`, 4 s). While it is in flight the
+menu chip shows a spinner in place of its glyph. On expiry the cover is
+presented anyway — the Console is the only route to Agents, and an Agent Attach
+that is refused surfaces `terminalChannelAlreadyOpen` properly — with a one-line
+notice over it carrying a Retry.
+
+That notice strip is also where an unreadable notification tap lands.
+`AgentNotificationRouter.open(nil)` expresses "no target" as `path = []`, which
+on this root is not a change at all, so such a tap did nothing;
+`HerdrClientNoticeStore` is the separate "a tap happened" signal, and the root
+presents the Console on it.
+
+**The menu chip keeps its size and gains a 44 pt target.** It is the only route
+to Hosts, Agents, Settings, Setup Guide, Reconnect and every attach command,
+it is about 28 pt tall on its own, and on a phone it sits in the bottom corner
+over herdr's mobile surface — where a miss is forwarded to the PTY as a click.
+The capsule is unchanged; a `frame(minWidth: 44, minHeight: 44)` plus a
+rectangular `contentShape` swallows the margin, and the pointer highlight keeps
+the capsule's own shape.

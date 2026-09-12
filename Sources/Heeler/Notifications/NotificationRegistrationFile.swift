@@ -217,6 +217,18 @@ struct NotificationRegistrationFile: Sendable, Equatable {
         return ids
     }
 
+    /// The APNs environment the entry carrying `token` names, nil when that
+    /// device is not registered or the field is missing or unrecognised.
+    /// Read rather than assumed: an entry whose `env` disagrees with the one
+    /// this install registers in sends every push to the wrong APNs host,
+    /// which answers `400 BadDeviceToken` and prunes nothing (ADR 0008).
+    func environment(token: String) -> APNSEnvironment? {
+        guard let entry = devices.first(where: { $0["token"]?.stringValue == token }),
+            let raw = entry["env"]?.stringValue
+        else { return nil }
+        return APNSEnvironment(rawValue: raw)
+    }
+
     /// The notify flags of the entry carrying `token`, nil when that device
     /// is not registered. A missing or mistyped flag reads as off — the same
     /// fail-closed reading the plugin's notify hook applies (v1 contract).

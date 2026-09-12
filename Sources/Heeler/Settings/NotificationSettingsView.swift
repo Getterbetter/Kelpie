@@ -91,9 +91,21 @@ struct NotificationSettingsView: View {
                     .foregroundStyle(.green)
                     .accessibilityHidden(true)
             }
-        case .denied:
+        case .denied, .revoked:
             VStack(alignment: .leading, spacing: 6) {
                 Text("Notifications are turned off for Kelpie.")
+                // The Hosts keep their entries and keep sending; iOS drops
+                // every push. Nothing else on the device says so, so this
+                // row does (#3, #6).
+                if hasAnyRegisteredHost {
+                    Text(
+                        "This device is still registered with a Host, "
+                            + "but iOS will not deliver anything until you turn "
+                            + "notifications back on."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                }
                 Button("Open Kelpie Settings") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         openURL(url)
@@ -180,17 +192,66 @@ struct NotificationSettingsView: View {
         }
     }
 
+    /// Whether any Host still holds an entry for this device — the thing
+    /// that makes withdrawn permission a silent failure rather than a
+    /// setting nobody used.
+    private var hasAnyRegisteredHost: Bool {
+        notificationPreferences.hosts.contains { registeredSettings(for: $0.id) != nil }
+    }
+
+    private func registeredSettings(
+        for hostID: Host.ID
+    ) -> NotificationPreferencesStore.HostSettings? {
+        switch notificationPreferences.states[hostID] {
+        case .idle(let settings), .updating(let settings), .failed(_, let settings):
+            settings.isRegistered ? settings : nil
+        case .loading, .unavailable, nil:
+            nil
+        }
+    }
+
+    /// The end-to-end health of one Host's registration (#6). Nothing here
+    /// proves a push arrives — only a delivered push does that — but these
+    /// are the two disagreements the app *can* see, and both of them
+    /// previously failed in total silence: a `400 BadDeviceToken` from a
+    /// wrong-environment entry prunes nothing and retries nothing.
+    @ViewBuilder
+    private func hostHealth(_ host: Host) -> some View {
+        if let settings = registeredSettings(for: host.id) {
+            let buildEnvironment =
+                pushRegistration.deviceToken?.environment ?? APNSEnvironment.current
+            if let entryEnvironment = settings.environment, entryEnvironment != buildEnvironment {
+                Text(
+                    "This Host's entry is for the \(entryEnvironment.rawValue) APNs "
+                        + "environment; this build registers in \(buildEnvironment.rawValue). "
+                        + "Pushes are being sent to the wrong Apple server. "
+                        + "Turn Notifications off and on again to rewrite it."
+                )
+                .foregroundStyle(.red)
+            } else if let entryEnvironment = settings.environment {
+                Text("APNs environment: \(entryEnvironment.rawValue).")
+            }
+            if let registeredAt = notificationPreferences.lastRegistrationDate(for: host.id) {
+                Text(
+                    "This device registered \(registeredAt.formatted(date: .abbreviated, time: .shortened))."
+                )
+            } else {
+                Text("This device's registration date is not recorded on this install.")
+            }
+            // Failures from the registration side-paths, which used to log
+            // once per process and never speak again (#8).
+            if let note = notificationPreferences.registrationNotes[host.id] {
+                Text(note)
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
     @ViewBuilder
     private func hostSectionFooter(_ host: Host) -> some View {
-        let registered: Bool = {
-            switch notificationPreferences.states[host.id] {
-            case .idle(let settings), .updating(let settings), .failed(_, let settings):
-                settings.isRegistered
-            case .loading, .unavailable, nil:
-                false
-            }
-        }()
+        let registered = registeredSettings(for: host.id) != nil
         VStack(alignment: .leading, spacing: 6) {
+            hostHealth(host)
             if registered {
                 Text(NotificationPrivacyCopy.liveActivityFooter)
                 if !liveActivities.areActivitiesEnabled {

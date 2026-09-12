@@ -53,6 +53,34 @@ struct HostOnboardingPresentationTests {
         #expect(presentation.footerMessage == failure.presentation.message)
     }
 
+    /// A Host adopted from a sibling arrives without its password (ADR 0018)
+    /// and fails authentication because nothing was offered — "Update this
+    /// Host's credentials or authorized key" sends the user after the wrong
+    /// thing. Only that one case is reworded.
+    @Test func aHostWithNoPasswordHereSaysSoInsteadOfAuthenticationFailed() {
+        let needsPassword = HostOnboardingConnectionPresentation(
+            status: .failed(.authenticationFailed),
+            isManualReconnectInFlight: false,
+            needsPasswordEntry: true)
+        #expect(
+            needsPassword.footerMessage == HostCredentialsProvider.passwordEntryNeededMessage)
+
+        let hasPassword = HostOnboardingConnectionPresentation(
+            status: .failed(.authenticationFailed),
+            isManualReconnectInFlight: false,
+            needsPasswordEntry: false)
+        #expect(
+            hasPassword.footerMessage == TransportError.authenticationFailed.presentation.message)
+
+        // Every other failure keeps its own words, password or not.
+        let unreachable = TransportError.sshUnreachable(detail: "connection refused")
+        let other = HostOnboardingConnectionPresentation(
+            status: .failed(unreachable),
+            isManualReconnectInFlight: false,
+            needsPasswordEntry: true)
+        #expect(other.footerMessage == unreachable.presentation.message)
+    }
+
     @Test func footerMatrixCoversEveryHostDetailRow() {
         let failure = TransportError.streamLocalOpenFailed(path: "/tmp/herdr.sock")
         let rows: [(

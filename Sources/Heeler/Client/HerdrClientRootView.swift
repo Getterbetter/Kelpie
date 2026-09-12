@@ -28,6 +28,11 @@ struct HerdrClientRootView: View {
     /// Passed explicitly, like `hardwareKeyboard`: the sheet is transient but
     /// the three loaded products should outlive it.
     let tipJar: TipJarStore
+    /// One-line notices posted from outside the view tree — an unreadable
+    /// notification tap, a Console hand-off that timed out. Defaulted rather
+    /// than injected, so it stays out of the memberwise initializer and off
+    /// every call site; see `HerdrClientNoticeStore`.
+    let notices = HerdrClientNoticeStore.shared
 
     @State private var primaryHost = PrimaryHostStore()
     /// The live Client's handle, set by the screen that owns it — the same
@@ -163,11 +168,24 @@ struct HerdrClientRootView: View {
         .animation(.snappy, value: bannerStore.banner)
         .fullScreenCover(isPresented: $isShowingConsole) {
             consoleScreen(onClose: { isShowingConsole = false })
+                // Over the cover's content, from here rather than inside
+                // ConsoleView: the notices are the root screen's business —
+                // one is about the Client's own Attach hand-off — and the
+                // Console is whole exactly as it was.
+                .overlay(alignment: .top) { consoleNotice }
+                .animation(.snappy, value: notices.notice)
+                // An alert on the root view cannot present while the cover is
+                // up, so the cover answers the broker's first-connect question
+                // too — whichever presenter is on top takes it.
+                .hostKeyConfirmation()
                 // On the cover's own content, not inside `consoleScreen`:
                 // the Console screen is the cover's role alone, and a
                 // second use of it — as a root, as it once was — must not
                 // clear the router's path by being torn down.
-                .onDisappear { notificationRouter.path = [] }
+                .onDisappear {
+                    notificationRouter.path = []
+                    notices.dismiss()
+                }
         }
         .sheet(
             isPresented: $isShowingSetupGuide,
@@ -230,6 +248,14 @@ struct HerdrClientRootView: View {
         }
         // A notification tap routes through the Console, so the Console has
         // to be on screen for it to land.
+        // An unreadable notification tap resolves to no target at all, and
+        // `AgentNotificationRouter.open(nil)` expresses that as `path = []` —
+        // which is not a change, so the tap did nothing on this root (N5).
+        // The notice store is the separate "a tap happened" signal.
+        .onChange(of: notices.requestsConsole) { _, requested in
+            guard requested else { return }
+            presentConsole()
+        }
         .onChange(of: notificationRouter.path, initial: true) { _, path in
             guard !path.isEmpty else { return }
             hostSheet = nil
@@ -256,13 +282,75 @@ struct HerdrClientRootView: View {
     /// actually closed. A Transport serves one channel at a time and an Agent
     /// Attach does not retry a refusal, so presenting first and closing after
     /// is a race — and the deep link is the flow that would lose it.
+    ///
+    /// Bounded (S4). The hand-off awaits an SSH teardown that may not return
+    /// promptly, and an unbounded wait here made the Console unreachable for
+    /// the rest of the session with nothing on screen to say so: tapping
+    /// "Agents", or a notification deep link, simply appeared to do nothing.
+    /// On expiry the cover is presented anyway — an Agent Attach that is
+    /// refused surfaces `terminalChannelAlreadyOpen` properly — with a notice
+    /// that says what happened and offers a Retry.
     private func presentConsole() {
         guard !isShowingConsole, !isPreparingConsole else { return }
         isPreparingConsole = true
         Task { @MainActor in
-            await commands.prepareForConsole()
+            let handedOver = await commands.prepareForConsole()
             isPreparingConsole = false
+            if !handedOver {
+                notices.post(.consoleHandoffTimedOut, presentingConsole: false)
+            }
             isShowingConsole = true
+            notices.consoleWasPresented()
+        }
+    }
+
+    /// Retries a hand-off that timed out, from the notice's own button. The
+    /// cover is already up, so this is only about the channel.
+    private func retryConsoleHandoff() {
+        guard !isPreparingConsole else { return }
+        isPreparingConsole = true
+        Task { @MainActor in
+            let handedOver = await commands.prepareForConsole()
+            isPreparingConsole = false
+            if handedOver { notices.dismiss() }
+        }
+    }
+
+    /// The notice strip over the Console cover: one line, one dismissal, and
+    /// a Retry where there is something to retry.
+    @ViewBuilder
+    private var consoleNotice: some View {
+        if let notice = notices.notice {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: notice.symbol)
+                Text(notice.message)
+                    .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if notice.isRetryable {
+                    Button("Retry") { retryConsoleHandoff() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(isPreparingConsole)
+                }
+                Button {
+                    notices.dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss")
+            }
+            .padding(.leading, 14)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12).strokeBorder(.separator, lineWidth: 0.5))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .accessibilityElement(children: .contain)
         }
     }
 
@@ -373,7 +461,17 @@ struct HerdrClientRootView: View {
                 .padding(.vertical, 6)
                 .background(.regularMaterial, in: Capsule())
                 .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
-                .contentShape(Capsule())
+                // The pointer highlight keeps the capsule's own shape…
+                .contentShape(.hoverEffect, Capsule())
+                // …while the tap target is padded out to the 44 pt HIG
+                // minimum without the capsule growing (screen #7). This is
+                // the only route to Hosts, Agents, Settings and Reconnect,
+                // it is ~28 pt tall on its own, and on a phone it sits in
+                // the bottom corner over herdr's mobile surface — where a
+                // miss is forwarded to the PTY as a click. The rectangle
+                // swallows that margin instead.
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .foregroundStyle(.primary)
         // Near-opaque at rest: the material capsule already separates it from
@@ -397,7 +495,20 @@ struct HerdrClientRootView: View {
     /// says what this is and herdr's tab strip needs the columns back.
     @ViewBuilder
     private var menuLabel: some View {
-        let label = Label(menuHostName, systemImage: "server.rack")
+        // Handing the Attach channel back takes a round trip, and until it
+        // lands nothing on screen changes (S4). The capsule is where the tap
+        // was, so the capsule is where the progress goes — same glyph slot,
+        // same size, so the chip does not resize under the finger.
+        let icon = isPreparingConsole ? "hourglass" : "server.rack"
+        let label = Label {
+            Text(menuHostName)
+        } icon: {
+            if isPreparingConsole {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: icon)
+            }
+        }
         if isCompactWidth {
             label.labelStyle(.iconOnly)
         } else {
@@ -470,11 +581,29 @@ final class HerdrClientCommands {
 
     func stage(_ items: [MediaIntakeItem]) { media?.stage(items) }
 
-    /// Ends the Client's attach and waits for the channel to close.
-    func prepareForConsole() async {
-        guard let store else { return }
+    /// How long the Console hand-off waits for the Client's Attach channel to
+    /// close. Teardown awaits an SSH close that may ignore cancellation, and
+    /// the Console must stay reachable either way.
+    static let consoleHandoffTimeout: Duration = .seconds(4)
+
+    /// Ends the Client's attach and waits for the channel to close, bounded
+    /// (S4). Returns whether the channel was actually handed back: false
+    /// means the cover should still come up — the Console is the user's only
+    /// route to Agents — but an Agent Attach may be refused until the old
+    /// channel finally closes, which is worth saying out loud.
+    @discardableResult
+    func prepareForConsole(
+        timeout: Duration = HerdrClientCommands.consoleHandoffTimeout
+    ) async -> Bool {
+        guard let store else { return true }
         store.setPresented(false)
-        await store.leave().value
+        let handoff = store.leave()
+        do {
+            try await AsyncDeadline.run(for: timeout) { await handoff.value }
+            return true
+        } catch {
+            return false
+        }
     }
 }
 
@@ -546,6 +675,15 @@ private struct HerdrClientHostView: View {
         )
         .onChange(of: console.hostConnectionGenerations[host.id]) { _, generation in
             store.transportGenerationDidChange(generation)
+        }
+        // M1. This view is identified by `host.id`, and `Host.id` survives
+        // `HostStore.update`, so editing the Host updates this `host` value
+        // without rebuilding the store. The one field the store captures
+        // rather than resolving late is the herdr session name — left
+        // captured, every later attach still runs `herdr --session "<old>"`
+        // until the app is relaunched.
+        .onChange(of: host.sessionName) { _, sessionName in
+            store.hostDidChange(sessionName: sessionName)
         }
         .onChange(of: isShowingConsole, initial: true) { _, isShowing in
             store.setPresented(!isShowing)

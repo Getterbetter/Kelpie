@@ -17,6 +17,19 @@ struct PairingFailure: Equatable, Sendable {
     let canRetry: Bool
 }
 
+/// What one successful pairing did: which Host it belongs to, and whether
+/// that Host already existed here. A second pairing of the same machine
+/// updates the Host it finds, so the user is told which of the two happened
+/// rather than left to notice a duplicate row.
+struct PairingOutcome: Equatable, Sendable {
+    let host: Host
+    let updatedExisting: Bool
+
+    var message: String {
+        updatedExisting ? "Updated \(host.displayName)" : "Added \(host.displayName)"
+    }
+}
+
 /// Drives Scan to Pair (#62, #66, #204): turns strings recognized by the QR
 /// scanner or pasted from the clipboard into a parsed Pairing Code, runs
 /// the ceremony through the injected `PairingConnector`, and persists the
@@ -41,11 +54,20 @@ final class PairingScanStore {
     /// The persisted Host, set only after the verified reconnect succeeded.
     /// The view hands it to the same preflight a manually added Host enters.
     private(set) var pairedHost: Host?
+    /// Whether the pairing landed on a Host this device already had rather
+    /// than creating one. Set with `pairedHost`, and the reason the user is
+    /// told "Updated <name>" instead of quietly getting a second row.
+    private(set) var didUpdateExistingHost = false
 
     @ObservationIgnored private let catalog: HostStore
     @ObservationIgnored private let connector: any PairingConnector
     @ObservationIgnored private let knownHosts: any KnownHostsStore
     @ObservationIgnored private let credentials: HostCredentialsProvider
+    /// Pairing onto a Host this device already has keeps its address, port and
+    /// username, so iCloud pairing sync would see no edit at all — and a
+    /// sibling's tombstone from before the re-pair would then delete the Host
+    /// that was just paired. The pairing stamps the Host itself (ADR 0018).
+    @ObservationIgnored private let hostEdits: PairingSyncHostEdits
     @ObservationIgnored private let now: @Sendable () -> Date
     /// The code the next attempt will use: the scanned code, except after a
     /// verify-step failure, where the Bootstrap Key is dropped — Enrollment
@@ -65,12 +87,14 @@ final class PairingScanStore {
         connector: any PairingConnector = SSHPairingConnector(),
         knownHosts: any KnownHostsStore = UserDefaultsKnownHostsStore.shared,
         credentials: HostCredentialsProvider = HostCredentialsProvider(),
+        hostEdits: PairingSyncHostEdits = PairingSyncHostEdits(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.catalog = catalog
         self.connector = connector
         self.knownHosts = knownHosts
         self.credentials = credentials
+        self.hostEdits = hostEdits
         self.now = now
     }
 
@@ -155,11 +179,31 @@ final class PairingScanStore {
         // Only a fully verified ceremony creates a Host (ADR 0007). The
         // fingerprint pin lands with it, against the address that actually
         // answered, so preflight connects without a TOFU prompt.
-        let host = Host(
-            address: result.address, port: result.port, username: result.username,
-            authMethod: .deviceKey)
+        let existing = await existingHost(matching: result)
+        var host =
+            existing
+            ?? Host(
+                address: result.address, port: result.port, username: result.username,
+                authMethod: .deviceKey)
+        if existing != nil {
+            // The ceremony's coordinates are the live ones, and the device is
+            // now enrolled by key. Everything else about the Host — its name,
+            // its session, its Jump Host — is this device's own and is kept.
+            host.address = result.address
+            host.port = result.port
+            host.username = result.username
+            host.authMethod = .deviceKey
+        }
         do {
-            try catalog.add(host)
+            if existing != nil {
+                try catalog.update(host)
+                // Stamped before the catalog write reaches the reconcile that
+                // write triggers, so this pass already sees the re-pair as a
+                // local edit: newer than any tombstone, and republished.
+                hostEdits.markEdited(host, at: now())
+            } else {
+                try catalog.add(host)
+            }
         } catch {
             failure = PairingFailure(
                 step: .verify,
@@ -171,7 +215,14 @@ final class PairingScanStore {
         }
         await knownHosts.setFingerprint(
             result.hostKeyFingerprint, host: result.address, port: result.port)
+        didUpdateExistingHost = existing != nil
         pairedHost = host
+    }
+
+    /// What the pairing did, for the screen the user lands on. Nil until a
+    /// pairing succeeds.
+    var outcome: PairingOutcome? {
+        pairedHost.map { PairingOutcome(host: $0, updatedExisting: didUpdateExistingHost) }
     }
 
     /// Back to a fresh scanning state (the "Scan Again" action).
@@ -183,6 +234,36 @@ final class PairingScanStore {
         scanFailureMessage = nil
         failure = nil
         pairedHost = nil
+        didUpdateExistingHost = false
+    }
+
+    /// The Host this pairing belongs to, when the device already has one:
+    /// the same endpoint and account, or a Host whose pinned key is the one
+    /// that just answered — a machine whose address changed, or that was
+    /// re-paired after a wipe. Without this, pairing the mini a second time
+    /// leaves two rows for one machine, and the Host's `notifications.json`
+    /// (keyed by device token) keeps only the newer registration, so the
+    /// first row's push path goes quietly dead.
+    ///
+    /// Hosts reached through a Jump Host are never matched: their address is
+    /// a loopback port on the tunnel, which says nothing about the machine.
+    private func existingHost(matching result: PairingResult) async -> Host? {
+        let address = result.address.lowercased()
+        let candidates = catalog.hosts.filter { !$0.usesJumpHost }
+        if let byCoordinates = candidates.first(where: {
+            $0.address.lowercased() == address && $0.port == result.port
+                && $0.username == result.username
+        }) {
+            return byCoordinates
+        }
+        for host in candidates where host.username == result.username {
+            // The key identifies the machine, not the account on it. Two Hosts
+            // can be the same machine under different logins, and pairing as
+            // one of them says nothing about the other.
+            let pinned = await knownHosts.fingerprints(host: host.address, port: host.port)
+            if pinned.contains(result.hostKeyFingerprint) { return host }
+        }
+        return nil
     }
 
     // MARK: Failure copy

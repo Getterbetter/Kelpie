@@ -302,3 +302,44 @@ two-hop trust, direct-streamlocal RPC and Events, Jump Host, PTY, SFTP, policy
 denial, cancellation, and timeout suites must execute rather than skip, and CI
 will verify executed test counts. The fixture will neither install nor invoke
 socat and will clean up every process and temporary file.
+
+## Amendment (round 12): bounded teardown, and the network path
+
+Three additions to the transport layer, none of them changing the channel model.
+
+**Teardown is bounded.** `EventsSession.windDown` awaited the Attach permit with
+no deadline, and that await is the last link in the chain the app's UIKit
+background assertion hangs on (`AppActivityCoordinator.didEnterBackground` →
+`ConsoleActivityDriver` → `ConsoleStore.suspend` → `deactivate` → `windDown`).
+An SSH close that ignores cancellation therefore meant `didFinishSuspending()`
+never ran and iOS killed the app for failing to end its background task. The
+permit wait now has its own budget (`terminalIdleTimeout`, 5 s), logged on
+expiry, and `ConsoleStore.suspend` has an overall one (8 s) as the backstop —
+both well inside `AppActivityCoordinator.defaultGracePeriod`. Acquiring the
+permit is bounded too (`terminalAcquisitionTimeout`, 30 s): two terminals never
+coexist by design, so a wait that long means the previous holder is wedged, and
+failing with `.timedOut` gives the new surface something to show a Reconnect
+against instead of "Connecting…" forever.
+
+**A dead Attach channel is evidence about the connection.** The attach reader
+notices a severed link first — it polls at 1 s — while the events session is
+parked on a stream a dead socket never ends. `withTerminalTransport`'s failure
+path now marks the Transport suspect and ends the live channel for the failure
+shapes that mean the connection rather than the one channel (`.timedOut`,
+`.sshUnreachable`, `.channelFailed`), so the Host drops into its ordinary
+visible `.reconnecting` sequence and the next `ensureTransport` builds a fresh
+connection rather than reusing the dead one. Cancellation, a refused second
+reader, and herdr's own rejections are left alone.
+
+**The network path is watched.** `NetworkPathObserver` (an `NWPathMonitor`
+behind a `NetworkPathSource` protocol, so it is testable) reports a path lost,
+restored, or moved to different interfaces. A move calls
+`ConsoleStore.networkPathDidChange()`, which marks every Host's Transport
+suspect, ends its live channel and cuts short any backoff already under way,
+then revalidates. Without it a Wi-Fi→cellular hand-off or a LAN→Tailscale
+address change left a socket that was dead but still reported `isReusable`, and
+the user waited out the keepalive interval plus a request timeout — about 45 s
+— before `.reconnecting` even appeared. The nudge itself is capped
+(`NetworkPathRecoveryPolicy`, 4 attempts on a short backoff) because the
+session's own reconnect loop is unlimited and two unlimited loops re-dialling
+the same Host is not recovery.

@@ -1,3 +1,4 @@
+import GameController
 import GhosttyTerminal
 import Observation
 import SwiftUI
@@ -210,6 +211,10 @@ struct TerminalScreenView: UIViewRepresentable {
     var isLocalInputEnabled = true
     /// Applied before the first focus claim, including Agent tools handoffs.
     var initialKeyboardMode = TerminalKeyboardMode.text
+    /// The live hardware-keyboard answer, for the rules that must not fire
+    /// while a Magic Keyboard is attached — scroll-to-dismiss above all.
+    /// Unset, the surface reads GameController itself.
+    var isHardwareKeyboardConnected: (@MainActor () -> Bool)?
     /// Whether the key bar rides the software keyboard. Off — the Console's
     /// arrangement — leaves nothing on the keyboard at all.
     var showsKeyBar = false
@@ -246,6 +251,7 @@ struct TerminalScreenView: UIViewRepresentable {
             if let keyboardControl, keyboardControl.terminal !== view { return }
             onKeyboardHandoffEnded?(id, outcome)
         }
+        view.hardwareKeyboardProbe = isHardwareKeyboardConnected
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
         view.showsKeyBar = showsKeyBar
@@ -306,6 +312,7 @@ struct TerminalScreenView: UIViewRepresentable {
         let claimsKeyboardOnEnable = !view.isLocalInputEnabled
             && isLocalInputEnabled
             && (claimsKeyboard?() ?? false)
+        view.hardwareKeyboardProbe = isHardwareKeyboardConnected
         view.setTextInputStyle(textInputStyle)
         view.setLocalInputEnabled(isLocalInputEnabled)
         view.showsKeyBar = showsKeyBar
@@ -846,12 +853,46 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     // Ghostty keeps only marked text in its UITextInput document. UIKit needs
     // committed text to remain in that document so Backspace can observe a
     // shrinking selection and continue its native key repeat.
-    private var textInputStorage = ""
-    private var textInputSelection = NSRange(location: 0, length: 0)
+    //
+    // The model itself is pure (``TerminalInputShadow``) so the rules that
+    // decide what a write does to it can be tested without a surface.
+    private var textInputShadow = TerminalInputShadow()
+    private var textInputStorage: String { textInputShadow.text }
+    private var textInputSelection: NSRange { textInputShadow.selection }
+    /// DELs the app has already applied to the shadow itself, waiting for
+    /// their own echo through ``recordTerminalInput``.
+    ///
+    /// ``deleteBackward()`` has to edit the shadow synchronously — UIKit reads
+    /// `endOfDocument` straight after, and a rewrite's DEL loop needs the
+    /// caret to have moved before the next one — but the byte it sends comes
+    /// back a run-loop turn later through the same callback every other write
+    /// takes. Counting them here is what stops one press deleting twice, and
+    /// the leash inside is what stops an echo that never arrives swallowing
+    /// the next real Backspace.
+    private var shadowDeletesAwaitingEcho = TerminalShadowDeleteEchoes()
     private var terminalGridSize = (columns: 80, rows: 24)
     private var hasTerminalGridMetrics = false
     private var terminalCellSize = CGSize(width: 8, height: 16)
     private var touchScrollAccumulator = TerminalTouchScrollAccumulator()
+    /// Vertical travel of the pan in progress, for the scroll-to-dismiss rule.
+    /// The gesture handler zeroes its own translation on every step, so the
+    /// distance the finger has covered has to be kept here.
+    private var touchScrollTravelY: CGFloat = 0
+    /// Whether this pan has already taken the keyboard down. One dismissal per
+    /// gesture: a long scroll must not keep resigning a keyboard the user has
+    /// deliberately raised again.
+    private var didDismissKeyboardForTouchScroll = false
+    /// Whether this pan has moved the viewport at all. A drag where nothing
+    /// can scroll is not a scroll, and does not take the keyboard down.
+    private var didScrollDuringTouchGesture = false
+    /// Whether a hardware keyboard is attached. The root screen hands over its
+    /// live ``HardwareKeyboardObserver`` answer (a Magic Keyboard is undocked
+    /// mid-session); everything else reads GameController's coalesced
+    /// keyboard, which is the same source that observer watches.
+    var hardwareKeyboardProbe: (@MainActor () -> Bool)?
+    private var hasHardwareKeyboard: Bool {
+        hardwareKeyboardProbe?() ?? (GCKeyboard.coalesced != nil)
+    }
     private var touchScrollMomentumDisplayLink: CADisplayLink?
     private var touchScrollMomentumVelocityY: CGFloat = 0
     private var touchScrollMomentumTimestamp: CFTimeInterval = 0
@@ -1043,10 +1084,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 super.selectedTextRange = newValue
                 return
             }
-            let length = textInputStorage.utf16.count
-            let location = min(max(range.location, 0), length)
-            let end = min(max(range.location + range.length, location), length)
-            textInputSelection = NSRange(location: location, length: end - location)
+            textInputShadow.setSelection(
+                NSRange(location: range.location, length: range.length))
         }
     }
 
@@ -1122,12 +1161,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         else {
             return super.text(in: range)
         }
-        let text = textInputStorage as NSString
-        guard range.location >= 0, range.length >= 0,
-              range.location + range.length <= text.length
-        else { return nil }
-        return text.substring(
-            with: NSRange(location: range.location, length: range.length))
+        return textInputShadow.substring(
+            in: NSRange(location: range.location, length: range.length))
     }
 
     /// Whether ``TerminalKeyBar`` rides the keyboard. The Console's input row
@@ -1168,6 +1203,14 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard keyBar != nil else { return }
         setStickyModifierChangeHandler(nil)
         keyBar = nil
+        // An armed Ctrl or Alt lives in the vendored state machine, not in the
+        // bar, so dropping the bar would otherwise leave it armed with nothing
+        // on screen saying so — and the next character typed on the hardware
+        // keyboard that caused the drop would go out as a control chord (`c`
+        // as `^C`, which kills the agent). Round 12, finding 2. Clearing here
+        // is also what makes a re-shown bar start clean: its `refreshStickyKeys`
+        // reads this same state.
+        resetStickyModifiers()
     }
 
     /// Only a tap on the input row raises the keyboard, so the surface refuses
@@ -1495,6 +1538,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         isLocalInputEnabled = isEnabled
         if !isEnabled {
             cancelKeyboardTransitionLayoutDeferral()
+            // A paused pane must not be left holding a modifier either. The
+            // bar goes with the keyboard below; the state machine behind it
+            // would survive both.
+            resetStickyModifiers()
         }
         if !isEnabled, isFirstResponder {
             _ = dismissKeyboard()
@@ -1535,6 +1582,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// and Shell treat Enter as PTY CR (`0x0D`), matching shortcut Enter and
     /// `AgentQuickKey.enter` — not LF.
     override func insertText(_ text: String) {
+        TerminalKeyTrace.log("insertText \(TerminalKeyTrace.describe(text))")
         guard isLocalInputEnabled else { return }
         if consumeMatchingInsertEcho(text) {
             return
@@ -1549,7 +1597,67 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         super.insertText(text)
     }
 
+    /// UIKit's rewrites of text the user has already typed arrive here, not as
+    /// a delete and an insert: the software keyboard's "." shortcut asks for
+    /// the trailing space to be replaced by `". "`, and autocorrection asks
+    /// for a whole word. The vendored terminal ignores the range and inserts,
+    /// which types the stop *after* the space that is already on the Host —
+    /// `word .` where iOS means `word. ` (Anthony, round 12). The range is
+    /// honoured instead, as the DEL bytes Backspace already sends, and only
+    /// when it is a suffix of the line this app believes it typed. See
+    /// ``TerminalTextRewrite``.
+    override func replace(_ range: UITextRange, withText text: String) {
+        let replacedRange = range as? TerminalInputTextRange
+        let rewrite = TerminalTextRewrite.forReplacement(
+            replacedText: self.text(in: range),
+            replacedRangeEnd: replacedRange.map { $0.location + $0.length },
+            documentLength: textInputShadow.length,
+            caret: textInputShadow.selection,
+            text: text,
+            hasMarkedText: markedTextRange != nil,
+            hasHardwareKeyboard: hasHardwareKeyboard)
+        TerminalKeyTrace.log(
+            "replace range=\(replacedRange.map { "\($0.location),\($0.length)" } ?? "?")"
+                + " replaced=\(TerminalKeyTrace.describe(self.text(in: range) ?? ""))"
+                + " with=\(TerminalKeyTrace.describe(text))"
+                + " rewrite=\(rewrite)")
+        guard isLocalInputEnabled else { return }
+        switch rewrite {
+        case .unsupported:
+            super.replace(range, withText: text)
+        case let .insert(text):
+            insertText(text)
+        case let .backspaceThenInsert(backspaces, text):
+            for _ in 0..<backspaces { deleteBackwardForRewrite() }
+            insertText(text)
+        }
+    }
+
+    /// The delete half of ``replace(_:withText:)``. `deleteBackward()`'s own
+    /// `UITextInputDelegate` notifications are for changes UIKit did not ask
+    /// for; this one it asked for, and telling it the document moved under it
+    /// mid-edit is how key repeat and the candidate bar lose their place.
+    private func deleteBackwardForRewrite() {
+        if let deletionRange = textInputDeletionRange() {
+            deleteFromTextInputStorage(in: deletionRange)
+        }
+        super.deleteBackward()
+    }
+
+    override func setMarkedText(_ markedText: String?, selectedRange: NSRange) {
+        TerminalKeyTrace.log(
+            "setMarkedText \(TerminalKeyTrace.describe(markedText ?? ""))"
+                + " selected=\(selectedRange.location),\(selectedRange.length)")
+        super.setMarkedText(markedText, selectedRange: selectedRange)
+    }
+
+    override func unmarkText() {
+        TerminalKeyTrace.log("unmarkText")
+        super.unmarkText()
+    }
+
     override func deleteBackward() {
+        TerminalKeyTrace.log("deleteBackward")
         if consumeMatchingBackspaceEcho() {
             return
         }
@@ -1583,44 +1691,43 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         inputDelegate?.textDidChange(self)
     }
 
+    /// Every byte the surface writes to the PTY passes here, and the shadow of
+    /// the current line is kept from it.
+    ///
+    /// Before round 12 anything carrying ESC or DEL was simply dropped, so an
+    /// arrow key, an Esc, or a word-wise editing chord left the shadow
+    /// describing a line that no longer existed — and the rewrite path counted
+    /// its DELs against that fiction (finding 6). Now the writes that *can* be
+    /// modelled are applied, and the ones that cannot empty the shadow, which
+    /// makes the rewrite refuse rather than over-delete.
     private func recordTerminalInput(_ data: Data) {
-        guard !data.contains(0x1B), !data.contains(0x7F),
-              !data.contains(where: { $0 < 0x20 && $0 != 0x0A && $0 != 0x0D }),
-              let text = String(data: data, encoding: .utf8)
-        else { return }
-        recordCommittedText(text)
+        let edit = TerminalShadowInput.classify(data)
+        // A DEL the app sent itself has already moved the shadow; this is only
+        // its echo arriving a turn later. See ``shadowDeletesAwaitingEcho``.
+        if case .deleteBackward = edit {
+            if shadowDeletesAwaitingEcho.consumeEcho(now: Self.now()) { return }
+        } else {
+            shadowDeletesAwaitingEcho.reset()
+        }
+        textInputShadow.apply(edit)
     }
 
     private func recordCommittedText(_ text: String) {
-        let storage = NSMutableString(string: textInputStorage)
-        storage.replaceCharacters(in: textInputSelection, with: text)
-        textInputStorage = storage as String
-
-        if let lineBreak = textInputStorage.rangeOfCharacter(
-            from: .newlines, options: .backwards)
-        {
-            textInputStorage = String(textInputStorage[lineBreak.upperBound...])
-        }
-        textInputSelection = NSRange(
-            location: textInputStorage.utf16.count,
-            length: 0)
+        textInputShadow.commit(text)
     }
 
+    /// Monotonic, so a clock change cannot extend or expire an echo leash.
+    private static func now() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+
     private func textInputDeletionRange() -> NSRange? {
-        let storage = NSMutableString(string: textInputStorage)
-        if textInputSelection.length > 0 {
-            return textInputSelection
-        }
-        guard textInputSelection.location > 0 else { return nil }
-        return storage.rangeOfComposedCharacterSequence(
-            at: textInputSelection.location - 1)
+        textInputShadow.deletionRange
     }
 
     private func deleteFromTextInputStorage(in deletionRange: NSRange) {
-        let storage = NSMutableString(string: textInputStorage)
-        storage.deleteCharacters(in: deletionRange)
-        textInputStorage = storage as String
-        textInputSelection = NSRange(location: deletionRange.location, length: 0)
+        textInputShadow.delete(in: deletionRange)
+        // The DEL that goes with this edit is about to be written, and it
+        // comes back through ``recordTerminalInput``.
+        shadowDeletesAwaitingEcho.record(now: Self.now())
     }
 
     override func paste(_ sender: Any?) {
@@ -1957,8 +2064,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             let touch = touches.first(where: { $0.type == .indirectPointer })
         else { return nil }
         let origin = touch.location(in: self)
-        guard let match = linkMatchForPress(at: origin) else { return nil }
-        return ClaimedLinkTouch(touch: touch, match: match, origin: origin)
+        // Only a URL is taken off Ghostty. A Host path's click belongs to the
+        // remote application, as a plain tap's does.
+        guard let url = urlMatchForPress(at: origin) else { return nil }
+        return ClaimedLinkTouch(touch: touch, match: .url(url), origin: origin)
     }
 
     private static func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
@@ -2011,9 +2120,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 || modeTracker.isAlternateScreen
                 || isTouchScrollMomentumRunning
                 || keyboardActivationRegion.contains(location)
-                // A link is worth a tap wherever it is, including the plain
-                // shell's output area, which none of the above answers.
-                || linkMatchForPress(at: location) != nil
+                // A URL is worth a tap wherever it is, including the plain
+                // shell's output area, which none of the above answers. A Host
+                // path is not: its tap is the TUI's, and the file viewer is
+                // offered from the selection menu instead.
+                || urlMatchForPress(at: location) != nil
         }
         if gestureRecognizer === doubleTapGesture {
             // A word is worth selecting wherever it is, in any mode.
@@ -2293,6 +2404,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         let match = linkMatch(at: point)
         pressLinkMatch = ResolvedLinkMatch(match: match)
         return match
+    }
+
+    /// ``linkMatchForPress(at:)`` narrowed to the one kind of match that takes
+    /// a tap away from herdr.
+    private func urlMatchForPress(at point: CGPoint) -> URL? {
+        guard case .url(let url)? = linkMatchForPress(at: point) else { return nil }
+        return url
     }
 
     /// A URL opens on the iPad; a path opens in the Host file viewer.
@@ -3229,6 +3347,22 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         return text.components(separatedBy: "\n")
     }
 
+    /// The Host path the current touch selection names, if it names one and
+    /// there is somewhere to open it.
+    ///
+    /// Read from the live grid, exactly as Copy is: the selection names cells,
+    /// and what those cells hold now is the honest answer. Single-row only —
+    /// a selection dragged across rows is prose, not a filename.
+    var selectedHostPath: String? {
+        guard onHostPathTap != nil,
+            let selection = touchSelectionOverlay.selection,
+            selection.start.row == selection.end.row
+        else { return nil }
+        let text = selection.text(
+            in: viewportTextRows(), bounds: selection.columnBounds)
+        return TerminalLinkDetector.hostPath(inSelectedText: text)
+    }
+
     /// Copies the selected cells' current contents.
     ///
     /// The text is read now rather than remembered from when the selection was
@@ -3274,8 +3408,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     func handleTap(at location: CGPoint) {
         // A URL takes the tap whole: no click for herdr to answer by opening
         // the link on the Mac, and no keyboard on the way out.
-        if let match = linkMatchForPress(at: location) {
-            open(match)
+        //
+        // A Host *path* does not. herdr's TUI wants every tap — to place a
+        // cursor, to dismiss its own menu, to pick a row — and agent output is
+        // full of paths, so claiming the tap swallowed clicks the TUI simply
+        // never received, with no way to say "no, I meant the click" (round
+        // 12, finding 5). The file viewer is offered from the selection menu
+        // instead: a double tap or a two-finger hold selects the path (the
+        // same whitespace-delimited run the detector reads) and the menu
+        // carries Open on Host beside Copy.
+        if let match = urlMatchForPress(at: location) {
+            open(.url(match))
             return
         }
         switch tapAction(at: location) {
@@ -3324,9 +3467,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         case .began:
             stopTouchScrollMomentum()
             touchScrollAccumulator.reset()
+            touchScrollTravelY = 0
+            didDismissKeyboardForTouchScroll = false
+            didScrollDuringTouchGesture = false
         case .changed:
-            _ = scrollTouch(translationY: gesture.translation(in: self).y)
+            let translationY = gesture.translation(in: self).y
+            touchScrollTravelY += translationY
+            if scrollTouch(translationY: translationY) != 0 {
+                didScrollDuringTouchGesture = true
+            }
             gesture.setTranslation(.zero, in: self)
+            dismissKeyboardForTouchScrollIfNeeded()
         case .ended:
             startTouchScrollMomentum(velocityY: gesture.velocity(in: self).y)
         case .cancelled, .failed:
@@ -3335,6 +3486,51 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         default:
             break
         }
+    }
+
+    /// Scrolling the pane takes the software keyboard down, the way Messages
+    /// does on a drag: on iOS the keyboard has no dismiss key of its own, and
+    /// a keyboard covering half the screen is the reason to scroll in the
+    /// first place. Only this gesture — one direct finger, refused while a
+    /// hold-drag owns the touch — and never with a hardware keyboard
+    /// attached, whose first responder is the only route its keys have to the
+    /// PTY. A tap afterwards raises the keyboard again as it always did.
+    private func dismissKeyboardForTouchScrollIfNeeded() {
+        // Cheap gates before the responder walk below: this runs on every
+        // step of every pan.
+        guard didScrollDuringTouchGesture, !didDismissKeyboardForTouchScroll,
+            !hasHardwareKeyboard
+        else { return }
+        guard TerminalScrollKeyboardDismiss.shouldDismiss(
+            travelY: touchScrollTravelY,
+            didScroll: didScrollDuringTouchGesture,
+            isKeyboardUp: isFirstResponder || hasEditingResponderInWindow,
+            hasHardwareKeyboard: hasHardwareKeyboard,
+            alreadyDismissedDuringGesture: didDismissKeyboardForTouchScroll)
+        else { return }
+        didDismissKeyboardForTouchScroll = true
+        if isFirstResponder {
+            _ = dismissKeyboard()
+        } else {
+            // The Console's Direct Input field owns the keyboard while this
+            // same gesture scrolls the transcript below it, and
+            // `dismissKeyboard()` only speaks for this view's own responder
+            // (review 3, round 12). `endEditing` is the route to a keyboard
+            // some other view raised.
+            window?.endEditing(true)
+        }
+    }
+
+    /// Whether some other view in this window is a text input holding the
+    /// keyboard up. Only asked once a pan has travelled far enough to matter.
+    private var hasEditingResponderInWindow: Bool {
+        guard !isFirstResponder, let window else { return false }
+        return Self.containsEditingResponder(window)
+    }
+
+    private static func containsEditingResponder(_ view: UIView) -> Bool {
+        if view.isFirstResponder, view is any UITextInput { return true }
+        return view.subviews.contains { containsEditingResponder($0) }
     }
 
     func startTouchScrollMomentum(velocityY: CGFloat) {
@@ -3453,14 +3649,29 @@ extension HeelerTerminalView: @MainActor UIEditMenuInteractionDelegate {
         menuFor _: UIEditMenuConfiguration,
         suggestedActions _: [UIMenuElement]
     ) -> UIMenu? {
-        UIMenu(children: [
+        var children: [UIMenuElement] = [
             UIAction(title: "Copy") { [weak self] _ in
                 self?.copyTouchSelection()
             },
             UIAction(title: "Select All") { [weak self] _ in
                 self?.selectAllTouchSelection()
             },
-        ])
+        ]
+        // The Host file viewer, offered from the selection rather than taken
+        // off a tap (round 12, finding 5). A double tap or a two-finger hold
+        // selects the whole whitespace-delimited run, which is the same token
+        // the path detector reads, so the path the user meant is already the
+        // selection by the time this menu is built.
+        if let path = selectedHostPath {
+            children.append(
+                UIAction(
+                    title: "Open \((path as NSString).lastPathComponent)",
+                    image: UIImage(systemName: "doc.text")
+                ) { [weak self] _ in
+                    self?.onHostPathTap?(path)
+                })
+        }
+        return UIMenu(children: children)
     }
 }
 

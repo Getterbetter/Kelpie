@@ -140,10 +140,7 @@ struct HostOnboardingView: View {
             Button("Trust") { store.confirmFingerprint(trusted: true) }
             Button("Don't Trust", role: .cancel) { store.confirmFingerprint(trusted: false) }
         } message: { candidate in
-            Text(
-                "First connection to \(candidate.host):\(String(candidate.port)).\n\n"
-                    + "Key fingerprint:\n\(candidate.fingerprint.displayString)\n\n"
-                    + "Verify it matches the Host's key before trusting.")
+            Text(HostKeyConfirmationCopy.message(for: candidate))
         }
         .confirmationDialog(
             "Replace the trusted Host key?",
@@ -210,7 +207,8 @@ struct HostOnboardingView: View {
         HostOnboardingConnectionPresentation(
             status: connectionStatus,
             standingFailure: standingFailure,
-            isManualReconnectInFlight: isManualReconnectInFlight)
+            isManualReconnectInFlight: isManualReconnectInFlight,
+            needsPasswordEntry: store.needsPasswordEntry)
     }
 
     private func status(for check: PreflightCheck) -> PreflightCheckStatus? {
@@ -286,19 +284,37 @@ struct HostOnboardingConnectionPresentation: Equatable {
     init(
         status: EventsSessionStatus?,
         standingFailure: TransportError? = nil,
-        isManualReconnectInFlight: Bool
+        isManualReconnectInFlight: Bool,
+        needsPasswordEntry: Bool = false
     ) {
         switch status {
         case .connecting:
-            connectionErrorMessage = standingFailure?.presentation.message
+            connectionErrorMessage = Self.message(
+                standingFailure, needsPasswordEntry: needsPasswordEntry, whole: true)
         case .reconnecting(_, _, let failure):
-            connectionErrorMessage = failure.presentation.explanation
+            connectionErrorMessage = Self.message(
+                failure, needsPasswordEntry: needsPasswordEntry, whole: false)
         case .failed(let failure):
-            connectionErrorMessage = failure.presentation.message
+            connectionErrorMessage = Self.message(
+                failure, needsPasswordEntry: needsPasswordEntry, whole: true)
         case .connected, .suspended, .ended, nil:
             connectionErrorMessage = nil
         }
         footerMessage = isManualReconnectInFlight ? nil : connectionErrorMessage
+    }
+
+    /// A Host with no password on this device fails authentication because
+    /// nothing was offered, not because something was refused. Saying
+    /// "Authentication failed. Update this Host's credentials" sends the user
+    /// after the wrong thing, so that one case says what is actually needed.
+    private static func message(
+        _ failure: TransportError?, needsPasswordEntry: Bool, whole: Bool
+    ) -> String? {
+        guard let failure else { return nil }
+        if needsPasswordEntry, case .authenticationFailed = failure {
+            return HostCredentialsProvider.passwordEntryNeededMessage
+        }
+        return whole ? failure.presentation.message : failure.presentation.explanation
     }
 }
 

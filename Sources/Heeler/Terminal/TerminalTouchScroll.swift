@@ -304,3 +304,37 @@ struct TerminalTouchScrollAccumulator {
         return rows
     }
 }
+
+/// Whether the drag that scrolls the pane should also take the software
+/// keyboard down — the gesture Messages and Mail use to get a keyboard out of
+/// the way of what the user is reading.
+///
+/// iPadOS puts a dismiss key on its own keyboard; the iPhone keyboard has
+/// none, and the terminal's only other route down is the key bar. A hardware
+/// keyboard is exempt: there is no software keyboard to dismiss, and dropping
+/// first responder would cost the user their keys.
+enum TerminalScrollKeyboardDismiss {
+    /// Points of vertical travel before a pan counts as a scroll rather than
+    /// a wobbling finger. Roughly a row and a half at the default cell
+    /// height, and well past the pan recognizer's own slop.
+    static let travelThreshold: CGFloat = 24
+
+    /// - Parameter didScroll: whether the pan has actually moved the viewport.
+    ///   A drag where nothing can scroll — the normal buffer already at the
+    ///   bottom, an alternate-screen agent with no remote scroll of its own —
+    ///   is not a scroll, and taking the keyboard down for it would leave the
+    ///   user with neither the keyboard nor the movement they asked for
+    ///   (review 3, round 12).
+    static func shouldDismiss(
+        travelY: CGFloat,
+        didScroll: Bool = true,
+        isKeyboardUp: Bool,
+        hasHardwareKeyboard: Bool,
+        alreadyDismissedDuringGesture: Bool
+    ) -> Bool {
+        guard didScroll, isKeyboardUp, !hasHardwareKeyboard,
+            !alreadyDismissedDuringGesture
+        else { return false }
+        return abs(travelY) >= travelThreshold
+    }
+}

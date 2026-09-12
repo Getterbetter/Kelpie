@@ -221,4 +221,16 @@ No code change. `kelpie` rebased with `--onto` back onto upstream `375267c` afte
 
 Reviewed twice (fresh-context Opus); every must-fix and should-fix applied. Not on a device; the launchd job not loaded; force push pending.
 
+## Round 12b — gates, device run, double-space, push re-registration — 2026-09-12
+
+Force push done (`68e471e` on origin), `com.kelpie.community watch` loaded, the Chrome allow rule written (took effect only after a restart). 171 tests in 7 suites passed on the iPad over Wi-Fi. Built: the iOS double-space full stop (the vendored `replace(_:withText:)` ignored its range; the override sends one DEL per replaced character), one-finger scroll dismissing the software keyboard, and push re-registration on launch when the (token, environment) pair changed — found because the mini held a single sandbox entry from 11 Sep while the iPad ran the TestFlight build. Reviewed, no must-fix.
+
+## Round 12c — the robustness review, built — 2026-09-12 to 13
+
+| Commit | |
+| --- | --- |
+| `COMMIT12C` | **round 12b + 12c**: four reviews → [[Robustness review]] → four builders (notifications, identity, client/transport, screen) → integration → two reviews → fixes. New: `NetworkPathObserver`, `HostKeyConfirmationBroker`, `HerdrClientNotices`, tombstones in `PairingSync`, `APNSEnvironment` from the provisioning profile, `RegistrationFailureRecording`, `TerminalShadowInput`/`TerminalShadowDeleteEchoes`, `TerminalKeyBarMetrics`; ~90 new tests. |
+
+Every must-fix and should-fix from the reviews applied; the set-aside items are listed in [[Robustness review]]. Compiled for a generic iOS device; not run on a device at close (both devices were locked).
+
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]

@@ -2860,6 +2860,55 @@ struct TerminalAttachTests {
         #expect(accumulator.rows(for: -2, pointsPerRow: 16) == -1)
     }
 
+    /// Scrolling the pane is how the software keyboard goes away on iOS, where
+    /// the keyboard has no dismiss key of its own (Anthony, round 12).
+    @Test func touchScrollDismissesTheSoftwareKeyboardOnceItHasTravelled() {
+        func dismisses(
+            travelY: CGFloat,
+            isKeyboardUp: Bool = true,
+            hasHardwareKeyboard: Bool = false,
+            alreadyDismissed: Bool = false
+        ) -> Bool {
+            TerminalScrollKeyboardDismiss.shouldDismiss(
+                travelY: travelY,
+                isKeyboardUp: isKeyboardUp,
+                hasHardwareKeyboard: hasHardwareKeyboard,
+                alreadyDismissedDuringGesture: alreadyDismissed)
+        }
+
+        // A wobbling finger is not a scroll; a real drag is, in either
+        // direction.
+        #expect(!dismisses(travelY: 12))
+        #expect(dismisses(travelY: 40))
+        #expect(dismisses(travelY: -40))
+        // A Magic Keyboard has no software keyboard to dismiss, and its keys
+        // reach the PTY only through this view's first responder.
+        #expect(!dismisses(travelY: 40, hasHardwareKeyboard: true))
+        #expect(!dismisses(travelY: 40, isKeyboardUp: false))
+        // One dismissal per gesture: a keyboard raised again mid-scroll stays.
+        #expect(!dismisses(travelY: 400, alreadyDismissed: true))
+    }
+
+    /// A drag where nothing can scroll — the normal buffer already at the
+    /// bottom, an alternate-screen agent with no remote scroll — is not a
+    /// scroll, and must not cost the keyboard (review 3, round 12).
+    @Test func aDragThatScrollsNothingKeepsTheKeyboard() {
+        #expect(
+            !TerminalScrollKeyboardDismiss.shouldDismiss(
+                travelY: 400,
+                didScroll: false,
+                isKeyboardUp: true,
+                hasHardwareKeyboard: false,
+                alreadyDismissedDuringGesture: false))
+        #expect(
+            TerminalScrollKeyboardDismiss.shouldDismiss(
+                travelY: 400,
+                didScroll: true,
+                isKeyboardUp: true,
+                hasHardwareKeyboard: false,
+                alreadyDismissedDuringGesture: false))
+    }
+
     @MainActor
     @Test func terminalSelectionRejectsOutOfBoundsAnchorRanges() {
         #expect(
@@ -3224,4 +3273,97 @@ private final class TextInputDelegateRecorder: NSObject, UITextInputDelegate {
 
     @available(iOS 18.4, *)
     func conversationContext(_: UIConversationContext?, didChange _: (any UITextInput)?) {}
+}
+
+/// Round 12, finding 8: the key bar's keys were 38 pt — under the 44 pt
+/// minimum — and every caption was a fixed 16 pt in a fixed 46 pt bar, with no
+/// Dynamic Type anywhere, on the one row of chrome an iPhone has for Esc, Tab,
+/// Ctrl and the arrows.
+@MainActor
+@Suite("Terminal key bar metrics")
+struct TerminalKeyBarMetricsTests {
+    @Test func keysMeetTheTouchMinimumAtEveryTextSize() {
+        for size in stride(
+            from: TerminalKeyBarMetrics.baseTitleSize,
+            through: TerminalKeyBarMetrics.maximumTitleSize,
+            by: 1)
+        {
+            #expect(
+                TerminalKeyBarMetrics.keyHeight(forTitleSize: size)
+                    >= TerminalKeyBarMetrics.minimumKeyHeight)
+        }
+    }
+
+    /// The bar has to stay one row above the keyboard, so the growth is
+    /// capped at both ends.
+    @Test func theBarStaysOneRow() {
+        let largest = TerminalKeyBarMetrics.keyHeight(forTitleSize: 200)
+        #expect(largest == TerminalKeyBarMetrics.maximumKeyHeight)
+        #expect(
+            TerminalKeyBarMetrics.titleSize(
+                for: UITraitCollection(
+                    preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge))
+                == TerminalKeyBarMetrics.maximumTitleSize)
+    }
+
+    @Test func theBarGrowsWithTheKeysItHolds() {
+        #expect(
+            TerminalKeyBarMetrics.barHeight(forTitleSize: 16)
+                == TerminalKeyBarMetrics.keyHeight(forTitleSize: 16)
+                    + 2 * TerminalKeyBarMetrics.keyPadding)
+        #expect(
+            TerminalKeyBarMetrics.barHeight(forTitleSize: 24)
+                > TerminalKeyBarMetrics.barHeight(forTitleSize: 16))
+    }
+
+    /// The default text size already has to clear the minimum: that is the
+    /// size at which the bar was 38 pt.
+    @Test func theDefaultTextSizeGivesA44PointKey() {
+        let size = TerminalKeyBarMetrics.titleSize(
+            for: UITraitCollection(preferredContentSizeCategory: .large))
+        #expect(size == TerminalKeyBarMetrics.baseTitleSize)
+        #expect(TerminalKeyBarMetrics.keyHeight(forTitleSize: size) == 44)
+    }
+}
+
+/// Round 12, finding 3: a Magic Keyboard docked or undocked while Kelpie is
+/// suspended posts its GameController notification to a process that is not
+/// running, so the answer has to be re-read on the way back rather than
+/// carried across the gap.
+@MainActor
+@Suite("Hardware keyboard observer")
+struct HardwareKeyboardObserverTests {
+    @Test func seedsFromTheLiveAnswer() {
+        #expect(HardwareKeyboardObserver(probe: { true }).isConnected)
+        #expect(!HardwareKeyboardObserver(probe: { false }).isConnected)
+    }
+
+    @Test func refreshPicksUpAChangeMadeWhileNothingWasWatching() {
+        nonisolated(unsafe) var attached = false
+        let observer = HardwareKeyboardObserver(probe: { attached })
+        #expect(!observer.isConnected)
+
+        // Docked while the app was suspended: no notification was ever run.
+        attached = true
+        observer.refresh()
+        #expect(observer.isConnected)
+
+        attached = false
+        observer.refresh()
+        #expect(!observer.isConnected)
+    }
+
+    /// One keyboard leaving while another stays attached is still a keyboard,
+    /// so a disconnect re-reads rather than trusting its own edge.
+    @Test func aDisconnectEdgeStillAsksTheLiveAnswer() async {
+        let center = NotificationCenter()
+        let observer = HardwareKeyboardObserver(center: center, probe: { true })
+        #expect(observer.isConnected)
+
+        center.post(name: .GCKeyboardDidDisconnect, object: nil)
+        for _ in 0..<50 where !observer.isConnected {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(observer.isConnected)
+    }
 }

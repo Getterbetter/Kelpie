@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Observation
 
 /// The Console aggregate: reconciles the Host catalog and publishes one
@@ -7,6 +8,9 @@ import Observation
 @MainActor
 @Observable
 final class ConsoleStore {
+    private static let log = Logger(
+        subsystem: "dev.bybee.heeler", category: "console-store")
+
     struct AgentStatusUpdate: Sendable, Equatable {
         let status: AgentStatus?
         let liveUpdatesAvailable: Bool
@@ -163,13 +167,109 @@ final class ConsoleStore {
         }
     }
 
+    /// Deliberate teardown for backgrounding, bounded (M2). The caller is
+    /// `ConsoleActivityDriver`, which releases the app's UIKit background
+    /// assertion the moment this returns — and iOS kills a process that never
+    /// ends its background task. Every link below here is now bounded too
+    /// (`EventsSession.windDown`'s Attach-permit wait), but this is the
+    /// backstop that guarantees `didFinishSuspending()` runs whatever a
+    /// stalled SSH close does. The budget stays well inside
+    /// `AppActivityCoordinator.defaultGracePeriod`. Anything still un-torn-down
+    /// is abandoned: iOS freezes the sockets anyway, and the next `resume()`
+    /// re-proves every Host before trusting it.
+    static let suspendTimeout: Duration = .seconds(8)
+
     func suspend() async {
         await enqueueLifecycleTransition { [self] in
             isActive = false
             sidebarSnapshots.invalidateAll()
             rebuild()
-            for projection in projections.values {
-                await projection.suspend()
+            let projections = Array(self.projections.values)
+            do {
+                try await AsyncDeadline.run(for: Self.suspendTimeout) {
+                    for projection in projections {
+                        // The deadline cancels this operation; without the
+                        // check the loop would carry on suspending projections
+                        // one by one — possibly after a later resume() has
+                        // already brought them back.
+                        try Task.checkCancellation()
+                        await projection.suspend()
+                    }
+                }
+            } catch {
+                Self.log.error("suspend did not finish within its deadline; proceeding")
+            }
+        }
+    }
+
+    /// The device's network path moved (Wi-Fi↔cellular, a VPN toggle, a LAN→
+    /// Tailscale address change), so every Host's socket may be dead while
+    /// still reporting itself reusable (S1). Distrust them all, then re-prove
+    /// them: `networkPathDidChange()` closes the live channel so the session's
+    /// own loop re-dials a fresh Transport, and `revalidate()` pings whatever
+    /// is left believing it is connected.
+    ///
+    /// All at once, for the reason `activate(revalidating:)` gives: each Host's
+    /// only bound here is the request timeout, and a Host on a path that just
+    /// vanished is exactly the case that runs it out.
+    func networkPathDidChange() async {
+        // Taken before anything is torn down. A Host counts as recovered only
+        // once it has installed a *new* Transport — the generation is the only
+        // signal that distinguishes "reconnected over the new path" from "has
+        // not noticed yet", and without it `hostConnectionsAreSettled` sampled
+        // the still-`.connected` status of a dead link and reported the very
+        // first attempt settled.
+        pathRecoveryBaselines = Dictionary(
+            uniqueKeysWithValues: projections.keys.map {
+                ($0, hostConnectionGenerations[$0] ?? 0)
+            })
+        // Synchronously, before the first await: nothing on the old path is
+        // trustworthy, and the Console should not keep reading green while
+        // the sessions work it out. `rebuild()` overwrites this the moment
+        // each projection publishes its own transition.
+        for id in projections.keys where hostStatuses[id] == .connected {
+            hostStatuses[id] = .reconnecting(
+                attempt: 1,
+                delay: .zero,
+                failure: .sshUnreachable(detail: "The network connection changed."))
+        }
+        let sessions = projections.values.map(\.session)
+        let projections = Array(self.projections.values)
+        await withTaskGroup(of: Void.self) { group in
+            for session in sessions {
+                group.addTask { await session.networkPathDidChange() }
+            }
+        }
+        // After the sessions have let go of their channels: `revalidate()`
+        // no-ops unless a channel is actually live, so it is the follow-up for
+        // Hosts the path change left believing they were fine.
+        await withTaskGroup(of: Void.self) { group in
+            for projection in projections {
+                group.addTask { await projection.revalidate() }
+            }
+        }
+    }
+
+    /// The generation each Host's Transport was on when the path last moved.
+    /// Empty until a path change; see `hostConnectionsAreSettled`.
+    @ObservationIgnored private var pathRecoveryBaselines: [Host.ID: UInt64] = [:]
+
+    /// Whether every Host has settled since the path last moved — the question
+    /// the network path observer asks between recovery attempts.
+    ///
+    /// Connected is not enough on its own: a Host whose link died with the old
+    /// path still reads `.connected` until its session notices, which is
+    /// exactly the state the observer exists to shorten. A Host counts as
+    /// recovered only once it is connected on a Transport *newer* than the one
+    /// it held when the path moved. A Host stopped on an action-required
+    /// failure, or deliberately suspended, is settled too: another nudge
+    /// cannot fix it, and retrying it would only burn the cap.
+    var hostConnectionsAreSettled: Bool {
+        pathRecoveryBaselines.allSatisfy { id, baseline in
+            switch hostStatuses[id] {
+            case .failed, .suspended, .ended, .none: true
+            case .connected: (hostConnectionGenerations[id] ?? 0) > baseline
+            case .connecting, .reconnecting: false
             }
         }
     }
@@ -632,7 +732,16 @@ extension ConsoleStore {
                 } catch HostCredentialsError.passwordNotSet {
                     throw TransportError.authenticationFailed
                 }
-                let policy = HostKeyPolicy(knownHosts: knownHosts) { _ in false }
+                // TOFU, asked rather than refused (#1 robustness review). A
+                // Host adopted from a sibling — or one that moved to an
+                // address this device has never confirmed a key for — reaches
+                // here as a *first* connect, and declining it outright left it
+                // unreachable with no prompt anywhere on the root screen. The
+                // broker asks only when a screen is mounted to answer; a
+                // changed key is still a hard failure that never reaches it.
+                let policy = HostKeyPolicy(knownHosts: knownHosts) { candidate in
+                    await HostKeyConfirmationBroker.shared.confirmFirstConnect(candidate)
+                }
                 return try await connector.connect(
                     settings: SSHTransportSettings(
                         host: host,

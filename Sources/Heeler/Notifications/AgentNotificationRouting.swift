@@ -41,4 +41,39 @@ enum AgentNotificationRouting {
         guard let target, let presentedAgent else { return false }
         return target.agentID == presentedAgent
     }
+
+    /// What a push delivered while the app is foregrounded should do.
+    ///
+    /// A delivered push is the one piece of evidence that the whole chain —
+    /// plugin, relay, APNs, this device's registration — works, so it is
+    /// never dropped on the assumption that some other pipeline will speak
+    /// up. The in-app banner is preferred (it carries the tap target and
+    /// matches the app's own presentation), but when it cannot be shown the
+    /// system banner is, rather than silence.
+    static func foregroundPresentation(
+        target: AgentNotificationTarget?,
+        presentedAgent: ConsoleAgent.ID?,
+        canPresentInApp: Bool
+    ) -> ForegroundPushPresentation {
+        // The presented Agent stays silent either way: the user is looking
+        // at the thing the push is about (spec #68, story 8).
+        if shouldSuppressBanner(target: target, presentedAgent: presentedAgent) {
+            return .suppressed
+        }
+        // No target — an unknown key id, or an envelope this device cannot
+        // decrypt — has nowhere to tap through to, so iOS presents it and a
+        // tap at least opens the app.
+        guard let target, canPresentInApp else { return .systemBanner }
+        return .inAppBanner(target)
+    }
+}
+
+/// The outcome of `foregroundPresentation`.
+enum ForegroundPushPresentation: Equatable, Sendable {
+    /// Hand the push to the in-app banner; present nothing through iOS.
+    case inAppBanner(AgentNotificationTarget)
+    /// The user is already on this Agent; present nothing at all.
+    case suppressed
+    /// Let iOS present its own banner.
+    case systemBanner
 }

@@ -272,3 +272,75 @@ struct HostOnboardingStoreTests {
         #expect(await connector.capturedSettings.isEmpty)
     }
 }
+
+/// The Console's side of the first-connect question (#1 robustness review):
+/// a Host adopted from a sibling, or one that moved, is unreachable if the
+/// only answer available is "no".
+@MainActor
+@Suite("Host key confirmation broker")
+struct HostKeyConfirmationBrokerTests {
+    private let candidate = HostKeyCandidate(
+        host: "100.65.54.52", port: 22,
+        fingerprint: HostKeyFingerprint(publicKeyBlob: Data("blob".utf8)))
+
+    /// With no screen mounted the answer is no, immediately — never a
+    /// connection hanging on a question nobody can see.
+    @Test func declinesWhenNoScreenCanAsk() async {
+        let broker = HostKeyConfirmationBroker()
+
+        #expect(await broker.confirmFirstConnect(candidate) == false)
+        #expect(broker.pending == nil)
+        #expect(!broker.canAsk)
+    }
+
+    @Test func aMountedScreenIsAskedAndItsAnswerIsReturned() async throws {
+        let broker = HostKeyConfirmationBroker()
+        broker.addPresenter()
+
+        async let answer = broker.confirmFirstConnect(candidate)
+        try await waitForPending(broker)
+        #expect(broker.pending == candidate)
+        broker.confirm(trusted: true)
+
+        #expect(await answer)
+        #expect(broker.pending == nil)
+    }
+
+    @Test func decliningReturnsFalseAndPinsNothing() async throws {
+        let broker = HostKeyConfirmationBroker()
+        broker.addPresenter()
+
+        async let answer = broker.confirmFirstConnect(candidate)
+        try await waitForPending(broker)
+        broker.confirm(trusted: false)
+
+        #expect(await answer == false)
+    }
+
+    /// The screen going away is an unanswered question, not a hung one.
+    @Test func theQuestionIsDeclinedWhenTheScreenGoesAway() async throws {
+        let broker = HostKeyConfirmationBroker()
+        broker.addPresenter()
+
+        async let answer = broker.confirmFirstConnect(candidate)
+        try await waitForPending(broker)
+        broker.removePresenter()
+
+        #expect(await answer == false)
+        #expect(broker.pending == nil)
+    }
+
+    @Test func anUnansweredQuestionTimesOutAsADecline() async {
+        let broker = HostKeyConfirmationBroker(timeout: .milliseconds(10))
+        broker.addPresenter()
+
+        #expect(await broker.confirmFirstConnect(candidate) == false)
+    }
+
+    private func waitForPending(_ broker: HostKeyConfirmationBroker) async throws {
+        for _ in 0..<500 where broker.pending == nil {
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        #expect(broker.pending != nil, "the broker never published the candidate")
+    }
+}

@@ -51,6 +51,30 @@ enum TerminalKeyTrace {
         write("app " + message())
     }
 
+    /// A quoted, escape-free spelling of text UIKit handed the terminal, so a
+    /// trace line can show a space, a newline or a stop without ambiguity.
+    /// The software keyboard's rewrites (the "." shortcut above all) are only
+    /// readable if the exact argument is visible.
+    static func describe(_ text: String) -> String {
+        var out = "\""
+        for scalar in text.unicodeScalars {
+            switch scalar {
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            default:
+                if scalar.value < 0x20 || scalar.value == 0x7F {
+                    out += String(format: "\\x%02X", scalar.value)
+                } else {
+                    out.unicodeScalars.append(scalar)
+                }
+            }
+        }
+        return out + "\""
+    }
+
     /// Rewrites the whole file each time: the trace is small, and an
     /// atomic rewrite cannot leave a half-written or unflushed file behind.
     private static func write(_ line: String) {

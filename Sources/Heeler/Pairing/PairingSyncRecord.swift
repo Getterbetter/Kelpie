@@ -184,3 +184,58 @@ struct PairingSyncFingerprint: Equatable, Sendable {
             fingerprint: HostKeyFingerprint(digest: digest, algorithm: String(fields[3])))
     }
 }
+
+/// A Host's deletion, as it travels through iCloud Keychain: the record for a
+/// deleted Host is removed, and this takes its place so the sibling that still
+/// holds the Host deletes it too instead of publishing it straight back.
+///
+/// Stored in the same Keychain service as the records, under an account that
+/// is deliberately **not** a bare UUID: a build that predates tombstones skips
+/// every account it cannot read as one, so it ignores these rather than
+/// choking on them.
+struct PairingSyncTombstone: Codable, Equatable, Sendable {
+    /// Bumped only by a change older builds cannot read; an unknown schema is
+    /// skipped, exactly as a record's is.
+    static let currentSchema = 1
+    static let accountPrefix = "deleted-"
+    /// How long a tombstone suppresses the Host. Long enough for a device
+    /// that was in a drawer for a month to see it, short enough that the
+    /// synced store does not accumulate them forever.
+    static let lifetime: TimeInterval = 30 * 24 * 60 * 60
+
+    var schema: Int
+    var hostID: UUID
+    var deletedAt: Date
+
+    init(schema: Int = PairingSyncTombstone.currentSchema, hostID: UUID, deletedAt: Date) {
+        self.schema = schema
+        self.hostID = hostID
+        self.deletedAt = deletedAt
+    }
+
+    static func account(for id: UUID) -> String {
+        accountPrefix + id.uuidString
+    }
+
+    /// The Host id an account names, or nil when the account is not a
+    /// tombstone at all.
+    static func hostID(forAccount account: String) -> UUID? {
+        guard account.hasPrefix(accountPrefix) else { return nil }
+        return UUID(uuidString: String(account.dropFirst(accountPrefix.count)))
+    }
+
+    func hasExpired(at instant: Date) -> Bool {
+        instant.timeIntervalSince(deletedAt) > Self.lifetime
+    }
+
+    func encoded() throws -> Data {
+        try JSONEncoder().encode(self)
+    }
+
+    static func decode(_ data: Data) -> PairingSyncTombstone? {
+        guard let tombstone = try? JSONDecoder().decode(PairingSyncTombstone.self, from: data),
+            tombstone.schema == currentSchema
+        else { return nil }
+        return tombstone
+    }
+}
