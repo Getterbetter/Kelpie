@@ -108,6 +108,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   dim ellipsis. It is the only way to Hosts, Agents and Settings, and a
   pointer resting on it was the only thing that made it visible. Switch Host
   and Hosts now come first in the menu. (Kelpie)
+- On-screen keyboard keys are a chip row attached above the keyboard on the
+  herdr screen (Esc, Tab, sticky Ctrl/Alt, arrows, symbols, Paste) instead of
+  a separate Keys pad. (Kelpie)
 
 ### Fixed
 

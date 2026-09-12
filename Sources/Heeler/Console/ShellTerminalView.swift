@@ -292,6 +292,9 @@ struct ShellTerminalInputRow: View {
     @Binding var mode: TerminalKeyboardMode
     let paste: (String) -> Void
     let insertNewLine: () -> Void
+    /// False on the root screen, where the keys ride the keyboard as chips
+    /// and there is no second mode to switch to.
+    var showsModePicker: Bool = true
     /// Matches the Composer chrome's small glyphs, or the row's icons read as
     /// borrowed from a different set.
     private static let glyphPointSize: CGFloat = 12
@@ -313,14 +316,16 @@ struct ShellTerminalInputRow: View {
 
             Spacer(minLength: 4)
 
-            Picker("Terminal keyboard mode", selection: $mode) {
-                Text("Text").tag(TerminalKeyboardMode.text)
-                Text("Keys").tag(TerminalKeyboardMode.controls)
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 184)
+            if showsModePicker {
+                Picker("Terminal keyboard mode", selection: $mode) {
+                    Text("Text").tag(TerminalKeyboardMode.text)
+                    Text("Keys").tag(TerminalKeyboardMode.controls)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 184)
 
-            Spacer(minLength: 4)
+                Spacer(minLength: 4)
+            }
 
             Button(action: insertNewLine) {
                 Image(systemName: "text.append")
