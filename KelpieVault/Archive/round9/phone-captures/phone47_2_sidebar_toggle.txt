@@ -1,0 +1,38 @@
+ · review                      tab 1 │
+ no agents                           │ switch
+To run a command as administrator (user "root"
+), use "sudo <command>".
+See "man sudo_root" for details.
+
+review@kelpie-review:~/demo$ ls -a
+.  ..  README.txt
+review@kelpie-review:~/demo$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

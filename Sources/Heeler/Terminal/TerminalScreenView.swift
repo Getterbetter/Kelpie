@@ -952,6 +952,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// ``TerminalTouchSelection`` for why the app owns it rather than Ghostty.
     private let touchSelectionOverlay = TerminalSelectionOverlayView()
 
+    /// Installed only while a touch selection is on screen. A
+    /// `UIEditMenuInteraction` answers every trackpad secondary click by
+    /// itself, cancelling the touch before ``touchesEnded`` can report the
+    /// right click to a remote application — round 6 installed it for good
+    /// and every right-click in herdr became a Copy / Select All menu.
     private lazy var selectionEditMenu = UIEditMenuInteraction(delegate: self)
 
     private lazy var rightClickGesture = UILongPressGestureRecognizer(
@@ -1823,6 +1828,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         var forwarded = touches
         if let claimed = rightButtonTouchToClaim(in: touches, with: event) {
             claimedRightButtonTouch = claimed
+            TerminalKeyTrace.log("right click claimed at \(claimed.location(in: self))")
             // A pointer click claims the keyboard the way Ghostty's own
             // pointer path does; nothing else will, now that it never sees
             // this touch.
@@ -1911,7 +1917,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         claimedRightButtonTouch = nil
         if reporting {
-            rightClickTouch(at: claimed.location(in: self))
+            let sent = rightClickTouch(at: claimed.location(in: self))
+            TerminalKeyTrace.log("right click reported sent=\(sent)")
+        } else {
+            TerminalKeyTrace.log("right click claimed touch cancelled, nothing sent")
         }
         return touches.subtracting([claimed])
     }
@@ -2430,7 +2439,10 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             self?.presentSelectionEditMenu()
         }
         addSubview(touchSelectionOverlay)
-        addInteraction(selectionEditMenu)
+    }
+
+    private var isSelectionEditMenuInstalled: Bool {
+        interactions.contains { $0 === selectionEditMenu }
     }
 
     #if !targetEnvironment(macCatalyst)
@@ -3173,11 +3185,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard touchSelectionOverlay.selection != nil else { return }
         touchSelectionOverlay.selection = nil
         selectionEditMenu.dismissMenu()
+        if isSelectionEditMenuInstalled { removeInteraction(selectionEditMenu) }
     }
 
     private func presentSelectionEditMenu() {
         guard touchSelectionOverlay.selection != nil else { return }
         let anchor = touchSelectionOverlay.lastSpanRect ?? bounds
+        if !isSelectionEditMenuInstalled { addInteraction(selectionEditMenu) }
         selectionEditMenu.dismissMenu()
         selectionEditMenu.presentEditMenu(
             with: UIEditMenuConfiguration(
