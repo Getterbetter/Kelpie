@@ -29,7 +29,7 @@ herdr. See `docs/adr/0017-herdr-client-is-the-screen.md`.
 
 ## Build quirks
 
-- `GhosttyTerminal` is vendored under `Packages/GhosttyTerminal` because Xcode's downloader hangs on the remote libghostty binary on this Mac. `scripts/fetch-ghostty-artifact.sh` (run by `make generate`) fetches and checksum-verifies `Artifacts/GhosttyKit.xcframework`, which is gitignored. Never edit the vendored package; override its `open` members from `HeelerTerminalView`.
+- `GhosttyTerminal` is vendored under `Packages/GhosttyTerminal` because Xcode's downloader hangs on the remote libghostty binary on this Mac. `scripts/fetch-ghostty-artifact.sh` (run by `make generate`) fetches and checksum-verifies `Artifacts/GhosttyKit.xcframework`, which is gitignored. Never edit the vendored package; override its `open` members from `HeelerTerminalView`. The single exception Anthony has allowed is written up in `Packages/GhosttyTerminal/KELPIE-PATCHES.md` and must be reapplied on every re-vendor.
 - After adding a Swift file, run `xcodegen generate` and commit the regenerated `Heeler.xcodeproj`.
 - The iPad pointer, long-press and trackpad-scroll decisions are in `docs/adr/0016-ipad-pointer-input.md`.
 - Dependencies are watched by `scripts/depwatch.py` (`make depwatch`, `DRY=1` for a dry run); every fix it opens climbs the verification ladder in `docs/guides/dependency-watch.md` before merging.

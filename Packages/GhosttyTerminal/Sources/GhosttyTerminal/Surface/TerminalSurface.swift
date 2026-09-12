@@ -76,6 +76,20 @@ public final class TerminalSurface {
         return result
     }
 
+    /// Move the core's mouse to a point in host view coordinates, carrying
+    /// modifiers.
+    ///
+    /// **Kelpie patch** (see `Packages/GhosttyTerminal/KELPIE-PATCHES.md`). The
+    /// core hit-tests links wherever its mouse is put and reports the result
+    /// through `GHOSTTY_ACTION_MOUSE_OVER_LINK`, but only when the mouse mods
+    /// match the link's modifier — so a host that wants to ask "which link
+    /// covers this cell?" needs a mods-carrying mouse move. `mods` is the only
+    /// reason this exists; ``TerminalInputModifiers`` keeps the C enum out of
+    /// the public API.
+    public func sendMousePos(x: Double, y: Double, modifiers: TerminalInputModifiers) {
+        sendMousePos(x: x, y: y, mods: modifiers.ghosttyMods)
+    }
+
     func sendMousePos(x: Double, y: Double, mods: ghostty_input_mods_e) {
         guard let s = surface else {
             TerminalDebugLog.log(.input, "surface mouse position ignored: missing surface")

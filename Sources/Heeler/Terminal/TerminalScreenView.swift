@@ -990,9 +990,31 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// libghostty's own "the pointer left the surface" position, used to park
     /// the core's mouse once the probe has its answer.
     private static let offSurfacePoint = CGPoint(x: -1, y: -1)
-    private let linkProbeMenuDelegate = TerminalLinkProbeMenuDelegate()
-    private lazy var linkProbeMenuInteraction = UIContextMenuInteraction(
-        delegate: linkProbeMenuDelegate)
+    /// The link modifiers a probe offers the core, in order.
+    ///
+    /// Ghostty's `link-url` highlight is `ctrlOrSuper`, which is super on every
+    /// Darwin target. Shift is offered first because of mouse capture: while the
+    /// application has mouse tracking on — `?1003h`, which every agent TUI sets
+    /// — ghostty treats the mouse as the application's and drops the mods it
+    /// compares against a link's modifier, unless shift is held, which is
+    /// xterm's own "give this event to the terminal" escape. Holding shift both
+    /// restores super for the hit test and stops the move being reported to the
+    /// application at all. On a screen with no tracking there is nothing to
+    /// escape and shift is just a mod that does not match, so plain super
+    /// follows.
+    private static let linkProbeModifiers: [TerminalInputModifiers] = [
+        [.super_, .shift], [.super_],
+    ]
+    /// Which of those the core last answered under, for the key trace.
+    private(set) var lastAnsweringLinkProbeModifiers: TerminalInputModifiers?
+    /// What the last probe asked and what came back, for the key trace and for
+    /// the device suite's failure context — the difference between "the core
+    /// declined" and "there was no surface to ask" is otherwise invisible.
+    private(set) var lastLinkProbeTrace = "not probed"
+    /// The live surface, handed over by ``terminalDidAttachSurface(_:)``. The
+    /// link probe is the only thing here that needs it: everything else the
+    /// view does goes through `UITerminalView`'s own members.
+    private weak var attachedSurface: TerminalSurface?
 
     /// A one-finger hold that has not yet ended. It is a right click until the
     /// finger travels far enough to be a drag, at which point `lastCell` is
@@ -2443,15 +2465,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// when its mouse moves and reports the answer through
     /// `GHOSTTY_ACTION_MOUSE_OVER_LINK`, which the vendored package forwards to
     /// ``terminalDidUpdateHoverLink(_:)`` — from inside the move itself, so
-    /// nothing here waits. `sendMousePos` is internal to that package, so the
-    /// mouse is moved through the one `open` member that moves it: the
-    /// context-menu hook. `super`'s implementation positions the mouse and then
-    /// builds a selection menu configuration, which is discarded here.
+    /// nothing here waits.
     ///
-    /// Not yet effective: the core answers only when the mods match its link
-    /// modifier (super), and no reachable call carries mods — see
-    /// ``TerminalSurfaceLinkQuery`` for the measurement. Internal rather than
-    /// private so the device suite can drive the probe on its own.
+    /// The core only hit-tests when the mouse mods match the link's modifier, so
+    /// the move has to carry them. That is the one sanctioned patch to the
+    /// vendored package: `TerminalSurface.sendMousePos(x:y:modifiers:)`, written
+    /// up in `Packages/GhosttyTerminal/KELPIE-PATCHES.md`. Each of
+    /// ``linkProbeModifiers`` is offered until one answers.
     ///
     /// Afterwards the mouse is parked at (-1, -1) — libghostty's own "the
     /// pointer left the surface" position — so no hover state is left on a cell
@@ -2459,19 +2479,42 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// report `?1003h` earns from the move is dropped on its way out (see
     /// ``TerminalSurfaceLinkQuery/isButtonlessMotionReport(_:)``), and the SGR
     /// reports Kelpie sends for real taps never came through here.
+    ///
+    /// Internal rather than private so the device suite can drive the probe on
+    /// its own.
     func surfaceLinkURL(at point: CGPoint) -> String? {
+        guard let surface = attachedSurface else {
+            lastLinkProbeTrace = "no attached surface"
+            TerminalKeyTrace.log("link probe skipped: no attached surface")
+            return nil
+        }
         surfaceLinkProbeDeadline = Self.now() + Self.surfaceLinkProbeWindow
-        hoverLinkURL = nil
         isProbingSurfaceLink = true
-        _ = super.contextMenuInteraction(
-            linkProbeMenuInteraction, configurationForMenuAtLocation: point)
-        let reported = hoverLinkURL
-        _ = super.contextMenuInteraction(
-            linkProbeMenuInteraction,
-            configurationForMenuAtLocation: Self.offSurfacePoint)
-        isProbingSurfaceLink = false
-        hoverLinkURL = nil
-        return reported
+        var trace = "point=\(NSCoder.string(for: point))"
+        defer {
+            surface.sendMousePos(
+                x: Double(Self.offSurfacePoint.x),
+                y: Double(Self.offSurfacePoint.y),
+                modifiers: [])
+            isProbingSurfaceLink = false
+            hoverLinkURL = nil
+            lastLinkProbeTrace = trace
+            TerminalKeyTrace.log("link probe \(trace)")
+        }
+        for modifiers in Self.linkProbeModifiers {
+            hoverLinkURL = nil
+            surface.sendMousePos(
+                x: Double(point.x), y: Double(point.y), modifiers: modifiers)
+            trace += " mods=0x\(String(modifiers.rawValue, radix: 16))→"
+            guard let reported = hoverLinkURL else {
+                trace += "nil"
+                continue
+            }
+            trace += TerminalKeyTrace.describe(reported)
+            lastAnsweringLinkProbeModifiers = modifiers
+            return reported
+        }
+        return nil
     }
 
     /// Whether a write from the core is a link probe's own motion report.
@@ -3736,9 +3779,14 @@ extension HeelerTerminalView: TerminalSurfaceOpenURLDelegate,
         TerminalTextSelectionPresenter.present(request, from: self)
     }
 
-    func terminalDidAttachSurface(_: TerminalSurface) {}
+    /// Held only for the link probe, which needs a mods-carrying mouse move —
+    /// see ``surfaceLinkURL(at:)``.
+    func terminalDidAttachSurface(_ surface: TerminalSurface) {
+        attachedSurface = surface
+    }
 
     func terminalDidDetachSurface() {
+        attachedSurface = nil
         removeOrphanedSurfaceLayers()
     }
 }

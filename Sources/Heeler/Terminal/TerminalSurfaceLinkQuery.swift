@@ -1,6 +1,5 @@
 import CoreGraphics
 import Foundation
-import UIKit
 
 /// Resolves a tap on a terminal cell in two steps, because a terminal carries
 /// links two ways and only one of them is in the text.
@@ -16,17 +15,15 @@ import UIKit
 /// So the text scan answers first — it is pure, cheap and already trusted —
 /// and only a cell it cannot explain is put to the core.
 ///
-/// **The core's half is not yet live.** libghostty reports a hovered link only
-/// when the mouse mods match its link modifier — super on Apple platforms — and
-/// every call that can carry mods (`TerminalSurface.sendMousePos`,
-/// `sendMouseButton`, `sendKeyEvent`) is `internal` to the vendored package.
-/// The one `open` member that moves the core's mouse, the context-menu hook,
-/// hardcodes mods 0. Measured on the iPad: the move lands (the package logs
-/// `surface mousePos … mods=0x0`) and `GHOSTTY_ACTION_MOUSE_OVER_LINK` never
-/// fires, for an OSC 8 hyperlink and for a bare `https://` run alike, with
-/// `link-url = true` and the surface focused. Unblocking it takes one member of
-/// `Packages/GhosttyTerminal` becoming reachable — a vendored-package change,
-/// which is Anthony's call — and nothing else here changes when it does.
+/// The core's half needs the link modifier: libghostty reports a hovered link
+/// only when the mouse mods match it, so the probe moves the core's mouse with
+/// shift+super, then super, through
+/// `TerminalSurface.sendMousePos(x:y:modifiers:)` — the one sanctioned patch to
+/// the vendored package, written up in
+/// `Packages/GhosttyTerminal/KELPIE-PATCHES.md`. Measured on the iPad: mods 0
+/// reports nothing at all, for an OSC 8 hyperlink and a bare `https://` run
+/// alike, and shift+super is what answers on a screen with mouse tracking on.
+/// See ``HeelerTerminalView/surfaceLinkURL(at:)``.
 enum TerminalSurfaceLinkQuery {
     /// `textScan` is the viewport answer for the tapped cell; `surfaceLink` is
     /// the core's hover hit test, asked at most once and only when the scan
@@ -46,7 +43,8 @@ enum TerminalSurfaceLinkQuery {
 
     /// A pointer-motion mouse report with no button held: `ESC [ < 35 ; c ; r M`
     /// under SGR tracking (DECSET 1006), `ESC [ M` with `Cb` 67 under legacy
-    /// tracking (1000/1002/1003).
+    /// tracking (1000/1002/1003), each plus the modifier bits the probe's own
+    /// shift adds — measured on the iPad as SGR `Cb` 39.
     ///
     /// This is the one byte sequence a link probe can provoke. With `?1003h` in
     /// force — Claude Code, codex and grok all set it — moving the core's mouse
@@ -56,38 +54,34 @@ enum TerminalSurfaceLinkQuery {
     /// reports itself can be mistaken for one: every ``TerminalMouseEncoding``
     /// report carries a real button, its drag motions included.
     static func isButtonlessMotionReport(_ data: Data) -> Bool {
-        // 3 is "no button" in both encodings, +32 marks motion.
+        // 3 is "no button" in both encodings, +32 marks motion. Shift, alt and
+        // ctrl ride on the same byte as 4, 8 and 16: the probe holds shift — it
+        // is what makes the core hit-test a link while the application has the
+        // mouse (see `HeelerTerminalView.linkProbeModifiers`) — so a report
+        // carrying those bits is still the probe's own. A real Kelpie report
+        // always names a button (0, 1, 2, 64, 65), never 3, so none of these
+        // codes can be one.
         let motionWithoutButton = TerminalMouseEncoding.motionFlag + 3
+        let modifierBits = 4 | 8 | 16
+        func isButtonless(_ code: Int, base: Int) -> Bool {
+            code >= base && (code - base) & ~modifierBits == 0
+        }
         if data.count == 6 {
             let bytes = Array(data)
             if bytes[0] == 0x1B, bytes[1] == 0x5B, bytes[2] == 0x4D,
-                bytes[3] == UInt8(motionWithoutButton + 32)
+                isButtonless(Int(bytes[3]), base: motionWithoutButton + 32)
             {
                 return true
             }
         }
         guard let text = String(data: data, encoding: .utf8),
-            text.hasPrefix("\u{1B}[<\(motionWithoutButton);"),
+            text.hasPrefix("\u{1B}[<"),
             text.hasSuffix("M") || text.hasSuffix("m")
         else { return false }
         let fields = text.dropFirst(3).dropLast().split(separator: ";")
-        return fields.count == 3 && fields.allSatisfy { $0.allSatisfy(\.isNumber) }
-    }
-}
-
-/// The delegate the link probe's context-menu interaction holds.
-///
-/// The probe reaches libghostty's hit test through the one `open` member of the
-/// vendored terminal view that moves the core's mouse — its context-menu hook —
-/// and that hook ignores the interaction it is handed. The interaction is never
-/// installed on a view, so nothing ever asks this delegate anything; it exists
-/// only so the terminal is not its own interaction's delegate.
-@MainActor
-final class TerminalLinkProbeMenuDelegate: NSObject, UIContextMenuInteractionDelegate {
-    func contextMenuInteraction(
-        _: UIContextMenuInteraction,
-        configurationForMenuAtLocation _: CGPoint
-    ) -> UIContextMenuConfiguration? {
-        nil
+        guard fields.count == 3, fields.allSatisfy({ $0.allSatisfy(\.isNumber) }),
+            let code = Int(fields[0])
+        else { return false }
+        return isButtonless(code, base: motionWithoutButton)
     }
 }
