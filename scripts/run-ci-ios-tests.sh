@@ -913,11 +913,14 @@ printf 'Claimed fixture port block %s-%s\n' \
 #
 # Candidates come back last-first, preserving the previous choice of the last
 # matching device for a run that finds the machine idle.
+# Kelpie is iPad-only (TARGETED_DEVICE_FAMILY 2), so the device must be an
+# iPad; this model exists on the macos-26 runners and on Anthony's Mac.
+simulator_model="${HEELER_CI_SIM_MODEL:-iPad Air 11-inch (M4)}"
 simulator_candidates=()
 while IFS= read -r candidate; do
     [[ -n "$candidate" ]] && simulator_candidates+=("$candidate")
-done < <(xcrun simctl list devices available | awk '
-    /iPhone 17 \(/ {
+done < <(xcrun simctl list devices available | awk -v model="$simulator_model" '
+    index($0, model " (") > 0 {
         candidate = ""
         for (field = 1; field <= NF; field += 1) {
             value = $field
@@ -933,7 +936,7 @@ done < <(xcrun simctl list devices available | awk '
     END { for (index_ = count; index_ >= 1; index_ -= 1) print list[index_] }
 ')
 if [[ "${#simulator_candidates[@]}" -eq 0 ]]; then
-    echo "No available iPhone 17 Simulator was found" >&2
+    echo "No available $simulator_model Simulator was found" >&2
     exit 1
 fi
 
@@ -985,7 +988,7 @@ else
     done
 fi
 if [[ -z "$simulator_udid" ]]; then
-    echo "Every available iPhone 17 Simulator is claimed by a live run." >&2
+    echo "Every available $simulator_model Simulator is claimed by a live run." >&2
     for candidate in "${simulator_candidates[@]}"; do
         printf '  %s: held by pid %s\n' \
             "$candidate" "$(simulator_held_by "$candidate")" >&2
@@ -993,7 +996,7 @@ if [[ -z "$simulator_udid" ]]; then
     echo >&2
     echo "A run needs a device of its own: the fixture is delivered through" >&2
     echo "per-device launchctl environment, which two runs would overwrite." >&2
-    echo "Create another iPhone 17 with 'xcrun simctl create', or pin one" >&2
+    echo "Create another $simulator_model with 'xcrun simctl create', or pin one" >&2
     echo "explicitly with HEELER_CI_SIMULATOR_UDID=<udid>." >&2
     exit 1
 fi

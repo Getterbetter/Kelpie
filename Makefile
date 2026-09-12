@@ -8,7 +8,7 @@ SCHEME  := Heeler
 ARCHIVE := build/Heeler.xcarchive
 DERIVED := build/DerivedData
 APP_ID  := TME.Kelpie
-SIM     ?= iPhone 17
+SIM     ?= iPad Air 11-inch (M4)
 SIM_DESTINATION ?= platform=iOS Simulator,name=$(SIM)
 SIMULATOR_UDID ?=
 TEST_FLAGS ?=
