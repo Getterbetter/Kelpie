@@ -134,6 +134,7 @@ struct HerdrClientStoreTests {
         let store = makeStore(sessionName: "work", log: log)
         store.viewDidResize(cols: 80, rows: 24)
         try await waitUntil("the first attach should happen") { !log.recorded.isEmpty }
+        let firstSurface = store.terminalID
 
         await store.leave().value
         #expect(store.needsRejoin)
@@ -144,6 +145,13 @@ struct HerdrClientStoreTests {
             !store.needsRejoin
         }
         #expect(store.statusPresentation?.kind == .connecting)
+        // `rejoin` clears `needsRejoin` synchronously and adopts the
+        // replacement surface later, so the size report has to wait for the
+        // new surface or it lands on the outgoing one — which is already
+        // 80×24 and drops it.
+        try await waitUntil("the rejoin should build a replacement pipeline") {
+            store.terminalID != firstSurface
+        }
         store.viewDidResize(cols: 80, rows: 24)
         try await waitUntil("the rejoin should attach again") {
             log.recorded.count == 2

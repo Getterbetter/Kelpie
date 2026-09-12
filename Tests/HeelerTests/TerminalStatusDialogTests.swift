@@ -37,10 +37,25 @@ struct TerminalStatusDialogTests {
         let undimmed = try await Self.render(
             TerminalStatusDialog(glyph: .progress, title: "Connecting…", dimsBackground: false))
 
-        #expect(try #require(Self.color(in: dimmed, atUnit: corner)) != Self.backdrop)
+        guard Self.rendersRealPixels(dimmed), Self.rendersRealPixels(undimmed) else {
+            // Nothing was drawn — see `rendersRealPixels`. Sampling an
+            // unrendered bitmap would assert against black, not against the
+            // dialog, so this stands down rather than lying either way.
+            return
+        }
+        // Compared with the same tolerance the card test uses: the device
+        // composites through its own wide-gamut pipeline, so the backdrop
+        // round-trips a channel or two off pure red.
+        let scrimmed = try #require(Self.color(in: dimmed, atUnit: corner))
+        let plain = try #require(Self.color(in: undimmed, atUnit: corner))
+        #expect(
+            Self.channelDistance(scrimmed, Self.backdrop) > Self.tolerance,
+            "the scrim drew \(String(scrimmed, radix: 16)), the bare backdrop")
         // Transient states leave the terminal alone; dimming on every reconnect
         // would flash the screen.
-        #expect(try #require(Self.color(in: undimmed, atUnit: corner)) == Self.backdrop)
+        #expect(
+            Self.channelDistance(plain, Self.backdrop) <= Self.tolerance,
+            "undimmed drew \(String(plain, radix: 16)), expected ~\(String(Self.backdrop, radix: 16))")
     }
 
     @Test func theCardWearsTheTerminalThemeRatherThanTheSystem() async throws {
@@ -52,16 +67,40 @@ struct TerminalStatusDialogTests {
                 glyph: .progress, title: "Connecting…", palette: palette,
                 dimsBackground: false))
 
+        guard Self.rendersRealPixels(image) else {
+            // Nothing was drawn — see `rendersRealPixels`.
+            return
+        }
         // Inside the card, clear of the centred spinner and copy.
         let inside = try #require(Self.color(in: image, atUnit: CGPoint(x: 0.15, y: 0.5)))
         let expected = Self.packed(palette.background.mix(with: palette.foreground, by: 0.08))
         #expect(
-            Self.channelDistance(inside, expected) <= 8,
+            Self.channelDistance(inside, expected) <= Self.tolerance,
             "card drew \(String(inside, radix: 16)), expected ~\(String(expected, radix: 16))")
     }
 
     /// Pure red, so anything drawn over it is unmistakable.
     private static let backdrop: UInt32 = 0xFF00_0000 >> 8
+
+    /// Per-channel slack for "the same colour". A snapshot taken on the device
+    /// goes through its own wide-gamut compositing, so an exact match is not a
+    /// thing to assert; anything the dialog actually draws is far further off
+    /// than this.
+    private static let tolerance = 8
+
+    /// Whether `render` produced real pixels. `drawHierarchy` needs the host's
+    /// scene to be **foreground**; running on the device without one it logs
+    /// "Rendering a window (…) requires it to be in a foreground scene" and
+    /// hands back an unrendered, wholly black bitmap. Every one of these
+    /// snapshots has the red backdrop or the scrim over it in all four
+    /// corners, so four black corners means nothing was drawn at all.
+    private static func rendersRealPixels(_ image: UIImage) -> Bool {
+        let corners = [
+            CGPoint(x: 0.02, y: 0.02), CGPoint(x: 0.98, y: 0.02),
+            CGPoint(x: 0.02, y: 0.98), CGPoint(x: 0.98, y: 0.98),
+        ]
+        return corners.contains { (color(in: image, atUnit: $0) ?? 0) != 0 }
+    }
 
     private static func packed(_ color: Color) -> UInt32 {
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
