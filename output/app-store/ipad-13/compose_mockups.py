@@ -31,34 +31,34 @@ class Mockup:
 
 MOCKUPS = (
     Mockup(
-        "01-every-agent-one-console", "01-console.png",
+        "01-fits-your-workspace", "05-windowed-console.png",
+        "Fits Your Workspace.",
+        "Keep your agent console close in a flexible iPad window.",
+        (102, 166, 255),
+    ),
+    Mockup(
+        "02-every-agent-one-console", "01-console.png",
         "Every Agent. One Console.",
         "Follow your agents and their work, side by side.",
         (152, 124, 255),
     ),
     Mockup(
-        "02-type-directly-stay-in-flow", "02-terminal-keyboard.png",
+        "03-type-directly-stay-in-flow", "02-terminal-keyboard.png",
         "Type Directly. Stay in Flow.",
         "A full terminal keyboard, built for your iPad.",
         (236, 113, 177),
     ),
     Mockup(
-        "03-skills-within-reach", "03-skills.png",
+        "04-skills-within-reach", "03-skills.png",
         "Your Skills. Within Reach.",
         "Find and add skills without leaving your conversation.",
         (184, 137, 255),
     ),
     Mockup(
-        "04-control-without-leaving-the-flow", "04-agent-controls.png",
+        "05-control-without-leaving-the-flow", "04-agent-controls.png",
         "Control Without Leaving the Flow",
         "Navigate your agent with dedicated touch controls.",
         (88, 214, 198),
-    ),
-    Mockup(
-        "05-fits-your-workspace", "05-windowed-console.png",
-        "Fits Your Workspace.",
-        "Keep your agent console close in a flexible iPad window.",
-        (102, 166, 255),
     ),
 )
 

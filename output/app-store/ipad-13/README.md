@@ -2,17 +2,17 @@
 
 Five landscape exports for the 13-inch iPad screenshot slot. Each export is an
 opaque RGB PNG at 2752 × 2064 pixels. The numbered filenames define the proposed
-upload order, with the console overview first.
+upload order, with the floating-window presentation first.
 
 ## Contents
 
 | Order | Export | Focus |
 | --- | --- | --- |
-| 1 | `exports/01-every-agent-one-console.png` | Agent sidebar and selected Codex conversation |
-| 2 | `exports/02-type-directly-stay-in-flow.png` | Direct Input and the full Terminal keyboard |
-| 3 | `exports/03-skills-within-reach.png` | Composer Skills dock |
-| 4 | `exports/04-control-without-leaving-the-flow.png` | Composer and Agent control keys |
-| 5 | `exports/05-fits-your-workspace.png` | A real floating Heeler window on iPad |
+| 1 | `exports/01-fits-your-workspace.png` | A real floating Heeler window on iPad |
+| 2 | `exports/02-every-agent-one-console.png` | Agent sidebar and selected Codex conversation |
+| 3 | `exports/03-type-directly-stay-in-flow.png` | Direct Input and the full Terminal keyboard |
+| 4 | `exports/04-skills-within-reach.png` | Composer Skills dock |
+| 5 | `exports/05-control-without-leaving-the-flow.png` | Composer and Agent control keys |
 
 `contact-sheet.jpg` provides an overview; `index.html` links the five full-size
 exports. Neither the contact sheet nor the source captures belong in the upload
@@ -47,7 +47,7 @@ have not been produced.
 
 ## Scope and verification
 
-The fifth image uses the previously captured floating window in place of the
+The first image uses the previously captured floating window in place of the
 proposed Shell image: opening a Shell can create a remote terminal, which would
 exceed the existing read-only Herdr constraint. This image demonstrates windowed
 presentation; it does not establish minimum-width behavior.
