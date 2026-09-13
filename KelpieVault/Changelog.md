@@ -235,6 +235,12 @@ Every must-fix and should-fix from the reviews applied; the set-aside items are 
 
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 
+## Round 14 — the action plan through `/delegate` — 2026-09-13
+
+| Commit | |
+| --- | --- |
+| `f58cae8` | **tap-to-dismiss, connection trace, CLAUDE.md trimmed** — Open item 24: a tap on an agent's screen text outside the input band sends its click to herdr and then drops the software keyboard after a 350 ms grace that any further touch cancels (`TerminalTapKeyboardDismiss`; the round-12b scroll path and its state removed; the double tap keeps its unresized viewport). Open item 22: `ConnectionTrace` records every `EventsSession` attempt, outcome, retry decision, path change, suspect marking, wind-down and attach hand-off to `Documents/connection-trace.log` under `-kelpie.connection-trace YES` or the key-trace flag, file sink on its own serial queue, zero cost off; the three round-13 candidates checked against the code (`Archive/round14/tailscale-candidates.md`). CLAUDE.md's Kelpie section points at the vault for the build recipe, ADR 0017 and the dependency watch, and names `/delegate` as the session default. Six scout maps and two reviews archived under `Archive/round14/`. Two Opus builders, two Opus reviewers (no must-fix; two and four should-fixes taken), 1798 tests on the iPad (the eight issues all known), 134 in the four affected suites on the final tree, Release 1.0 (3) on both devices, the iPad relaunched with the trace on. |
+
 ## Round 13 — the three posts out, watches checked — 2026-09-13
 
 | Commit | |
