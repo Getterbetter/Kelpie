@@ -28,6 +28,8 @@ Heeler 是一个 **agent 控制台**：把所有机器上正在运行的 coding 
 
 ## 截图
 
+[View iPad screenshots](docs/ipad-screenshots.md)
+
 | Agent Console + 搜索 | 实时终端 | Direct Input + Terminal 键盘 |
 | --- | --- | --- |
 | <img src="docs/images/console-iphone.png" width="240" alt="iPhone 上支持置顶、状态显示和搜索的 Agent Console" /> | <img src="docs/images/live-terminal-iphone.png" width="240" alt="iPhone 上使用 Direct Input 的 Agent 实时终端" /> | <img src="docs/images/agent-iphone.png" width="240" alt="iPhone 上使用 Direct Input、快捷键和完整 Terminal 键盘的 Agent 终端" /> |

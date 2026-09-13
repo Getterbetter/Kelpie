@@ -28,6 +28,8 @@ Heeler is an **agent console**: a native dashboard of every coding agent running
 
 ## Screenshots
 
+[View iPad screenshots](docs/ipad-screenshots.md)
+
 | Agent Console + search | Live terminal | Direct Input + Terminal keyboard |
 | --- | --- | --- |
 | <img src="docs/images/console-iphone.png" width="240" alt="Agent Console with pinned Agents, status indicators, and search on iPhone" /> | <img src="docs/images/live-terminal-iphone.png" width="240" alt="Agent's live terminal with Direct Input on iPhone" /> | <img src="docs/images/agent-iphone.png" width="240" alt="Agent Direct Input with shortcuts and a full Terminal keyboard on iPhone" /> |
