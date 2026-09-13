@@ -28,6 +28,8 @@ Heeler is an **agent console**: a native dashboard of every coding agent running
 
 ## Screenshots
 
+<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
+
 [View iPad screenshots](docs/ipad-screenshots.md)
 
 | Agent Console + search | Live terminal | Direct Input + Terminal keyboard |

@@ -28,6 +28,8 @@ Heeler 是一个 **agent 控制台**：把所有机器上正在运行的 coding 
 
 ## 截图
 
+<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
+
 [View iPad screenshots](docs/ipad-screenshots.md)
 
 | Agent Console + 搜索 | 实时终端 | Direct Input + Terminal 键盘 |
