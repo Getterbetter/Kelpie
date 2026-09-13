@@ -7,6 +7,8 @@ Entries reference the issue that motivated them.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-13
+
 ### Added
 
 - iPad is a first-class target again. App Store builds include iPhone and
