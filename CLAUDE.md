@@ -1,6 +1,8 @@
 # Kelpie
 
-**Start here:** read `resume.md` at the repo root for the current state and open items, then the Obsidian vault in `KelpieVault/` (home note `Kelpie.md`). Work through the action plan in `resume.md` with `/delegate` (Anthony's default for every session since 2026-09-13: Fable orchestrates, Opus builds and reviews, Sonnet scouts and runs). Record Anthony's feedback in `KelpieVault/Feedback log.md` before acting on it.
+**Start here:** read `resume.md` at the repo root for the current state and the action plan, then the Obsidian vault in `KelpieVault/` (home note `Kelpie.md`). Record Anthony's feedback in `KelpieVault/Feedback log.md` before acting on it.
+
+**One round per session.** Work one round, close it out with the definition of done below, and end the session; the next round starts fresh from `resume.md`. Work that is not part of the round, and anything asked after the round's report, goes to `KelpieVault/Open items.md` for the next session unless Anthony says to do it here; "log: <idea>" or "next session: <idea>" means add it there in one edit and carry on. "Checkpoint" means write an `## In progress` section at the top of `resume.md` (done, running, uncommitted work, next step) so a fresh session can pick the round up; the close-out removes it. At session start, if `resume.md` has an `## In progress` section, `git log` shows commits after the last close-out, or the tree is dirty, the last session stopped mid-round: reconstruct from those and the tail of `KelpieVault/Feedback log.md`, say what you found, then continue. Use `/delegate` when a round splits into independent pieces or needs a build too big for one context; a fix, install and feedback chain stays in the main session. Why: `KelpieVault/Decisions.md`, 2026-09-13.
 
 Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; `origin` is the public Getterbetter/Kelpie.
 
@@ -25,7 +27,7 @@ The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen
 
 The vault is the durable record; a round is not finished until it is reconciled. Before ending a session or reporting a round done:
 
-- `resume.md`: add the round to "Where things stand" and rewrite "What is next" and the open items.
+- `resume.md`: current state only. Replace the round bullets under "Where things stand" with this round's (keep the `- Round N` shape; the pre-push check reads it), update "Live services, accounts and gates" if anything changed, and rewrite "What is next". Round history goes to `Changelog.md` and `Decisions.md`, never here.
 - `KelpieVault/Kelpie.md`: the status list and, for any new note, a row in the notes table.
 - `KelpieVault/Decisions.md` (every decision with date and why), `KelpieVault/Changelog.md` (every commit, by round), `KelpieVault/Testing status.md` (what is device-confirmed, what CI covers), `KelpieVault/Open items.md` (tick what closed, add what opened).
 - `KelpieVault/Feedback log.md`: Anthony's words verbatim, recorded before acting on them.

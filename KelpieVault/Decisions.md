@@ -248,6 +248,16 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Overtaken — the depwatch upstream check is now high.** Issue #3: 46 upstream commits, one conflicting file. The next rebase (Open item 5) is due, not optional; it waits for a session with the device unlocked so the rebased build can be confirmed.
 
+## 2026-09-13: how sessions run
+
+**Decided: one round per session, and `/delegate` only when a round splits.** A token review of 11 to 13 Sep (`~/MemoryOS/_watcher/skills/delegate/research/burn-scan/`) priced this project's Claude use at about US$590 at API list rates (a proxy; plan weights are not published): Opus builders 42%, the Fable orchestrator 38%, Opus reviewers 12%, Sonnet workers 6%. The orchestrator sessions ran all day with contexts of 250k to 490k tokens, re-read on every turn, and ten messages into sessions idle past the one-hour cache rewrote the whole context, about $50 of it. The round-14 line making `/delegate` the default for every session is replaced in `CLAUDE.md`: a fix, install and feedback chain stays in the main session, and work outside the round goes to [[Open items]] for the next session. Anthony's words are in [[Feedback log]].
+
+**Decided: `resume.md` holds the current state only.** It had grown to 32 KB of round history that every session reads first. The full file as it stood is `Archive/round14/resume-before-trim.md`; the round history already lives in [[Changelog]] and here. The pre-push check still reads the latest `- Round N` bullets.
+
+**Kept: the Heeler section of `CLAUDE.md` stays verbatim.** The review suggested moving the load-bearing herdr facts (about 5.5k tokens loaded into every worker, roughly 2% of the spend) into a linked note. The round-14 reason wins: the section is upstream's text and stays verbatim so rebases merge cleanly. Anthony: "whatever you recommend".
+
+**Decided: checkpoints, logged ideas and a mid-round restart.** Anthony works from herdr and cannot edit the vault himself, and a session closed before `resume.md` is updated would leave a round in limbo. So "checkpoint" writes an `## In progress` section to `resume.md`, "log:" or "next session:" adds an idea to [[Open items]] in one edit, and a new session that finds an In progress section, commits after the last close-out or a dirty tree reconstructs the round before carrying on.
+
 ## Distribution
 
 **A — Xcode sideload now, TestFlight later, App Store possibly.** *(Overtaken 2026-09-11 to 12: the App Store became the plan. `scripts/ExportOptions.plist` carries team `8JQWBQKEXX`; build 1 of 1.0 was uploaded 2026-09-12 and version 1.0 plus the three tips were submitted for review at 02:20 UTC that day as **Kelpie for herdr**. A TestFlight public beta went in alongside it. See [[App Store plan]].)*
