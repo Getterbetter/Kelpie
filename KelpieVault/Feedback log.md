@@ -246,3 +246,7 @@ Read as: apply the review's changes to the delegate skill and to this project. F
 Anthony (2026-09-13 afternoon, same MemoryOS session): "new session: this is what i do when we get close to 50% context but youre saying donit more often? away more than an hour: if i dont ask to start a new session, wont it be left in limbo when i clear context and look at resume.md (especially if resume.md has not been updated). idea mid-round: so update that doc manually? i dont have access to that md file from herdr so ive been asking claude code to do it. scan scripts: i wont remember to do that, can it be done for me? change 5: whatever you recommend. cowork: put the zip in the chay so i can download it. kelpie commit: whatever you think is best but there is an active session now"
 
 Read as: a new session per round rather than at 50%; a mid-round stop must not strand the round, so "checkpoint" writes an In progress section to `resume.md` and a fresh session reconstructs from git and this log when it finds one; ideas keep going through Claude ("log:" or "next session:" adds them to [[Open items]] in one edit); the Heeler section stays verbatim; the review's changes committed by path only, leaving the active session's work alone.
+
+Anthony (2026-09-14, at close): "i need to start a new session so close it out and ill pick it up in the next one"
+
+Read as: close round 14b with the definition of done; the push question was not answered, so the four commits since `8506f4c` stay local and the next session asks again.
