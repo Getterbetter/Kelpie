@@ -235,6 +235,12 @@ Every must-fix and should-fix from the reviews applied; the set-aside items are 
 
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 
+## Round 14b — the Tailscale hang, taps on herdr's screen — 2026-09-13
+
+| Commit | |
+| --- | --- |
+| `173b356` | **abandon a dead transport instead of waiting on its close; taps land on herdr's screen** — Open item 22 from the iPhone connection trace: the primary Host's session sat in `stream.end()` because the channel close waits on `SessionDriver.acquireOperation()`, an undeadlined mutex held by the attach and RPCs on the dead socket. `EventsSession.endStreamPromptly` bounds it at 2 s and abandons the transport (`HerdrEventStream.abandon` → `SSHConnection.abandon`), unconditionally; graceful ends kept for subscription changes and suspend. Package test `abandonReturnsWhileTheOperationMutexIsHeld` (fixture-gated, unexecuted locally). Open item 28: notification and Live Activity taps land on the root screen, switching the primary Host if needed and lowering the cover; a tap during the Console hand-off puts the client back on stage; `requestsConsole` removed. Two Opus builders, two Opus reviewers (one must-fix and three should-fixes taken), 1809 tests on the iPad (seven issues: six known source-reading tests, one activity-driver poll that passes alone), Release 1.0 (3) on both devices, both relaunched with the trace on. |
+
 ## Round 14 — the action plan through `/delegate` — 2026-09-13
 
 | Commit | |

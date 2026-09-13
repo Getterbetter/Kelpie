@@ -230,3 +230,11 @@ Read as: (26) Live Activities — Heeler's Live Activity for a running agent is 
 Anthony (2026-09-13, new session): "Read resume.md and /delegate tasks"
 
 Read as: run the round-13 action plan in `resume.md` through the delegate skill, in order, stopping at the gates (push, community replies, the Hetzner delete, the rebase) — none of those ran.
+
+Anthony (2026-09-13, after round 14): "tap to dismiss working. on iphone over tailscale still not working, showing connected but wont connect - could it be because im connected on the ipad over the internal network? how do i activate the live activity? whats the item 20 leftovers?"
+
+Read as: Open item 24 confirmed on the iPhone. Open item 22 reproduces on the iPhone over Tailscale too, with the Host showing connected and the root screen never drawing; his hypothesis is a second client (the iPad on the LAN) blocking the first. Two questions to answer from the vault: the Live Activity toggle's location and the Open item 20 checklist.
+
+Anthony (2026-09-13, after round 14, second reply): "iphone over tailscale: i force killed the ipad app and tried over the internet on iphone, same issue, still kept stalled on reconnecting. live activity: that's working but i think id prefer if notifications & the live activity just opened back into the main view of herdr which is the direct UI rather than the absracted version that heeler came with. item 20: a) yes, passed g) give me on to test h) yes, passed f) in my current version on ipad & iphone, both showing sandbox. item 23: doesnt seem to be working but its an old session so not sure"
+
+Read as: Open item 22 is not a second-client problem (the iPad was killed); the trace on the iPhone is the next evidence. New Open item 28: a notification tap and the Live Activity tap open the root screen (herdr's own client), not Heeler's Console cover. Open item 26 confirmed working. Item 20: (a) and (h) passed; (g) needs a concrete test; (f) both devices show `sandbox` because both run the Xcode-signed Release build, which registers `sandbox` by design — the TestFlight install is the test. Item 23: not seen working, but the Claude Code session he tried was old, so not a result yet.

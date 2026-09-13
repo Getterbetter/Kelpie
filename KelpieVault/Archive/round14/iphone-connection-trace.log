@@ -1,0 +1,138 @@
+1789265779.777 host=E14E42A1 phase=lifecycle outcome=note note="activate" detail="activation=1"
+1789265779.777 host=E14E42A1 phase=status outcome=started detail="connecting"
+1789265779.777 host=E14E42A1 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265779.777 host=E14E42A1 phase=connect outcome=started attempt=1
+1789265779.778 host=848059A8 phase=lifecycle outcome=note note="activate" detail="activation=1"
+1789265779.778 host=848059A8 phase=status outcome=started detail="connecting"
+1789265779.778 host=848059A8 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265779.778 host=848059A8 phase=connect outcome=started attempt=1
+1789265779.780 host=27C2B977 phase=lifecycle outcome=note note="activate" detail="activation=1"
+1789265779.780 host=27C2B977 phase=status outcome=started detail="connecting"
+1789265779.780 host=27C2B977 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265779.780 host=27C2B977 phase=connect outcome=started attempt=1
+1789265779.787 host=11B28C4D phase=lifecycle outcome=note note="activate" detail="activation=1"
+1789265779.787 host=11B28C4D phase=status outcome=started detail="connecting"
+1789265779.787 host=11B28C4D phase=connect outcome=note attempt=1 note="attempt begins"
+1789265779.787 host=11B28C4D phase=connect outcome=started attempt=1
+1789265779.788 host=11B28C4D phase=connect outcome=failed attempt=1 reason="authenticationFailed" retryable=no
+1789265779.788 host=11B28C4D phase=status outcome=failed reason="authenticationFailed" retryable=no detail="failed"
+1789265779.806 host=13E593F3 phase=lifecycle outcome=note note="activate" detail="activation=1"
+1789265779.806 host=13E593F3 phase=status outcome=started detail="connecting"
+1789265779.806 host=13E593F3 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265779.806 host=13E593F3 phase=connect outcome=started attempt=1
+1789265779.809 host=27C2B977 phase=attach outcome=note note="parked, waiting for a transport" detail="phase=active"
+1789265780.114 host=11B28C4D phase=lifecycle outcome=note note="retry" detail="activation=2"
+1789265780.114 host=11B28C4D phase=status outcome=started detail="connecting"
+1789265780.114 host=11B28C4D phase=lifecycle outcome=note note="winding down" detail="suspect=false->false transport=none"
+1789265780.114 host=11B28C4D phase=connect outcome=note attempt=1 note="attempt begins"
+1789265780.114 host=11B28C4D phase=connect outcome=started attempt=1
+1789265780.115 host=11B28C4D phase=connect outcome=failed attempt=1 reason="authenticationFailed" retryable=no
+1789265780.115 host=11B28C4D phase=status outcome=failed reason="authenticationFailed" retryable=no detail="failed"
+1789265780.496 host=27C2B977 phase=connect outcome=ok attempt=1
+1789265780.496 host=27C2B977 phase=ping outcome=started attempt=1
+1789265780.500 host=E14E42A1 phase=connect outcome=ok attempt=1
+1789265780.500 host=E14E42A1 phase=ping outcome=started attempt=1
+1789265780.870 host=27C2B977 phase=ping outcome=ok attempt=1 detail="latency=0.37356475 seconds"
+1789265780.870 host=E14E42A1 phase=ping outcome=ok attempt=1 detail="latency=0.37033075 seconds"
+1789265780.870 host=E14E42A1 phase=subscribe outcome=started attempt=1
+1789265780.870 host=27C2B977 phase=attach outcome=ok detail="a parked attach resumed, generation=0"
+1789265780.870 host=27C2B977 phase=subscribe outcome=started attempt=1
+1789265781.212 host=E14E42A1 phase=subscribe outcome=ok
+1789265781.212 host=E14E42A1 phase=status outcome=ok detail="connected"
+1789265781.388 host=27C2B977 phase=subscribe outcome=ok
+1789265781.388 host=27C2B977 phase=status outcome=ok detail="connected"
+1789265781.584 host=E14E42A1 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265781.585 host=E14E42A1 phase=connect outcome=note attempt=1 note="reused the installed transport"
+1789265781.585 host=E14E42A1 phase=subscribe outcome=started attempt=1
+1789265781.843 host=27C2B977 phase=connect outcome=note attempt=1 note="attempt begins"
+1789265781.843 host=27C2B977 phase=connect outcome=note attempt=1 note="reused the installed transport"
+1789265781.843 host=27C2B977 phase=subscribe outcome=started attempt=1
+1789265782.297 host=27C2B977 phase=subscribe outcome=ok
+1789265782.297 host=27C2B977 phase=status outcome=ok detail="connected"
+1789265782.297 host=E14E42A1 phase=subscribe outcome=ok
+1789265782.298 host=E14E42A1 phase=status outcome=ok detail="connected"
+1789265794.780 host=848059A8 phase=connect outcome=failed attempt=1 reason="timedOut" retryable=yes
+1789265794.780 host=848059A8 phase=suspect outcome=note note="a request timed out"
+1789265794.780 host=848059A8 phase=status outcome=failed attempt=1 reason="timedOut" retryable=yes backoff=1.000s detail="reconnecting"
+1789265794.807 host=13E593F3 phase=connect outcome=failed attempt=1 reason="timedOut" retryable=yes
+1789265794.808 host=13E593F3 phase=suspect outcome=note note="a request timed out"
+1789265794.808 host=13E593F3 phase=status outcome=failed attempt=1 reason="timedOut" retryable=yes backoff=1.000s detail="reconnecting"
+1789265795.840 host=13E593F3 phase=connect outcome=note attempt=2 note="attempt begins"
+1789265795.840 host=848059A8 phase=connect outcome=note attempt=2 note="attempt begins"
+1789265795.840 host=848059A8 phase=connect outcome=started attempt=2
+1789265795.840 host=13E593F3 phase=connect outcome=started attempt=2
+1789265810.843 host=13E593F3 phase=connect outcome=failed attempt=2 reason="timedOut" retryable=yes
+1789265810.843 host=848059A8 phase=connect outcome=failed attempt=2 reason="timedOut" retryable=yes
+1789265810.844 host=848059A8 phase=suspect outcome=note note="a request timed out"
+1789265810.844 host=13E593F3 phase=suspect outcome=note note="a request timed out"
+1789265810.844 host=848059A8 phase=status outcome=failed attempt=2 reason="timedOut" retryable=yes backoff=2.000s detail="reconnecting"
+1789265810.844 host=13E593F3 phase=status outcome=failed attempt=2 reason="timedOut" retryable=yes backoff=2.000s detail="reconnecting"
+1789265812.974 host=848059A8 phase=connect outcome=note attempt=3 note="attempt begins"
+1789265812.974 host=13E593F3 phase=connect outcome=note attempt=3 note="attempt begins"
+1789265812.974 host=13E593F3 phase=connect outcome=started attempt=3
+1789265812.974 host=848059A8 phase=connect outcome=started attempt=3
+1789265827.984 host=848059A8 phase=connect outcome=failed attempt=3 reason="timedOut" retryable=yes
+1789265827.984 host=13E593F3 phase=connect outcome=failed attempt=3 reason="timedOut" retryable=yes
+1789265827.984 host=13E593F3 phase=suspect outcome=note note="a request timed out"
+1789265827.984 host=848059A8 phase=suspect outcome=note note="a request timed out"
+1789265827.984 host=848059A8 phase=status outcome=failed attempt=3 reason="timedOut" retryable=yes backoff=4.000s detail="reconnecting"
+1789265827.984 host=13E593F3 phase=status outcome=failed attempt=3 reason="timedOut" retryable=yes backoff=4.000s detail="reconnecting"
+1789265832.001 host=848059A8 phase=connect outcome=note attempt=4 note="attempt begins"
+1789265832.001 host=13E593F3 phase=connect outcome=note attempt=4 note="attempt begins"
+1789265832.001 host=13E593F3 phase=connect outcome=started attempt=4
+1789265832.001 host=848059A8 phase=connect outcome=started attempt=4
+1789265847.010 host=13E593F3 phase=connect outcome=failed attempt=4 reason="timedOut" retryable=yes
+1789265847.010 host=848059A8 phase=connect outcome=failed attempt=4 reason="timedOut" retryable=yes
+1789265847.011 host=848059A8 phase=suspect outcome=note note="a request timed out"
+1789265847.011 host=13E593F3 phase=suspect outcome=note note="a request timed out"
+1789265847.011 host=848059A8 phase=status outcome=failed attempt=4 reason="timedOut" retryable=yes backoff=8.000s detail="reconnecting"
+1789265847.011 host=13E593F3 phase=status outcome=failed attempt=4 reason="timedOut" retryable=yes backoff=8.000s detail="reconnecting"
+1789265855.464 host=848059A8 phase=connect outcome=note attempt=5 note="attempt begins"
+1789265855.464 host=13E593F3 phase=connect outcome=note attempt=5 note="attempt begins"
+1789265855.465 host=13E593F3 phase=connect outcome=started attempt=5
+1789265855.465 host=848059A8 phase=connect outcome=started attempt=5
+1789265870.474 host=848059A8 phase=connect outcome=failed attempt=5 reason="timedOut" retryable=yes
+1789265870.474 host=13E593F3 phase=connect outcome=failed attempt=5 reason="timedOut" retryable=yes
+1789265870.474 host=13E593F3 phase=suspect outcome=note note="a request timed out"
+1789265870.474 host=848059A8 phase=suspect outcome=note note="a request timed out"
+1789265870.474 host=13E593F3 phase=status outcome=failed attempt=5 reason="timedOut" retryable=yes backoff=16.000s detail="reconnecting"
+1789265870.474 host=848059A8 phase=status outcome=failed attempt=5 reason="timedOut" retryable=yes backoff=16.000s detail="reconnecting"
+1789265872.172 host=- phase=path outcome=note note="interfacesChanged" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=848059A8 phase=path outcome=note note="the network path changed" detail="phase=active transport=none" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=27C2B977 phase=path outcome=note note="the network path changed" detail="phase=active transport=installed" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=E14E42A1 phase=path outcome=note note="the network path changed" detail="phase=active transport=installed" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=13E593F3 phase=path outcome=note note="the network path changed" detail="phase=active transport=none" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=848059A8 phase=connect outcome=note attempt=6 note="attempt begins" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=848059A8 phase=connect outcome=started attempt=6 path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=13E593F3 phase=connect outcome=note attempt=6 note="attempt begins" path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=13E593F3 phase=connect outcome=started attempt=6 path="satisfied via pdp_ip0,pdp_ip0"
+1789265872.172 host=11B28C4D phase=path outcome=note note="the network path changed" detail="phase=active transport=none" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.407 host=11B28C4D phase=lifecycle outcome=note note="retry" detail="activation=3" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.407 host=11B28C4D phase=status outcome=started detail="connecting" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.407 host=11B28C4D phase=lifecycle outcome=note note="winding down" detail="suspect=true->false transport=none" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.407 host=11B28C4D phase=connect outcome=note attempt=1 note="attempt begins" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.407 host=11B28C4D phase=connect outcome=started attempt=1 path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.408 host=11B28C4D phase=connect outcome=failed attempt=1 reason="authenticationFailed" retryable=no path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.408 host=11B28C4D phase=status outcome=failed reason="authenticationFailed" retryable=no detail="failed" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.770 host=E14E42A1 phase=subscribe outcome=failed attempt=1 reason="sshUnreachable(detail: 'The network connection changed.')" retryable=yes detail="the events stream ended" path="satisfied via pdp_ip0,pdp_ip0"
+1789265873.771 host=E14E42A1 phase=status outcome=failed attempt=1 reason="sshUnreachable(detail: 'The network connection changed.')" retryable=yes backoff=1.000s detail="reconnecting" path="satisfied via pdp_ip0,pdp_ip0"
+1789265874.803 host=E14E42A1 phase=connect outcome=note attempt=2 note="attempt begins" path="satisfied via pdp_ip0,pdp_ip0"
+1789265874.803 host=E14E42A1 phase=connect outcome=note attempt=2 note="closing the installed transport" detail="suspect" path="satisfied via pdp_ip0,pdp_ip0"
+1789265874.804 host=E14E42A1 phase=connect outcome=started attempt=2 path="satisfied via pdp_ip0,pdp_ip0"
+1789265875.395 host=E14E42A1 phase=connect outcome=ok attempt=2 path="satisfied via pdp_ip0,pdp_ip0"
+1789265875.395 host=E14E42A1 phase=ping outcome=started attempt=2 path="satisfied via pdp_ip0,pdp_ip0"
+1789265875.771 host=E14E42A1 phase=ping outcome=ok attempt=2 detail="latency=0.375907166 seconds" path="satisfied via pdp_ip0,pdp_ip0"
+1789265875.771 host=E14E42A1 phase=subscribe outcome=started attempt=2 path="satisfied via pdp_ip0,pdp_ip0"
+1789265876.062 host=E14E42A1 phase=subscribe outcome=ok path="satisfied via pdp_ip0,pdp_ip0"
+1789265876.062 host=E14E42A1 phase=status outcome=ok detail="connected" path="satisfied via pdp_ip0,pdp_ip0"
+1789265876.308 host=E14E42A1 phase=connect outcome=note attempt=1 note="attempt begins" path="satisfied via pdp_ip0,pdp_ip0"
+1789265876.308 host=E14E42A1 phase=connect outcome=note attempt=1 note="reused the installed transport" path="satisfied via pdp_ip0,pdp_ip0"
+1789265876.308 host=E14E42A1 phase=subscribe outcome=started attempt=1 path="satisfied via pdp_ip0,pdp_ip0"
+1789265877.241 host=E14E42A1 phase=subscribe outcome=ok path="satisfied via pdp_ip0,pdp_ip0"
+1789265877.241 host=E14E42A1 phase=status outcome=ok detail="connected" path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.176 host=13E593F3 phase=connect outcome=failed attempt=6 reason="timedOut" retryable=yes path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.176 host=848059A8 phase=connect outcome=failed attempt=6 reason="timedOut" retryable=yes path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.177 host=848059A8 phase=suspect outcome=note note="a request timed out" path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.177 host=13E593F3 phase=suspect outcome=note note="a request timed out" path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.177 host=848059A8 phase=status outcome=failed attempt=6 reason="timedOut" retryable=yes backoff=30.000s detail="reconnecting" path="satisfied via pdp_ip0,pdp_ip0"
+1789265887.177 host=13E593F3 phase=status outcome=failed attempt=6 reason="timedOut" retryable=yes backoff=30.000s detail="reconnecting" path="satisfied via pdp_ip0,pdp_ip0"
