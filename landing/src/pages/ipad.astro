@@ -1,0 +1,74 @@
+---
+import IpadScreenshot from '../components/IpadScreenshot.astro';
+import { ipadScreens } from '../data/ipad-screens';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="iPad screenshots — Heeler"
+  description="See Heeler on iPad: a windowed agent console, full terminal keyboard, Skills, and dedicated touch controls."
+>
+  <section class="section">
+    <div class="container gallery">
+      <a class="back-link text-link" href="/#ipad">
+        <span aria-hidden="true">&larr;</span> Back to Heeler
+      </a>
+      <h1 class="section-title">Heeler on iPad</h1>
+      <p class="section-lede">Your agents, their conversations, and the tools to keep work moving.</p>
+      <div class="screenshots">
+        {ipadScreens.map((screen, index) => (
+          <figure>
+            <figcaption>
+              <h2>{screen.title}</h2>
+              <p>{screen.caption}</p>
+            </figcaption>
+            <IpadScreenshot
+              image={screen.image}
+              alt={screen.alt}
+              loading={index === 0 ? 'eager' : 'lazy'}
+            />
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .gallery {
+    max-width: 1024px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 44px;
+    font: var(--type-label);
+  }
+
+  .screenshots {
+    display: grid;
+    gap: var(--sp-16);
+    margin-top: var(--sp-12);
+  }
+
+  figure {
+    margin: 0;
+  }
+
+  figcaption {
+    margin-bottom: var(--sp-6);
+  }
+
+  h2 {
+    font: var(--type-h3);
+    letter-spacing: var(--tr-heading);
+  }
+
+  figcaption p {
+    font: var(--type-body);
+    color: var(--text-secondary);
+    margin-top: var(--sp-2);
+  }
+</style>

@@ -27,11 +27,13 @@ npm run deploy       # wrangler deploy (needs Cloudflare credentials)
 | --- | --- |
 | `src/pages/index.astro` | The page: composes the section components in order. |
 | `src/pages/404.astro` | Not-found page, served by Workers for unmatched paths. |
+| `src/pages/ipad.astro` | Full iPad screenshot gallery, linked from the homepage preview. |
 | `src/layouts/Layout.astro` | `<head>` metadata, header, footer, global CSS imports. |
 | `src/components/*.astro` | One component per section, plus `Button`/`Badge`. |
 | `src/styles/substrate/` | Vendored design system (see below). |
 | `src/styles/landing.css` | Page skeleton: gutters, section rhythm, shared text roles. |
-| `src/assets/` | Logo and the six iPhone screenshots, optimised at build time. |
+| `src/assets/` | Logo, six iPhone screenshots, and five iPad screenshots, optimised at build time. |
+| `src/data/ipad-screens.ts` | Shared iPad screenshot order and captions. |
 
 Breakpoints live with the component that needs them. The source design is
 desktop-only; the responsive behaviour (header nav collapse, the screenshot
@@ -55,8 +57,11 @@ The Geist and Geist Mono variable fonts in
 `src/styles/substrate/assets/fonts/` come from the `geist` npm package (SIL
 Open Font License 1.1, `LICENSE.txt` alongside them).
 
-The screenshots are copies of `docs/images/*.png` at the repo root, not
-symlinks — refresh them here when the app screenshots change.
+The iPhone screenshots are copies of `docs/images/*.png` at the repo root.
+The iPad screenshots are copies of `output/app-store/ipad-13/sources/*.png`.
+They are not symlinks — refresh them here when the app screenshots change.
+The homepage shows only the floating-window iPad image, below the iPhone
+screenshots. Its image and text link open `/ipad` for the full gallery.
 
 ## Deployment
 
