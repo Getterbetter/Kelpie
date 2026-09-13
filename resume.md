@@ -29,7 +29,7 @@ Work through these in order, one round per session:
 5. **After App Store approval**: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan.
 6. **Possible follow-ups, not scheduled**: a socket-level SSH keepalive (none exists; app-level 30 s ping only); `kelpie.primary-host` is a literal in two files (`PairingSync.swift`, `PrimaryHostStore.swift`).
 
-Gates cleared on 2026-09-13: `kelpie` pushed to origin, TestFlight build 3 uploaded, the libghostty-spm PR found unnecessary (see above).
+**Push pending.** Everything since `8506f4c` (rounds 14 and 14b, the resume trim, this close) is committed on `kelpie` and not on `origin`; Anthony closed the round-14b session before answering the push question. Ask first, then push: CI is the only place the new HeelerSSH package test (`abandonReturnsWhileTheOperationMutexIsHeld`) runs. Gates cleared on 2026-09-13: TestFlight build 3 uploaded, the libghostty-spm PR found unnecessary (see above).
 
 ## How to work on it
 
