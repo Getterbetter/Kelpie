@@ -35,6 +35,19 @@ final class PrimaryHostStore {
         defaults.set(id.uuidString, forKey: Self.defaultsKey)
     }
 
+    /// Where a notification or Live Activity tap lands (Open item 28): the
+    /// root screen shows herdr for the Host the tap named, chosen and
+    /// persisted exactly as the menu's Switch Host chooses it. Returns false
+    /// when the link names a Host this install no longer has — a deleted
+    /// Host, or one paired on another device — in which case the screen stays
+    /// on the Host it was already showing.
+    @discardableResult
+    func land(onHostID hostID: Host.ID, in hosts: [Host]) -> Bool {
+        guard hosts.contains(where: { $0.id == hostID }) else { return false }
+        select(hostID)
+        return true
+    }
+
     /// Drops a stored id the catalog no longer contains, so the fallback is
     /// not re-evaluated on every read and a re-added Host with a new id does
     /// not inherit the old choice.

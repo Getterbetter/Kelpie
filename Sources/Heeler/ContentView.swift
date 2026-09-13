@@ -122,14 +122,15 @@ struct ContentView: View {
             }
             app.sceneDirectory.sceneRouteDidChange(sceneID: sceneID)
         }
-        // Live Activity row links name an Agent; surrounding chrome,
-        // compact, and minimal presentations name only the Host and land on
-        // the Console. Notification links share the same URL parser.
+        // Every Live Activity link — a row, the surrounding chrome, the
+        // compact and minimal presentations — names a Host, and that is all a
+        // tap needs: it lands on the root screen, herdr's own client for that
+        // Host (Open item 28). A row link's pane id is kept in the link and
+        // ignored here, because herdr's client focuses its own pane and takes
+        // no target from outside.
         .onOpenURL { url in
             guard let link = AgentActivityLink.target(from: url) else { return }
-            app.sceneDirectory.open(
-                link.paneID.map { AgentNotificationTarget(hostID: link.hostID, paneID: $0) },
-                preferredSceneID: sceneID)
+            notificationRouter.land(onHostID: link.hostID)
         }
         .onContinueUserActivity(AgentRoute.activityType) { activity in
             guard let route = AgentRoute(userActivity: activity) else { return }

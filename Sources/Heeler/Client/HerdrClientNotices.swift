@@ -1,18 +1,18 @@
 import Foundation
 import Observation
 
-/// One-line notices the root screen shows over the Console cover.
+/// One-line notices the root screen shows, over whichever of its two screens
+/// is on top.
 ///
 /// Two things need to say something to the user from outside the view tree,
 /// and neither has an owner that can reach it:
 ///
 /// * an Agent Notification tap whose envelope this device cannot read — an
 ///   unknown key id, or a Notification Key lost to a reinstall while the
-///   Host's stale entry still pushes. `AgentNotificationRouter.open(nil)`
-///   sets `path = []`, which on Kelpie's root is not a change at all, so the
-///   tap did literally nothing (N5). The router's contract is "falling back
-///   always means the Console, quietly"; this is what makes the quiet part
-///   land somewhere.
+///   Host's stale entry still pushes. It resolves to no Host, so there is
+///   nothing for the tap to land on and it would otherwise do literally
+///   nothing (N5). The router's contract is "falling back always means
+///   somewhere, quietly"; this is what makes the quiet part land.
 /// * the Console hand-off timing out: a Transport serves one Attach channel
 ///   at a time, so the Client lets go before the cover comes up, and a
 ///   teardown that does not return within its deadline means an Agent Attach
@@ -60,27 +60,19 @@ final class HerdrClientNoticeStore {
     }
 
     /// The one seam a delegate outside the view tree posts to. The root
-    /// screen reads `notice`, shows it over the Console, and clears it.
+    /// screen reads `notice`, draws it over the screen that is up, and
+    /// clears it.
     static let shared = HerdrClientNoticeStore()
 
     private(set) var notice: Notice?
 
-    /// A notice posted while the Console is not on screen still has to be
-    /// shown, because both notices are *about* the Console: the root presents
-    /// the cover on this, then renders `notice` over it.
-    private(set) var requestsConsole = false
-
     init() {}
 
-    func post(_ notice: Notice, presentingConsole: Bool = true) {
+    func post(_ notice: Notice) {
         self.notice = notice
-        if presentingConsole { requestsConsole = true }
     }
-
-    func consoleWasPresented() { requestsConsole = false }
 
     func dismiss() {
         notice = nil
-        requestsConsole = false
     }
 }

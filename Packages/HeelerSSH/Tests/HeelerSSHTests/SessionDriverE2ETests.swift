@@ -1639,6 +1639,58 @@ struct SessionDriverE2ETests {
         }
     }
 
+    /// `abandon()` exists because every orderly teardown begins with
+    /// `acquireOperation()`, which has no deadline and no cancellation: on a
+    /// link that died silently the holder ahead of it burns its whole timeout,
+    /// so a close queued behind it never gets its turn and whatever awaits that
+    /// close is parked with it (Kelpie Open item 22 — the events channel, and
+    /// with it the Host's entire reconnect loop). Abandon must therefore take
+    /// the driver's actor turn and nothing else.
+    ///
+    /// Held here by an exec parked inside the operation mutex, with a second
+    /// exec queued behind it. Invalidating does not resume the queue itself —
+    /// the holder does that when it unwinds — so what is asserted is the part
+    /// the fix rests on: abandon returns while the mutex is held, and the
+    /// parked waiter then fails fast against an invalidated session instead of
+    /// waiting on a socket that will never answer.
+    @Test("abandon returns while another operation holds the operation mutex")
+    func abandonReturnsWhileTheOperationMutexIsHeld() async throws {
+        let environment = try #require(SessionDriverTestEnvironment.current)
+        let connection = try await environment.connect()
+        let hold = SessionWaitHold()
+        await connection.holdNextExecChannelAllocationForTesting {
+            await hold.waitUntilReleased()
+        }
+
+        let holder = Task { try await connection.execute("printf held", timeout: .seconds(15)) }
+        let queued = Task { try await connection.execute("printf queued", timeout: .seconds(15)) }
+        do {
+            try await waitUntilTrue("the holder should park inside the operation mutex") {
+                await hold.hasEntered
+            }
+            try await waitUntilTrue("the second operation should queue behind it") {
+                await connection.operationWaiterCountForTesting == 1
+            }
+        } catch {
+            await hold.release()
+            _ = try? await holder.value
+            _ = try? await queued.value
+            throw error
+        }
+
+        // The mutex is held and its holder is going nowhere until the line
+        // below this measurement releases it.
+        let started = ContinuousClock.now
+        await connection.abandon()
+        #expect(started.duration(to: .now) < .seconds(2))
+        #expect(await connection.isConnected == false)
+
+        await hold.release()
+        await #expect(throws: SSHError.self) { _ = try await holder.value }
+        await #expect(throws: SSHError.connectionInvalidated) { _ = try await queued.value }
+        #expect(await connection.operationWaiterCountForTesting == 0)
+    }
+
     /// How long phase-gate probes may wait to observe a held path under CI load.
     /// This is a test-observation guard only; product operation timeouts
     /// (100ms / 200ms / 2s) are independent and must not be widened to match.

@@ -78,8 +78,9 @@ final class AgentNotificationCenterDelegate: NSObject, UNUserNotificationCenterD
         }
     }
 
-    /// A tap (the default action) deep-links to the Agent's Attach through
-    /// the single-window rule; explicit dismissal routes nowhere.
+    /// A tap (the default action) lands on the root screen — herdr's own
+    /// client for the notification's Host (Open item 28); explicit dismissal
+    /// routes nowhere.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -94,12 +95,16 @@ final class AgentNotificationCenterDelegate: NSObject, UNUserNotificationCenterD
         let complete = UncheckedSendable(completionHandler)
         Task { @MainActor [directory] in
             if isDefaultTap {
-                directory.open(target)
-                // `open(nil)` sets `path = []`, which on Kelpie's root is not
-                // a change at all — the tap would otherwise do literally
-                // nothing. Say so, and present the Console behind the notice
-                // (N5).
-                if target == nil {
+                // The tap's pane is deliberately dropped here: the screen it
+                // lands on is herdr's own client, which focuses its own pane
+                // and takes no target from outside (Open item 28).
+                if let target {
+                    directory.land(onHostID: target.hostID)
+                } else {
+                    // Nothing to land on — an unknown key id, or an envelope
+                    // this device cannot decrypt — so the tap only says so.
+                    // The notice strip draws over the root screen as well as
+                    // the Console cover, so it presents neither (N5).
                     HerdrClientNoticeStore.shared.post(.unreadableNotification)
                 }
             }

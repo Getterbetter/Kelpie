@@ -361,6 +361,23 @@ public final class SSHConnection: Sendable {
     }
 #endif
 
+    /// Drops the session without an orderly close: invalidates the driver,
+    /// aborts a Jump Host's forwarding transport, and abandons the parent.
+    ///
+    /// Unlike `close`, nothing here takes the driver's operation mutex or
+    /// waits on the socket, so it returns even while another operation is
+    /// parked on a link that died silently — the case `close` cannot survive,
+    /// because its two-second budget starts only once the mutex is in hand
+    /// (see this type's note above). Every parked call then fails against the
+    /// invalidated session instead of waiting for an answer that is not
+    /// coming. The connection is unusable afterwards; `close` remains the
+    /// orderly path for a link that still works.
+    public func abandon() async {
+        await driver.invalidate()
+        byteTransport?.abort()
+        await parent?.abandon()
+    }
+
     public func close(timeout: Duration) async throws {
         var firstError: (any Error)?
         do {

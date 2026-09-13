@@ -173,6 +173,15 @@ actor EventsSession {
     /// attach with something its surface can show a Reconnect against rather
     /// than sit on "Connecting…" forever.
     private let terminalAcquisitionTimeout: Duration
+    /// How long a teardown on a transport this session has already written off
+    /// waits for the graceful channel close before abandoning it. The close
+    /// runs behind the SSH driver's operation mutex, which has no deadline of
+    /// its own, so on a link that died silently it never returned at all —
+    /// and the run loop, parked inside it, could not retry, reconnect or even
+    /// keep the keepalive going (Open item 22). Long enough that a channel
+    /// which can still close does, short enough that a Host comes back while
+    /// the user is still looking at it.
+    private let streamEndTimeout: Duration
     /// Off by default and free when off (see `ConnectionTraceLog`). On, every
     /// connect, reconnect, path change and Attach hand-off below leaves a line
     /// in `Documents/connection-trace.log`, which is the only way anyone has
@@ -245,6 +254,7 @@ actor EventsSession {
         updatesBufferLimit: Int = HerdrEventStream.bufferLimit,
         terminalIdleTimeout: Duration = .seconds(5),
         terminalAcquisitionTimeout: Duration = .seconds(30),
+        streamEndTimeout: Duration = .seconds(2),
         terminalWaiterDidRegister: (@Sendable () -> Void)? = nil,
         connectionTrace: ConnectionTraceLog = .shared,
         traceHost: String = "-"
@@ -255,6 +265,7 @@ actor EventsSession {
         self.keepalive = keepalive
         self.terminalIdleTimeout = terminalIdleTimeout
         self.terminalAcquisitionTimeout = terminalAcquisitionTimeout
+        self.streamEndTimeout = streamEndTimeout
         self.terminalWaiterDidRegister = terminalWaiterDidRegister
         self.connectionTrace = connectionTrace
         self.traceHost = traceHost
@@ -440,7 +451,7 @@ actor EventsSession {
         transportSuspect = true
         guard let stream = liveStream else { return }
         pendingKeepaliveFailure = failure
-        await stream.end()
+        await endStreamPromptly(stream)
     }
 
     /// Failure shapes that mean the SSH connection underneath, not the one
@@ -487,7 +498,43 @@ actor EventsSession {
         guard let stream = liveStream else { return }
         pendingKeepaliveFailure = .sshUnreachable(
             detail: "The network connection changed.")
-        await stream.end()
+        await endStreamPromptly(stream)
+    }
+
+    /// Ends the live channel of a transport this session has already written
+    /// off, without letting a dead socket park the session on the teardown.
+    ///
+    /// The graceful `end()` is still tried first — a channel that can close
+    /// cleanly should — but it is bounded, because on the far side of it sits
+    /// the SSH driver's operation mutex, which has no deadline: behind a queue
+    /// of RPCs each burning its full request timeout against a link that
+    /// answers nothing, the close never gets its turn. The run loop is parked
+    /// on this call and on the stream itself while that lasts, so the Host
+    /// stops retrying, reconnecting and pinging entirely — the indefinite
+    /// "Reconnecting" of Open item 22. At the deadline the channel is
+    /// abandoned instead: the stream finishes at once, the socket is dropped,
+    /// and the reconnect path builds a fresh Transport, which it already does
+    /// for a transport marked suspect.
+    ///
+    /// Only for the paths that distrust the connection. `suspend()` and
+    /// `updateSubscriptions` keep the plain graceful end: their transport is
+    /// still believed healthy, and abandoning one would throw away a
+    /// connection that could have been kept.
+    private func endStreamPromptly(_ stream: HerdrEventStream) async {
+        do {
+            try await AsyncDeadline.run(for: streamEndTimeout) {
+                await stream.end()
+            }
+        } catch AsyncDeadlineError.timedOut {
+            Self.log.error("events channel teardown stalled; abandoning the transport")
+            trace(
+                .suspect, .note("stream end timed out; abandoning the transport"),
+                detail: "after \(streamEndTimeout)")
+            stream.abandon()
+        } catch {
+            // Cancellation only: the teardown that cancelled this call
+            // (`windDown`) closes the transport itself.
+        }
     }
 
     /// Whether the installed Transport is currently distrusted. Test and
@@ -1039,7 +1086,7 @@ actor EventsSession {
             detail: "a keepalive ping failed")
         transportSuspect = true
         pendingKeepaliveFailure = failure
-        await stream.end()
+        await endStreamPromptly(stream)
     }
 
     private static func transportFailure(_ error: any Error) -> TransportError {

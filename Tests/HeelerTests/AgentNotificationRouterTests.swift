@@ -3,10 +3,12 @@ import Testing
 
 @testable import Heeler
 
-/// The navigation half of #74: taps land on the right Agent detail through
-/// the Console's navigation path, a killed-state tap waits for the pane to
-/// arrive with the Host's first sync, and stale or unresolvable pushes fall
-/// back to the Console with no alarming copy.
+/// The navigation half of #74, as Open item 28 left it: a notification or
+/// Live Activity tap lands on the root screen — herdr's own client for the
+/// Host it named — and never navigates the Console, while taps made inside
+/// the Console still open the right Agent detail through its navigation path,
+/// wait for a pane that has not synced yet, and fall back to the Console with
+/// no alarming copy when one never arrives.
 ///
 /// Pane ids that stand in for a live herdr address use the observed
 /// alphanumeric `w…:p…` family (uppercase included). `%gone` and `%other`
@@ -125,5 +127,52 @@ struct AgentNotificationRouterTests {
 
         #expect(router.path == [ConsoleAgent.ID(hostID: hostID, paneID: "%other")])
         #expect(router.pendingTarget == nil)
+    }
+
+    /// Open item 28. A tapped notification or Live Activity is a landing on
+    /// the root screen, not a Console navigation: `path` going non-empty is
+    /// what used to present the Console cover, so leaving it alone is the
+    /// whole of the change. The tap's pane is not consulted at all.
+    @Test func aTapLandsOnTheClientWithoutNavigatingTheConsole() {
+        let router = AgentNotificationRouter()
+        let hostID = UUID()
+        router.agentsDidChange([consoleAgent(hostID: hostID, paneID: "wV:p1")])
+
+        router.land(onHostID: hostID)
+
+        #expect(router.landing?.hostID == hostID)
+        #expect(router.path.isEmpty)
+        #expect(router.pendingTarget == nil)
+    }
+
+    /// Two pushes from the same Host are two landings: the root screen
+    /// watches this value, and a repeat tap still has to lower the cover.
+    @Test func repeatedTapsForOneHostEachLand() {
+        let router = AgentNotificationRouter()
+        let hostID = UUID()
+
+        router.land(onHostID: hostID)
+        let first = router.landing
+        router.land(onHostID: hostID)
+
+        #expect(first?.hostID == hostID)
+        #expect(router.landing?.hostID == hostID)
+        #expect(router.landing != first)
+    }
+
+    /// A tap arriving while the Console is still waiting for a pane drops
+    /// that wait: the user is leaving the Console, not navigating it, and the
+    /// pane must not yank them back when it finally syncs.
+    @Test func aTapDropsAPendingConsoleTarget() {
+        let router = AgentNotificationRouter()
+        let hostID = UUID()
+        router.open(AgentNotificationTarget(hostID: hostID, paneID: "wV:p1"))
+        #expect(router.pendingTarget != nil)
+
+        router.land(onHostID: hostID)
+        router.agentsDidChange([consoleAgent(hostID: hostID, paneID: "wV:p1")])
+
+        #expect(router.pendingTarget == nil)
+        #expect(router.path.isEmpty)
     }
 }

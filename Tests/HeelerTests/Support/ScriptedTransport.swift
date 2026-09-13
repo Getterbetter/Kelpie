@@ -83,6 +83,11 @@ final actor ScriptedTransport: Transport {
     private var eventContinuation: AsyncThrowingStream<HerdrEvent, any Error>.Continuation?
     private var subscriptionObservers: [UUID: AsyncStream<[EventSubscription]>.Continuation] = [:]
     private var nextSubscriptionGate: ScriptedTransportCallGate?
+    private var nextStreamEndGate: ScriptedTransportCallGate?
+    /// How many live streams were abandoned rather than ended gracefully; the
+    /// bounded-teardown tests assert both that it happened and that a healthy
+    /// channel never needs it.
+    private(set) var abandonedStreamCount = 0
     private var nextAttachID: UInt64 = 0
     private var liveAttachID: UInt64?
     private var nextAttachGate: ScriptedTransportCallGate?
@@ -253,6 +258,14 @@ final actor ScriptedTransport: Transport {
     /// Pauses the next events subscription after recording its requested set.
     func gateNextSubscription(using gate: ScriptedTransportCallGate) {
         nextSubscriptionGate = gate
+    }
+
+    /// Holds the next stream's explicit `end()` on `gate`. A gate the test
+    /// never opens is the channel whose close is stuck behind the SSH driver's
+    /// operation mutex on a link that died silently (Open item 22): the ender
+    /// never returns and the stream never finishes on its own.
+    func gateNextStreamEnd(using gate: ScriptedTransportCallGate) {
+        nextStreamEndGate = gate
     }
 
     /// Wait for actual stream installation, not merely a captured request.
@@ -567,9 +580,15 @@ final actor ScriptedTransport: Transport {
         liveStreamID = streamID
         eventContinuation = continuation
         for observer in subscriptionObservers.values { observer.yield(subscriptions) }
-        return HerdrEventStream(events: events) {
-            await self.endStream(id: streamID)
-        }
+        let endGate = nextStreamEndGate
+        nextStreamEndGate = nil
+        return HerdrEventStream(
+            events: events,
+            abandoner: { Task { await self.abandonStream(id: streamID) } },
+            ender: {
+                await endGate?.waitUntilOpen()
+                await self.endStream(id: streamID)
+            })
     }
 
     func attachTerminal(_ request: TerminalAttachRequest) async throws -> TerminalAttachSession {
@@ -707,6 +726,18 @@ final actor ScriptedTransport: Transport {
         eventContinuation?.finish()
         eventContinuation = nil
         liveStreamID = nil
+    }
+
+    /// `abandon()` on the stream: the consumer gave up on the graceful end, so
+    /// the stream finishes at once and the connection goes with it — exactly
+    /// what abandoning the real socket does to the Transport that rode on it.
+    private func abandonStream(id: UInt64) {
+        abandonedStreamCount += 1
+        guard liveStreamID == id else { return }
+        eventContinuation?.finish()
+        eventContinuation = nil
+        liveStreamID = nil
+        isClosed = true
     }
 
     private func recordAttachInput(_ input: TerminalAttachInput) {
