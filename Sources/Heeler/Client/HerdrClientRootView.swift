@@ -7,10 +7,11 @@ import SwiftUI
 /// Heeler's native Console is not gone — it still owns push registration,
 /// Live Activities and every Agent operation — but it is no longer the screen.
 /// It lives one tap away behind the floating menu, in a full-screen cover, and
-/// a notification deep link presents it by itself so routing lands on the
-/// Agent exactly as before. The stores it needs (`ConsoleStore`, the activity
-/// driver) are created and driven in `ContentView`, above this view, so they
-/// stay alive while the cover is down.
+/// nothing else presents it: a notification or Live Activity tap lands *here*,
+/// on the Host it named, because this is the direct view of herdr and the
+/// Console is the abstraction over it (Open item 28). The stores it needs
+/// (`ConsoleStore`, the activity driver) are created and driven in
+/// `ContentView`, above this view, so they stay alive while the cover is down.
 struct HerdrClientRootView: View {
     let hosts: HostStore
     let console: ConsoleStore
@@ -43,6 +44,11 @@ struct HerdrClientRootView: View {
     /// True while the Client is handing its Attach channel back, before the
     /// cover is presented. See ``presentConsole()``.
     @State private var isPreparingConsole = false
+    /// Bumped by anything that means "the Console is no longer wanted" — only
+    /// a tap landing on this screen does, today. A hand-off takes up to four
+    /// seconds, and the cover must not come up after a notification tap
+    /// arrived in the middle of one. See ``presentConsole()``.
+    @State private var consoleRequestGeneration = 0
     @State private var isShowingSettings = false
     @State private var isShowingSetupGuide = false
     @State private var isShowingTipJar = false
@@ -166,13 +172,19 @@ struct HerdrClientRootView: View {
         // root is; ConsoleView keeps drawing its own for when the cover is up.
         .overlay(alignment: .top) { banner }
         .animation(.snappy, value: bannerStore.banner)
+        // The same strip the cover draws (below): a notice can now be posted
+        // while nothing is presented — an unreadable notification tap lands
+        // here, not on the Console — and this is where it has to show. While
+        // the cover is up it is the cover's copy that is on screen.
+        .overlay(alignment: .top) { noticeStrip }
+        .animation(.snappy, value: notices.notice)
         .fullScreenCover(isPresented: $isShowingConsole) {
             consoleScreen(onClose: { isShowingConsole = false })
                 // Over the cover's content, from here rather than inside
                 // ConsoleView: the notices are the root screen's business —
                 // one is about the Client's own Attach hand-off — and the
                 // Console is whole exactly as it was.
-                .overlay(alignment: .top) { consoleNotice }
+                .overlay(alignment: .top) { noticeStrip }
                 .animation(.snappy, value: notices.notice)
                 // An alert on the root view cannot present while the cover is
                 // up, so the cover answers the broker's first-connect question
@@ -246,33 +258,50 @@ struct HerdrClientRootView: View {
         .sheet(isPresented: $isShowingTipJar) {
             TipJarView(store: tipJar)
         }
-        // A notification tap routes through the Console, so the Console has
-        // to be on screen for it to land.
-        // An unreadable notification tap resolves to no target at all, and
-        // `AgentNotificationRouter.open(nil)` expresses that as `path = []` —
-        // which is not a change, so the tap did nothing on this root (N5).
-        // The notice store is the separate "a tap happened" signal.
-        .onChange(of: notices.requestsConsole) { _, requested in
-            guard requested else { return }
-            presentConsole()
-        }
-        .onChange(of: notificationRouter.path, initial: true) { _, path in
-            guard !path.isEmpty else { return }
-            hostSheet = nil
-            isShowingSettings = false
-            isShowingSetupGuide = false
-            isShowingTipJar = false
-            pendingHostAction = nil
-            presentConsole()
+        // `initial: true`, as the Console routing it replaces was: a tap that
+        // launched the app from cold is already recorded on the router by the
+        // time this screen first renders, and it has to land all the same.
+        .onChange(of: notificationRouter.landing, initial: true) { _, landing in
+            guard let landing else { return }
+            landOnClient(hostID: landing.hostID)
         }
     }
 
+    /// Where a notification or Live Activity tap lands (Open item 28): this
+    /// screen, herdr's own client — the direct view of herdr rather than the
+    /// Console's abstraction over it. So the cover comes down if it is up,
+    /// anything presented over the root goes with it, and the tap's Host
+    /// becomes the primary one, chosen and persisted exactly as the menu's
+    /// Switch Host does. A Host the catalog no longer has leaves the screen
+    /// on the Host it was showing. The tap's pane is not used at all: herdr's
+    /// client focuses its own pane and takes no target from outside.
+    private func landOnClient(hostID: Host.ID) {
+        consoleRequestGeneration += 1
+        isShowingConsole = false
+        hostSheet = nil
+        isShowingSettings = false
+        isShowingSetupGuide = false
+        isShowingTipJar = false
+        pendingHostAction = nil
+        primaryHost.land(onHostID: hostID, in: hosts.hosts)
+        notificationRouter.landingWasHandled()
+    }
+
+    /// The foreground rendering of the same push, so a tap on it lands the
+    /// same way a tap on the notification would: on this screen, on that
+    /// Agent's Host. The Console draws its own banner for when the cover is
+    /// up, and a tap there still navigates the Console — each surface keeps
+    /// the user where they are.
     @ViewBuilder
     private var banner: some View {
         if let banner = bannerStore.banner {
             AgentNotificationBannerView(banner: banner) {
                 bannerStore.dismiss()
-                notificationRouter.open(banner.target)
+                // A banner with no target is herdr's own desktop notification
+                // relayed through (OSC 9): nothing to land on.
+                if let target = banner.target {
+                    notificationRouter.land(onHostID: target.hostID)
+                }
             }
             .transition(.move(edge: .top).combined(with: .opacity))
         }
@@ -293,14 +322,24 @@ struct HerdrClientRootView: View {
     private func presentConsole() {
         guard !isShowingConsole, !isPreparingConsole else { return }
         isPreparingConsole = true
+        let generation = consoleRequestGeneration
         Task { @MainActor in
             let handedOver = await commands.prepareForConsole()
             isPreparingConsole = false
+            // A tap landed on this screen while the channel was being handed
+            // back: the Console is no longer where the user is going, so it
+            // must not arrive seconds later on top of them — and the Client,
+            // which the hand-off detached for a cover that is never coming,
+            // has to be put back on stage or it is left frozen with no
+            // spinner and no Reconnect (the S3 dead end).
+            guard generation == consoleRequestGeneration else {
+                commands.abandonConsolePreparation()
+                return
+            }
             if !handedOver {
-                notices.post(.consoleHandoffTimedOut, presentingConsole: false)
+                notices.post(.consoleHandoffTimedOut)
             }
             isShowingConsole = true
-            notices.consoleWasPresented()
         }
     }
 
@@ -316,10 +355,10 @@ struct HerdrClientRootView: View {
         }
     }
 
-    /// The notice strip over the Console cover: one line, one dismissal, and
-    /// a Retry where there is something to retry.
+    /// The notice strip, drawn over whichever of the two screens is on top:
+    /// one line, one dismissal, and a Retry where there is something to retry.
     @ViewBuilder
-    private var consoleNotice: some View {
+    private var noticeStrip: some View {
         if let notice = notices.notice {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: notice.symbol)
@@ -591,6 +630,14 @@ final class HerdrClientCommands {
     /// means the cover should still come up — the Console is the user's only
     /// route to Agents — but an Agent Attach may be refused until the old
     /// channel finally closes, which is worth saying out loud.
+    /// Undoes a `prepareForConsole()` whose cover never came up. The Client
+    /// is still the screen, so it goes back on stage and reattaches — exactly
+    /// what lowering the cover would have done. `setPresented(true)` is the
+    /// one call that both flips the stage flag and rejoins, and without it
+    /// the store is left `.left` and off stage under a visible terminal,
+    /// where neither `needsRejoin` nor the menu's Reconnect can reach it.
+    func abandonConsolePreparation() { store?.setPresented(true) }
+
     @discardableResult
     func prepareForConsole(
         timeout: Duration = HerdrClientCommands.consoleHandoffTimeout

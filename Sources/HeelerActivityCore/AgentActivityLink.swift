@@ -8,7 +8,10 @@ enum AgentActivityLink {
     static let scheme = "heeler"
     static let host = "agent"
 
-    /// A tap on one agent row: opens that agent's detail.
+    /// A tap on one agent row. The pane id is still carried — the widget
+    /// encodes it and the link round-trips it — but the app lands on herdr's
+    /// own client for the Host and ignores the pane: herdr's client focuses
+    /// its own pane and takes no target from outside (Open item 28).
     static func agentURL(hostID: String, paneID: String) -> URL? {
         var components = URLComponents()
         components.scheme = scheme
@@ -21,8 +24,9 @@ enum AgentActivityLink {
         return components.url
     }
 
-    /// A tap outside any row (compact island, minimal, banner chrome):
-    /// opens the Console.
+    /// A tap outside any row (compact island, minimal, banner chrome): the
+    /// Host alone, which is all a landing needs. Named for the screen it
+    /// once opened; the widget builds it under this name.
     static func consoleURL(hostID: String) -> URL? {
         var components = URLComponents()
         components.scheme = scheme

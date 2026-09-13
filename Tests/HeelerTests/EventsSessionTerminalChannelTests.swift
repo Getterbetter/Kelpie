@@ -16,8 +16,10 @@ struct EventsSessionTerminalChannelTests {
 
     private func makeSession(
         connect: @escaping @Sendable () async throws -> any Transport,
+        keepalive: KeepalivePolicy? = nil,
         terminalIdleTimeout: Duration = .seconds(5),
         terminalAcquisitionTimeout: Duration = .seconds(30),
+        streamEndTimeout: Duration = .seconds(2),
         terminalWaiterDidRegister: (@Sendable () -> Void)? = nil
     ) -> EventsSession {
         EventsSession(
@@ -25,9 +27,10 @@ struct EventsSessionTerminalChannelTests {
             connect: connect,
             reconnectPolicy: ReconnectPolicy(
                 initialDelay: .milliseconds(10), multiplier: 2, maxDelay: .milliseconds(50)),
-            keepalive: nil,
+            keepalive: keepalive,
             terminalIdleTimeout: terminalIdleTimeout,
             terminalAcquisitionTimeout: terminalAcquisitionTimeout,
+            streamEndTimeout: streamEndTimeout,
             terminalWaiterDidRegister: terminalWaiterDidRegister)
     }
 
@@ -269,6 +272,113 @@ struct EventsSessionTerminalChannelTests {
         #expect(elapsed < .seconds(2))
         #expect(await updates.next() == .status(.suspended))
         stalled.cancel()
+        await session.end()
+    }
+
+    @Test func aPathChangeRecoversEvenWhenTheChannelCloseNeverReturns() async throws {
+        // Open item 22, off Wi-Fi over Tailscale: the path moved, the session
+        // ended its channel — and the ender never came back, because the SSH
+        // driver's operation mutex has no deadline and the socket was gone
+        // without an RST. Parked inside `end()`, the run loop could not retry,
+        // reconnect or even keep the keepalive going, so the root screen read
+        // "Reconnecting" for the life of the process. A gate the test never
+        // opens is that close.
+        let first = ScriptedTransport()
+        let second = ScriptedTransport()
+        let wedged = ScriptedTransportCallGate()
+        await first.gateNextStreamEnd(using: wedged)
+        let connector = SequencedTransportConnector([first, second])
+        let session = makeSession(
+            connect: { try await connector.connect() },
+            streamEndTimeout: .milliseconds(100))
+        var updates = session.updates.makeAsyncIterator()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+        #expect(await updates.next() == .status(.connected))
+
+        await session.networkPathDidChange()
+
+        guard case .status(.reconnecting(_, _, let reported)) = await updates.next() else {
+            Issue.record("expected .reconnecting despite the stalled channel close")
+            await session.end()
+            return
+        }
+        #expect(reported == .sshUnreachable(detail: "The network connection changed."))
+        #expect(await updates.next() == .status(.connected))
+        // The graceful close really was attempted, and really never returned:
+        // the session got past it by abandoning the transport instead.
+        #expect(await wedged.entryCount == 1)
+        #expect(await first.abandonedStreamCount == 1)
+        #expect(await connector.connectCount == 2)
+        #expect(await second.capturedSubscriptions == [subscriptions])
+
+        await session.end()
+    }
+
+    @Test func aKeepaliveFailureRecoversEvenWhenTheChannelCloseNeverReturns() async throws {
+        // The same stall on the other path that writes the connection off: an
+        // unanswered keepalive ping. Ping 1 is the connect path's; ping 2 is
+        // the one the dead link swallows.
+        let first = ScriptedTransport()
+        let second = ScriptedTransport()
+        let wedged = ScriptedTransportCallGate()
+        await first.failPing(atCall: 2, with: .timedOut)
+        await first.gateNextStreamEnd(using: wedged)
+        let connector = SequencedTransportConnector([first, second])
+        let session = makeSession(
+            connect: { try await connector.connect() },
+            keepalive: KeepalivePolicy(interval: .milliseconds(20)),
+            streamEndTimeout: .milliseconds(100))
+        var updates = session.updates.makeAsyncIterator()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+        #expect(await updates.next() == .status(.connected))
+
+        guard case .status(.reconnecting(_, _, let reported)) = await updates.next() else {
+            Issue.record("expected .reconnecting despite the stalled channel close")
+            await session.end()
+            return
+        }
+        #expect(reported == .timedOut)
+        #expect(await updates.next() == .status(.connected))
+        #expect(await wedged.entryCount == 1)
+        #expect(await first.abandonedStreamCount == 1)
+        #expect(await connector.connectCount == 2)
+
+        await session.end()
+    }
+
+    @Test func aHealthyChannelStillEndsGracefully() async throws {
+        // The bound is a fallback, not the mechanism: a channel that can close
+        // does, well inside the deadline, and nothing is abandoned — a
+        // connection the session could have kept is never thrown away.
+        let first = ScriptedTransport()
+        let second = ScriptedTransport()
+        let connector = SequencedTransportConnector([first, second])
+        let session = makeSession(
+            connect: { try await connector.connect() },
+            streamEndTimeout: .seconds(30))
+        var updates = session.updates.makeAsyncIterator()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+        #expect(await updates.next() == .status(.connected))
+
+        let started = ContinuousClock.now
+        await session.networkPathDidChange()
+        #expect(started.duration(to: .now) < .seconds(1))
+
+        guard case .status(.reconnecting(_, _, let reported)) = await updates.next() else {
+            Issue.record("expected .reconnecting after the network path moved")
+            await session.end()
+            return
+        }
+        #expect(reported == .sshUnreachable(detail: "The network connection changed."))
+        #expect(await updates.next() == .status(.connected))
+        #expect(await first.abandonedStreamCount == 0)
+
         await session.end()
     }
 }

@@ -2218,11 +2218,47 @@ actor HeelerSSHTransport: Transport {
         }
 
         return (
-            HerdrEventStream(events: events) {
-                readerTask.cancel()
-                await readerTask.value
-            },
+            HerdrEventStream(
+                events: events,
+                abandoner: {
+                    readerTask.cancel()
+                    // The reader finishes this continuation only after its own
+                    // teardown — the very thing that could not complete — so
+                    // finish it here instead: the consumer's `for try await`
+                    // ends now rather than at the end of a close that may
+                    // never come. Finishing cleanly leaves the caller's own
+                    // reason (a moved path, a failed keepalive) as the one the
+                    // session reports.
+                    eventContinuation.finish()
+                    Task { await self.abandonConnection() }
+                },
+                ender: {
+                    readerTask.cancel()
+                    await readerTask.value
+                }),
             readerID)
+    }
+
+    /// Drops this Transport's SSH connection without an orderly close.
+    ///
+    /// `close()` cannot be relied on here: every one of its steps queues behind
+    /// the driver's operation mutex, which has no deadline, so on a link that
+    /// died silently it inherits the same unbounded wait that stranded the
+    /// events channel. `SSHConnection.abandon()` takes no mutex — it
+    /// invalidates the session, and everything parked on it fails at once.
+    /// The Transport is finished afterwards; its owner builds a fresh one.
+    private func abandonConnection() async {
+        // Unconditional: a graceful `close()` that won the actor turn first has
+        // already cleared `connected` and is parked on the driver's operation
+        // mutex — the very wait this exists to break. `abandon()` is
+        // idempotent, so invalidating again costs nothing.
+        connected = false
+        await connection.abandon()
+        // Dropped rather than closed, and only once the session is already
+        // invalidated: an SFTP close takes the same mutex, and invalidation
+        // reclaims the handles anyway.
+        imageStageClients.removeAll()
+        notificationFileClients.removeAll()
     }
 
     private func runEventsChannel(

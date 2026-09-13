@@ -213,6 +213,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   the keyboard on the herdr screen (esc, tab, sticky ctrl/alt, arrows,
   symbols, Paste); the separate Keys pad and the paste/newline row are gone
   from that screen. (Kelpie)
+- A tapped notification or Live Activity opens herdr itself, on that Host,
+  instead of the Agents console: it switches the screen to the Host the
+  notification came from and closes the console if it was open. (Kelpie)
 
 ### Fixed
 

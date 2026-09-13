@@ -140,18 +140,38 @@ final class HerdrEventStream: Sendable {
     /// finishes throwing if the channel dies remotely.
     let events: AsyncThrowingStream<HerdrEvent, any Error>
     private let ender: @Sendable () async -> Void
+    private let abandoner: @Sendable () -> Void
 
     init(
         events: AsyncThrowingStream<HerdrEvent, any Error>,
+        abandoner: @escaping @Sendable () -> Void = {},
         ender: @escaping @Sendable () async -> Void
     ) {
         self.events = events
+        self.abandoner = abandoner
         self.ender = ender
     }
 
     /// Closes the events channel explicitly and waits for its teardown; the
     /// stream then finishes without error. Idempotent.
+    ///
+    /// Waits for the *whole* teardown, which on a link that died silently is
+    /// unbounded: the close queues behind the SSH driver's operation mutex,
+    /// and `events` is finished only once it returns. Callers that already
+    /// distrust the connection must bound this — see
+    /// `EventsSession.endStreamPromptly` — and fall back to `abandon()`.
     func end() async {
         await ender()
+    }
+
+    /// Gives up on the graceful close: finishes `events` at once so a consumer
+    /// parked on it proceeds immediately, and abandons the channel's socket
+    /// rather than waiting for a teardown that cannot complete. Returns
+    /// without awaiting anything. Idempotent.
+    ///
+    /// Only for a connection already written off. It leaves the Transport
+    /// unusable by design — the caller's next step is to build a fresh one.
+    func abandon() {
+        abandoner()
     }
 }

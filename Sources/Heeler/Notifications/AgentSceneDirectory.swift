@@ -164,6 +164,8 @@ final class AgentSceneDirectory {
     /// A link that arrived before any window connected. The inner optional
     /// is the link itself: nil means "the Console".
     @ObservationIgnored private var pendingOpen: AgentNotificationTarget??
+    /// A tap that arrived before any window registered (Open item 28).
+    @ObservationIgnored private var pendingLanding: UUID?
     /// Observed: each window's Agent detail re-reads its access when either
     /// changes.
     private var terminalClaims: [HostTerminalClaim] = []
@@ -186,6 +188,10 @@ final class AgentSceneDirectory {
             activationOrder: activationOrder)
         if !order.contains(sceneID) {
             order.append(sceneID)
+        }
+        if let hostID = pendingLanding {
+            pendingLanding = nil
+            land(onHostID: hostID)
         }
         if let pending = pendingOpen {
             pendingOpen = nil
@@ -300,6 +306,25 @@ final class AgentSceneDirectory {
         let scenes = scenes
         guard let key = AgentDeepLinkPolicy.keyScene(in: scenes) else { return nil }
         return scenes.first(where: { $0.id == key })?.presentedAgent
+    }
+
+    /// A notification or Live Activity tap: it lands on a window's root
+    /// screen — herdr's own client for that Host (Open item 28) — and never
+    /// presents the Console. The key window takes it, else the most recent
+    /// one; with no window yet (a killed-state launch) it waits for the first
+    /// registration.
+    func land(onHostID hostID: UUID) {
+        let scenes = scenes
+        guard
+            let sceneID = AgentDeepLinkPolicy.keyScene(in: scenes) ?? scenes.last?.id,
+            let entry = entries[sceneID]
+        else {
+            pendingLanding = hostID
+            return
+        }
+        pendingLanding = nil
+        entry.router.land(onHostID: hostID)
+        entry.activate()
     }
 
     /// Routes one deep link under the single-window rule. `preferredSceneID`

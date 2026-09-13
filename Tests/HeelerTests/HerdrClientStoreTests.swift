@@ -378,6 +378,32 @@ struct HerdrClientStoreTests {
         #expect(await commands.prepareForConsole(timeout: .seconds(5)))
     }
 
+    /// A notification tap landing on this screen while the hand-off was in
+    /// flight: the cover never comes up, so the Client the hand-off detached
+    /// has to come back. Without the restore the store is left `.left` and
+    /// off stage under a visible terminal, where `needsRejoin` is false and
+    /// the menu's Reconnect is a no-op — a frozen frame with no way out.
+    @Test func anAbandonedHandoffPutsTheClientBackOnStage() async throws {
+        let log = AttachLog()
+        let store = makeStore(sessionName: nil, log: log)
+        store.viewDidResize(cols: 80, rows: 24)
+        try await waitUntil("the first attach should happen") { !log.recorded.isEmpty }
+        let firstSurface = store.terminalID
+        let commands = HerdrClientCommands()
+        commands.store = store
+        #expect(await commands.prepareForConsole(timeout: .seconds(5)))
+
+        commands.abandonConsolePreparation()
+
+        #expect(!store.needsRejoin)
+        #expect(store.statusPresentation?.kind == .connecting)
+        try await waitUntil("the abandoned hand-off should rebuild the pipeline") {
+            store.terminalID != firstSurface
+        }
+        store.viewDidResize(cols: 80, rows: 24)
+        try await waitUntil("and attach again") { log.recorded.count == 2 }
+    }
+
     @Test func aHandoffWithNoLiveClientSucceedsImmediately() async {
         // The Welcome screen's case: no Host, so no store, and the Console
         // must still open.
