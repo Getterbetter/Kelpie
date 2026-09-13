@@ -28,10 +28,6 @@ Heeler is an **agent console**: a native dashboard of every coding agent running
 
 ## Screenshots
 
-<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
-
-[View iPad screenshots](docs/ipad-screenshots.md)
-
 | Agent Console + search | Live terminal | Direct Input + Terminal keyboard |
 | --- | --- | --- |
 | <img src="docs/images/console-iphone.png" width="240" alt="Agent Console with pinned Agents, status indicators, and search on iPhone" /> | <img src="docs/images/live-terminal-iphone.png" width="240" alt="Agent's live terminal with Direct Input on iPhone" /> | <img src="docs/images/agent-iphone.png" width="240" alt="Agent Direct Input with shortcuts and a full Terminal keyboard on iPhone" /> |
@@ -39,6 +35,10 @@ Heeler is an **agent console**: a native dashboard of every coding agent running
 | Shell + Terminal keyboard | Skills | Live Activity |
 | --- | --- | --- |
 | <img src="docs/images/terminal-iphone.png" width="240" alt="Shell terminal in Keys mode with a full Terminal keyboard on iPhone" /> | <img src="docs/images/skills-iphone.png" width="240" alt="Composer Skills suggestions on iPhone" /> | <img src="docs/images/live-activity-iphone.png" width="240" alt="Lock-screen Live Activity tracking Agents on iPhone" /> |
+
+<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
+
+[View iPad screenshots](docs/ipad-screenshots.md)
 
 ## Features
 

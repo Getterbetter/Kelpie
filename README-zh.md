@@ -28,10 +28,6 @@ Heeler 是一个 **agent 控制台**：把所有机器上正在运行的 coding 
 
 ## 截图
 
-<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
-
-[View iPad screenshots](docs/ipad-screenshots.md)
-
 | Agent Console + 搜索 | 实时终端 | Direct Input + Terminal 键盘 |
 | --- | --- | --- |
 | <img src="docs/images/console-iphone.png" width="240" alt="iPhone 上支持置顶、状态显示和搜索的 Agent Console" /> | <img src="docs/images/live-terminal-iphone.png" width="240" alt="iPhone 上使用 Direct Input 的 Agent 实时终端" /> | <img src="docs/images/agent-iphone.png" width="240" alt="iPhone 上使用 Direct Input、快捷键和完整 Terminal 键盘的 Agent 终端" /> |
@@ -39,6 +35,10 @@ Heeler 是一个 **agent 控制台**：把所有机器上正在运行的 coding 
 | Shell + Terminal 键盘 | Skills | 实时活动 |
 | --- | --- | --- |
 | <img src="docs/images/terminal-iphone.png" width="240" alt="iPhone 上使用 Keys 模式和完整 Terminal 键盘的 Shell 终端" /> | <img src="docs/images/skills-iphone.png" width="240" alt="iPhone 上 Composer 的 Skills 建议" /> | <img src="docs/images/live-activity-iphone.png" width="240" alt="iPhone 锁屏上实时跟踪 Agent 的实时活动" /> |
+
+<a href="docs/ipad-screenshots.md"><img src="output/app-store/ipad-13/sources/05-windowed-console.png" width="760" alt="Heeler in a floating iPad window" /></a>
+
+[View iPad screenshots](docs/ipad-screenshots.md)
 
 ## 功能
 
