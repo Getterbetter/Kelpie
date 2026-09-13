@@ -725,7 +725,10 @@ extension ConsoleStore {
         credentials: HostCredentialsProvider = HostCredentialsProvider()
     ) -> @Sendable (Host, [EventSubscription]) -> EventsSession {
         { host, subscriptions in
-            EventsSession(subscriptions: subscriptions) {
+            // `traceHost` names this Host in the connection trace (off unless
+            // `-kelpie.connection-trace YES`); see `ConnectionTrace`.
+            let traceHost = String(host.id.uuidString.prefix(8))
+            return EventsSession(subscriptions: subscriptions, connect: {
                 let resolved: SSHCredentials
                 do {
                     resolved = try credentials.credentials(for: host)
@@ -747,7 +750,7 @@ extension ConsoleStore {
                         host: host,
                         credentials: resolved,
                         hostKeyPolicy: policy))
-            }
+            }, traceHost: traceHost)
         }
     }
 }

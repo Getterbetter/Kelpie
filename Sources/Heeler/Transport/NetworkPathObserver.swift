@@ -20,6 +20,13 @@ struct NetworkPathSnapshot: Sendable, Equatable {
         self.isSatisfied = isSatisfied
         self.interfaces = interfaces
     }
+
+    /// One-line spelling for the connection trace: whether there is a path at
+    /// all, and what is carrying it.
+    var summary: String {
+        let carried = interfaces.isEmpty ? "none" : interfaces.joined(separator: ",")
+        return "\(isSatisfied ? "satisfied" : "unsatisfied") via \(carried)"
+    }
 }
 
 /// Where path observations come from. A protocol so the observer can be
@@ -224,6 +231,11 @@ final class NetworkPathObserver {
                 guard let change = self.tracker.record(snapshot) else { continue }
                 Self.log.notice(
                     "network path \(String(describing: change), privacy: .public)")
+                // The connection trace's only view of the path: the session
+                // sees no `NWPath`, and this is the fact that decides whether
+                // a live-looking socket is worth anything. Free when off.
+                ConnectionTraceLog.shared.notePath(
+                    snapshot.summary, change: String(describing: change))
                 inbox.post(change)
             }
         }
