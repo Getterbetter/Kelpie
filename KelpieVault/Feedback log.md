@@ -226,3 +226,7 @@ Read as: (1) the `cab2da6` build now shows "Reconnecting" off Wi-Fi instead of a
 Anthony (2026-09-13, at close): "two new items for next session: live activity and keeping the session alive for longer when backgrounded"
 
 Read as: (26) Live Activities — Heeler's Live Activity for a running agent is still driven from `ContentView` behind the cover; check it works on the root screen and on the iPhone's Dynamic Island / lock screen, and what it should show for herdr's own TUI (agent status, Blocked/Done); (27) background lifetime — the SSH session dies soon after Kelpie is backgrounded; look at what iOS allows (background task assertion for the last ~30 s, audio/VoIP are not honest options, `NWConnection` behaviour, the Live Activity's own push updates) and make the reconnect on return fast and silent where a longer life is impossible.
+
+Anthony (2026-09-13, new session): "Read resume.md and /delegate tasks"
+
+Read as: run the round-13 action plan in `resume.md` through the delegate skill, in order, stopping at the gates (push, community replies, the Hetzner delete, the rebase) — none of those ran.

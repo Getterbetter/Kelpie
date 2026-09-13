@@ -1,0 +1,36 @@
+# Live Activity map (Open item 26)
+
+## 1. What starts it
+- Trigger: `ConsoleStore.agents` change → `ContentView.swift:175-179` (`onChange(of: console.agents)`) → `liveActivities.agentsDidChange(_:)` (`HostLiveActivityCoordinator.swift:126-136`), which schedules a 3s "settle" per Host (`scheduleSettle`, :210-231) then `apply(_:)` (:233-274) requests the ActivityKit activity via `controller.request` (:263-266).
+- Gate order (`desireBlocker`, :278-284 / `computeDesired`, :293-303): `controller.areEnabled` (iOS system LA toggle) → `LiveActivityPreferences.isEnabled(for: hostID)` (per-Host opt-in, UserDefaults key `live-activity.enabled-hosts`, **default OFF** — `LiveActivityPreferences.swift:9-22`) → device push token present → a Notification Key exists for the Host → at least one agent working/blocked/done.
+- Started at `liveActivities.start()` in `ContentView.swift:313` inside a `.task` — runs at root, unconditional of the Console cover. No dependency on `isShowingConsole`/the `fullScreenCover` anywhere in `HostLiveActivityCoordinator.swift` or `ContentView.swift`.
+- Settings toggle: not in scope's files by name, but `HostLiveActivityCoordinator.setEnabled(_:for:)` (:86-96) is the write path Settings calls.
+
+## 2. What keeps it updated
+- Local: same `ConsoleStore.agents`/layout/pin `onChange`s in `ContentView.swift:175-188` feed `agentsDidChange`/`layoutsDidChange`/`pinsDidChange`, which re-settle and `controller.update(id:content:)` (:253).
+- Push: a `TokenPipe` per Host (`HostLiveActivityCoordinator.swift:424-509`) writes the ActivityKit push token + pinned panes + row layout into the Host's registration file over SSH (`NotificationRegistrationCeremony.setLiveActivityToken`/`setLiveActivityPinnedPaneIDs`/`clearLiveActivityToken`, :484-497). The herdr plugin (`plugin/src/activity-hook.js`) is invoked by herdr on `pane.agent_status_changed`, reads that registration, seals a fresh envelope, and POSTs an APNs `liveactivity` push to the relay/APNs directly — independent of the app being foregrounded.
+- Envelope: AES-GCM-sealed via `AgentActivityEnvelope.seal` (`AgentActivityContentBuilder.swift:80-93`; plugin-side `plugin/src/activity-envelope.js`) using the per-Host Notification Key; `ContentState.Envelope{v,kid,n,ct}` (`AgentActivityAttributes.swift:32-37`); cleartext `counts` ride alongside for a countsOnly fallback. `Sources/HeelerWidgets/AgentActivityDecryptor.swift` opens it in the widget extension. Registration requires a live push device token (`APNSDeviceToken`) and the Notification Key already provisioned on the Host — same gates as ordinary notifications.
+
+## 3. What it shows
+- `AgentActivityContentBuilder.desire`/`detail` (:25-164): counts (working/blocked/done), up to 5 agents (pin-order then status then pane-id), each with paneID, kind, name, workspace, status, title (≤80 graphemes), optional rendered `rows` (colored fields) — degrades by stripping titles/names, then rows, then to empty list to fit the ~2800-byte ciphertext budget.
+- Rendering: `Sources/HeelerWidgets/AgentLiveActivityWidget.swift` — lock-screen banner (`.lockScreen` surface, :32-193) and full Dynamic Island (`DynamicIsland.make`, :200-267: expanded center/bottom regions, compactLeading/compactTrailing, minimal).
+- Tap-through: `AgentActivityLink.agentURL`/`consoleURL` (`AgentActivityLink.swift:12-32`) → `ContentView.onOpenURL` (:192-196) → `notificationRouter.open(...)` sets `AgentNotificationRouter.path` → `HerdrClientRootView`'s `.onChange(of: notificationRouter.path, …)` (`HerdrClientRootView.swift:259-266`) calls `presentConsole()`. **Every tap lands on the Console `fullScreenCover`**, never the root herdr-TUI screen or a specific herdr pane directly; a pane-specific link only pushes that agent onto the Console's own nav path (`AgentNotificationRouter.open`, :36-49).
+
+## 4. Device family / entitlements
+- `project.yml`: both the app target and `HeelerWidgets` set `TARGETED_DEVICE_FAMILY: "1,2"` (lines ~102, ~172, ~220) — iPhone + iPad. App: `INFOPLIST_KEY_NSSupportsLiveActivities: YES` (line 119). Both targets share `com.apple.security.application-groups: group.TME.Kelpie.shared` (lines 73-74, 149-150, 198-199) for the shared Notification Key Keychain mirror. No iPad-specific caveat text found in scope files; iPad has no Dynamic Island hardware, so only the lock-screen/StandBy presentation (`.lockScreen` surface in the widget) applies there — code has no iPad-conditional branch, it's purely a hardware-absent case.
+
+## 5. Does the events session survive with only the root screen showing?
+- Yes. `ConsoleStore`'s events sessions are created/resumed in `ContentView.swift:161-165` (`.task { console.setHosts(...); await console.resume() }`) and driven purely by `AppActivityCoordinator`/`ConsoleActivityDriver` (`ConsoleActivityDriver.swift:19-32`: `.activated` → `console.reactivate()`, `.suspended` → `console.suspend()`), which itself is driven only by `scenePhase`/background-grace timing (`AppActivityCoordinator.swift`), not by `isShowingConsole`. `HerdrClientRootView`'s Console cover only toggles a `fullScreenCover` (`HerdrClientRootView.swift:169-186`) and does not touch `console`'s lifecycle. So agent-status events (and thus Live Activity content) keep flowing while only the root herdr-TUI screen is visible.
+
+## 6. Existing tests
+`Tests/HeelerTests/HostLiveActivityCoordinatorTests.swift`, `AgentActivityContentBuilderTests.swift`, `AgentActivityEnvelopeTests.swift`, `NotificationRegistrationCeremonyTests.swift`, `RelayContentStateDecodeTests.swift`, plus support fakes `Support/FakeLiveActivityController.swift`, `Support/LiveActivityVectorFile.swift`. Plugin side: `plugin/test/activity-hook.test.js`, `plugin/test/activity-envelope.test.js`, shared vectors `plugin/test-vectors/live-activity-content-v1.json`. These cover: settle/desire/gate logic, envelope seal/open round-trip and degradation, registration-file writes, and the plugin's push construction — not an on-device/UI check of Dynamic Island rendering or the deep-link → Console-cover hop.
+
+## 7. Gaps
+- Nothing in the scoped code makes the Live Activity depend on the Console cover being open — it is driven at the root, so item 26's premise (root-screen-only doubt) does not correspond to a found gap; the mechanism should already work from the root screen and on iPhone (same device family, same gating code).
+- Real gap found: the tap-through deep link always opens the Console cover, never the root screen or a herdr TUI pane directly — this is a real product decision still open, not a bug.
+- Per-Host opt-in defaults OFF (`LiveActivityPreferences`), so on a fresh install/Host, nothing appears until the (unlocated-in-scope) Settings toggle is turned on — worth flagging as the likely reason Anthony sees nothing.
+
+## Decisions still open
+- Tap-through target: Console cover today for every case (row tap and chrome tap alike land on Console, just at a different nav-stack depth) — should a row tap instead resurface the herdr TUI at that pane?
+- Content depth: whether title/rows should show by default or only after degradation (today: full rows shown until the ciphertext budget forces stripping).
+- No iPad StandBy-specific layout verified in code — worth an on-device check.

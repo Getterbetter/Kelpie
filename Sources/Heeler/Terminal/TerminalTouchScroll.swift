@@ -305,36 +305,36 @@ struct TerminalTouchScrollAccumulator {
     }
 }
 
-/// Whether the drag that scrolls the pane should also take the software
-/// keyboard down — the gesture Messages and Mail use to get a keyboard out of
-/// the way of what the user is reading.
+/// Whether a tap on the terminal text should take the software keyboard down.
+///
+/// Scrolling used to do this, and made it awkward to read back through a run
+/// of actions while replying to each one (Anthony, round 13). A tap is the
+/// deliberate gesture, so it is the one that decides: text puts the keyboard
+/// away, the input band and the alternate screen's bottom quarter still bring
+/// it up, and a scroll never touches it.
 ///
 /// iPadOS puts a dismiss key on its own keyboard; the iPhone keyboard has
 /// none, and the terminal's only other route down is the key bar. A hardware
 /// keyboard is exempt: there is no software keyboard to dismiss, and dropping
 /// first responder would cost the user their keys.
-enum TerminalScrollKeyboardDismiss {
-    /// Points of vertical travel before a pan counts as a scroll rather than
-    /// a wobbling finger. Roughly a row and a half at the default cell
-    /// height, and well past the pan recognizer's own slop.
-    static let travelThreshold: CGFloat = 24
+enum TerminalTapKeyboardDismiss {
+    /// How long the dismissal waits before it fires. The double-tap
+    /// recognizer deliberately has no `require(toFail:)` on the single tap, so
+    /// a word select sends this tap first; a keyboard leaving immediately
+    /// would resize the viewport under the second tap and select the wrong
+    /// text. Independent of `UIEvent`, which has no double-tap interval to
+    /// read.
+    static let doubleTapGrace: Duration = .milliseconds(350)
 
-    /// - Parameter didScroll: whether the pan has actually moved the viewport.
-    ///   A drag where nothing can scroll — the normal buffer already at the
-    ///   bottom, an alternate-screen agent with no remote scroll of its own —
-    ///   is not a scroll, and taking the keyboard down for it would leave the
-    ///   user with neither the keyboard nor the movement they asked for
-    ///   (review 3, round 12).
+    /// - Parameter action: only a tap the terminal reports without asking for
+    ///   the keyboard means "put it away". A tap that raises it, and one that
+    ///   only halts momentum, leave it alone.
     static func shouldDismiss(
-        travelY: CGFloat,
-        didScroll: Bool = true,
+        action: TerminalTapAction,
         isKeyboardUp: Bool,
-        hasHardwareKeyboard: Bool,
-        alreadyDismissedDuringGesture: Bool
+        hasHardwareKeyboard: Bool
     ) -> Bool {
-        guard didScroll, isKeyboardUp, !hasHardwareKeyboard,
-            !alreadyDismissedDuringGesture
-        else { return false }
-        return abs(travelY) >= travelThreshold
+        guard isKeyboardUp, !hasHardwareKeyboard else { return false }
+        return action == .report(raisesKeyboard: false)
     }
 }

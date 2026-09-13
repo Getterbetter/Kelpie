@@ -1,38 +1,25 @@
 # Kelpie
 
-**Start here:** read `resume.md` at the repo root for the current state and open items, then the Obsidian vault in `KelpieVault/` (home note `Kelpie.md`). Record Anthony's feedback in `KelpieVault/Feedback log.md` before acting on it.
+**Start here:** read `resume.md` at the repo root for the current state and open items, then the Obsidian vault in `KelpieVault/` (home note `Kelpie.md`). Work through the action plan in `resume.md` with `/delegate` (Anthony's default for every session since 2026-09-13: Fable orchestrates, Opus builds and reviews, Sonnet scouts and runs). Record Anthony's feedback in `KelpieVault/Feedback log.md` before acting on it.
 
-Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; nothing is pushed anywhere.
+Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; `origin` is the public Getterbetter/Kelpie.
 
 ## The root screen
 
-The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen
-Attach running herdr's own client — `exec herdr`, plus `--session` when the Host names
-one — for the primary Host, persisted in `kelpie.primary-host`. Heeler's native Console
-is not gone; it is a `fullScreenCover` behind the floating `ellipsis.circle` menu, and a
-notification deep link presents it by itself. Every store it needs between visits
-(`ConsoleStore`, Live Activities, notification preferences, the activity driver `.task`)
-is still created and driven in `ContentView`, above the cover. A Transport serves one
-Attach channel at a time, so the client leaves and rejoins as the cover comes up and
-down. Keyboard mode is automatic from `HardwareKeyboardObserver` (GameController), and
-URL taps are resolved by `TerminalLinkDetector` and opened on the iPad, never sent to
-herdr. See `docs/adr/0017-herdr-client-is-the-screen.md`.
+The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen Attach running herdr's own client for the primary Host (`kelpie.primary-host`). Heeler's native Console is a `fullScreenCover` behind the floating `ellipsis.circle` menu; its stores (`ConsoleStore`, Live Activities, notifications, the activity driver) are still created and driven in `ContentView`, above the cover. A Transport serves one Attach channel at a time, so the client leaves and rejoins as the cover comes and goes. Keyboard mode follows `HardwareKeyboardObserver`; URL taps open on the iPad, never in herdr. Details and reasons: `docs/adr/0017-herdr-client-is-the-screen.md`.
 
 ## Running it: always the physical iPad, never the simulator
 
 - The iOS simulator does not run reliably on this Mac (not enough RAM; launches wedge with "Mach error -308, server died"). Do not spend time on it.
-- Build and run on Anthony's 11-inch iPad Pro, plugged in and paired. Find it with `xcrun devicectl list devices` (physical, "connected"), then:
-  `xcodebuild build -project Heeler.xcodeproj -scheme Heeler -configuration Debug -destination 'platform=iOS,id=<device id>' -clonedSourcePackagesDirPath <scratch>/kelpie-spm -derivedDataPath <scratch>/kelpie-dd -allowProvisioningUpdates`
-  then `xcrun devicectl device install app --device <device id> <derivedData>/Build/Products/Debug-iphoneos/Kelpie.app` and `xcrun devicectl device process launch --device <device id> TME.Kelpie`.
-- Unit tests that need a host app run on an iPhone simulator destination only if it happens to boot; otherwise run them on the device too.
-- Always pass `-clonedSourcePackagesDirPath` and `-derivedDataPath` to xcodebuild, log to a file, and read only the tail; two builds sharing one derived-data path lock each other out.
+- Build, install and launch on Anthony's paired 11-inch iPad Pro (or the iPhone) with the exact xcodebuild and `devicectl` recipe in `KelpieVault/Build and deploy.md`. Always pass `-clonedSourcePackagesDirPath` and `-derivedDataPath`, log to a file and read only the tail; two builds sharing one derived-data path lock each other out.
+- Unit tests that need a host app run on the device too; a simulator destination only if one happens to boot.
 
 ## Build quirks
 
 - `GhosttyTerminal` is vendored under `Packages/GhosttyTerminal` because Xcode's downloader hangs on the remote libghostty binary on this Mac. `scripts/fetch-ghostty-artifact.sh` (run by `make generate`) fetches and checksum-verifies `Artifacts/GhosttyKit.xcframework`, which is gitignored. Never edit the vendored package; override its `open` members from `HeelerTerminalView`. The single exception Anthony has allowed is written up in `Packages/GhosttyTerminal/KELPIE-PATCHES.md` and must be reapplied on every re-vendor.
 - After adding a Swift file, run `xcodegen generate` and commit the regenerated `Heeler.xcodeproj`.
 - The iPad pointer, long-press and trackpad-scroll decisions are in `docs/adr/0016-ipad-pointer-input.md`.
-- Dependencies are watched by `scripts/depwatch.py` (`make depwatch`, `DRY=1` for a dry run); every fix it opens climbs the verification ladder in `docs/guides/dependency-watch.md` before merging.
+- Dependencies are watched by `scripts/depwatch.py` (`make depwatch`); see `KelpieVault/Dependency watch.md` and `docs/guides/dependency-watch.md`.
 
 ## Definition of done for a round
 

@@ -2860,53 +2860,32 @@ struct TerminalAttachTests {
         #expect(accumulator.rows(for: -2, pointsPerRow: 16) == -1)
     }
 
-    /// Scrolling the pane is how the software keyboard goes away on iOS, where
-    /// the keyboard has no dismiss key of its own (Anthony, round 12).
-    @Test func touchScrollDismissesTheSoftwareKeyboardOnceItHasTravelled() {
+    /// A tap on the terminal text is how the software keyboard goes away:
+    /// scrolling used to do it, and got in the way of reading back through a
+    /// run of actions while replying to each one (Anthony, round 13).
+    @Test func aTapOnTerminalTextDismissesTheSoftwareKeyboard() {
         func dismisses(
-            travelY: CGFloat,
+            _ action: TerminalTapAction,
             isKeyboardUp: Bool = true,
-            hasHardwareKeyboard: Bool = false,
-            alreadyDismissed: Bool = false
+            hasHardwareKeyboard: Bool = false
         ) -> Bool {
-            TerminalScrollKeyboardDismiss.shouldDismiss(
-                travelY: travelY,
+            TerminalTapKeyboardDismiss.shouldDismiss(
+                action: action,
                 isKeyboardUp: isKeyboardUp,
-                hasHardwareKeyboard: hasHardwareKeyboard,
-                alreadyDismissedDuringGesture: alreadyDismissed)
+                hasHardwareKeyboard: hasHardwareKeyboard)
         }
 
-        // A wobbling finger is not a scroll; a real drag is, in either
-        // direction.
-        #expect(!dismisses(travelY: 12))
-        #expect(dismisses(travelY: 40))
-        #expect(dismisses(travelY: -40))
+        #expect(dismisses(.report(raisesKeyboard: false)))
+        // The input row and the alternate screen's bottom band ask for the
+        // keyboard; a tap there must not take it away again.
+        #expect(!dismisses(.report(raisesKeyboard: true)))
+        // A tap that only stops a flick means nothing else.
+        #expect(!dismisses(.haltMomentum))
+        #expect(!dismisses(.report(raisesKeyboard: false), isKeyboardUp: false))
         // A Magic Keyboard has no software keyboard to dismiss, and its keys
         // reach the PTY only through this view's first responder.
-        #expect(!dismisses(travelY: 40, hasHardwareKeyboard: true))
-        #expect(!dismisses(travelY: 40, isKeyboardUp: false))
-        // One dismissal per gesture: a keyboard raised again mid-scroll stays.
-        #expect(!dismisses(travelY: 400, alreadyDismissed: true))
-    }
-
-    /// A drag where nothing can scroll — the normal buffer already at the
-    /// bottom, an alternate-screen agent with no remote scroll — is not a
-    /// scroll, and must not cost the keyboard (review 3, round 12).
-    @Test func aDragThatScrollsNothingKeepsTheKeyboard() {
         #expect(
-            !TerminalScrollKeyboardDismiss.shouldDismiss(
-                travelY: 400,
-                didScroll: false,
-                isKeyboardUp: true,
-                hasHardwareKeyboard: false,
-                alreadyDismissedDuringGesture: false))
-        #expect(
-            TerminalScrollKeyboardDismiss.shouldDismiss(
-                travelY: 400,
-                didScroll: true,
-                isKeyboardUp: true,
-                hasHardwareKeyboard: false,
-                alreadyDismissedDuringGesture: false))
+            !dismisses(.report(raisesKeyboard: false), hasHardwareKeyboard: true))
     }
 
     @MainActor

@@ -113,10 +113,12 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
-- Scrolling the terminal by touch puts the software keyboard away, the way
-  Messages does on a drag. iPadOS keyboards keep their own dismiss key, and a
-  hardware keyboard is never affected; a tap on the pane brings the keyboard
-  back. (Kelpie)
+- A tap on an agent's screen text puts the software keyboard away; scrolling
+  never does, so reading back through a run of actions no longer costs the
+  keyboard. A tap on the input row, or on the bottom of an agent's screen,
+  still brings it back, and a hardware keyboard is never affected. In a plain
+  shell's normal buffer the terminal keeps its taps, so the key bar is still
+  the way down there. (Kelpie)
 - Kelpie runs on the iPhone: herdr's own mobile layout below 64 columns, a
   12 pt default, and Next Tab / Previous Tab / Toggle Sidebar / Zoom Pane in
   the Kelpie menu. (Kelpie)

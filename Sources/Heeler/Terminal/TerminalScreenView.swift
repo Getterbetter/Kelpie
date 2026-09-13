@@ -881,17 +881,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private var hasTerminalGridMetrics = false
     private var terminalCellSize = CGSize(width: 8, height: 16)
     private var touchScrollAccumulator = TerminalTouchScrollAccumulator()
-    /// Vertical travel of the pan in progress, for the scroll-to-dismiss rule.
-    /// The gesture handler zeroes its own translation on every step, so the
-    /// distance the finger has covered has to be kept here.
-    private var touchScrollTravelY: CGFloat = 0
-    /// Whether this pan has already taken the keyboard down. One dismissal per
-    /// gesture: a long scroll must not keep resigning a keyboard the user has
-    /// deliberately raised again.
-    private var didDismissKeyboardForTouchScroll = false
-    /// Whether this pan has moved the viewport at all. A drag where nothing
-    /// can scroll is not a scroll, and does not take the keyboard down.
-    private var didScrollDuringTouchGesture = false
+    /// The tap-to-dismiss task waiting out the double-tap window. Held so
+    /// that anything the user does next can call the dismissal off.
+    private var pendingKeyboardDismiss: Task<Void, Never>?
     /// Whether a hardware keyboard is attached. The root screen hands over its
     /// live ``HardwareKeyboardObserver`` answer (a Magic Keyboard is undocked
     /// mid-session); everything else reads GameController's coalesced
@@ -1550,6 +1542,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Raises the keyboard, and records that the user wants it up.
     func requestKeyboard() {
         guard isLocalInputEnabled else { return }
+        cancelPendingKeyboardDismiss()
         if activeKeyboardHandoffID == nil {
             finishKeyboardTransitionLayout(handoffOutcome: .cancelled)
         }
@@ -2000,6 +1993,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // Any touch after a text tap — the second tap of a double tap, a
+        // drag the pan recognizer refuses and so never reports, a hold — is
+        // the tap's grace period ending early. The recognizer-level cancels
+        // below cover the paths that report; this covers the ones that
+        // never do.
+        cancelPendingKeyboardDismiss()
         // A finger anywhere but on a handle dismisses the selection. A touch
         // that hit-tests to a handle still arrives here through the responder
         // chain, so it is the touch's *view* that decides, not its location.
@@ -3313,6 +3312,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         let location = gesture.location(in: self)
         switch gesture.state {
         case .began:
+            cancelPendingKeyboardDismiss()
             guard isLocalInputEnabled, modeTracker.tracksMouse,
                 let cell = gridPointMapper.cell(at: location)
             else {
@@ -3406,6 +3406,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// fingers.
     @objc private func handleHerdrTextSelectionGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
+        cancelPendingKeyboardDismiss()
 
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if selectWord(at: gesture.location(in: self)) { return }
@@ -3423,6 +3424,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// accepted: it is a click at the cell the user was pointing at anyway.
     @objc private func handleHerdrDoubleTapGesture(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
+        cancelPendingKeyboardDismiss()
         guard selectWord(at: gesture.location(in: self)) else { return }
         UISelectionFeedbackGenerator().selectionChanged()
     }
@@ -3557,14 +3559,23 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             open(.url(match))
             return
         }
-        switch tapAction(at: location) {
+        let action = tapAction(at: location)
+        switch action {
         case .haltMomentum:
             stopTouchScrollMomentum()
             touchScrollAccumulator.reset()
         case .report(let raisesKeyboard):
+            // The click goes out first either way: herdr's TUI answers every
+            // tap at the layout it currently has (round 12, finding 5).
             clickTouch(at: location)
             if raisesKeyboard {
                 requestKeyboard()
+            } else if TerminalTapKeyboardDismiss.shouldDismiss(
+                action: action,
+                isKeyboardUp: isFirstResponder || hasEditingResponderInWindow,
+                hasHardwareKeyboard: hasHardwareKeyboard)
+            {
+                scheduleKeyboardDismissAfterTap()
             }
         }
     }
@@ -3601,19 +3612,12 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     @objc private func handleHerdrTouchScrollGesture(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
+            cancelPendingKeyboardDismiss()
             stopTouchScrollMomentum()
             touchScrollAccumulator.reset()
-            touchScrollTravelY = 0
-            didDismissKeyboardForTouchScroll = false
-            didScrollDuringTouchGesture = false
         case .changed:
-            let translationY = gesture.translation(in: self).y
-            touchScrollTravelY += translationY
-            if scrollTouch(translationY: translationY) != 0 {
-                didScrollDuringTouchGesture = true
-            }
+            _ = scrollTouch(translationY: gesture.translation(in: self).y)
             gesture.setTranslation(.zero, in: self)
-            dismissKeyboardForTouchScrollIfNeeded()
         case .ended:
             startTouchScrollMomentum(velocityY: gesture.velocity(in: self).y)
         case .cancelled, .failed:
@@ -3624,41 +3628,43 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
     }
 
-    /// Scrolling the pane takes the software keyboard down, the way Messages
-    /// does on a drag: on iOS the keyboard has no dismiss key of its own, and
-    /// a keyboard covering half the screen is the reason to scroll in the
-    /// first place. Only this gesture — one direct finger, refused while a
-    /// hold-drag owns the touch — and never with a hardware keyboard
-    /// attached, whose first responder is the only route its keys have to the
-    /// PTY. A tap afterwards raises the keyboard again as it always did.
-    private func dismissKeyboardForTouchScrollIfNeeded() {
-        // Cheap gates before the responder walk below: this runs on every
-        // step of every pan.
-        guard didScrollDuringTouchGesture, !didDismissKeyboardForTouchScroll,
-            !hasHardwareKeyboard
-        else { return }
-        guard TerminalScrollKeyboardDismiss.shouldDismiss(
-            travelY: touchScrollTravelY,
-            didScroll: didScrollDuringTouchGesture,
-            isKeyboardUp: isFirstResponder || hasEditingResponderInWindow,
-            hasHardwareKeyboard: hasHardwareKeyboard,
-            alreadyDismissedDuringGesture: didDismissKeyboardForTouchScroll)
-        else { return }
-        didDismissKeyboardForTouchScroll = true
+    /// Takes the keyboard down after a tap on terminal text, once the tap is
+    /// known not to be the first half of a double tap.
+    ///
+    /// The wait is what makes word and path selection still land on the text
+    /// the user touched: dropping the keyboard on the spot would resize the
+    /// viewport between the two taps. Anything the user does in the meantime —
+    /// a second tap, a hold, a scroll, a deliberate request for the keyboard —
+    /// calls it off.
+    private func scheduleKeyboardDismissAfterTap() {
+        cancelPendingKeyboardDismiss()
+        pendingKeyboardDismiss = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: TerminalTapKeyboardDismiss.doubleTapGrace)
+            guard !Task.isCancelled else { return }
+            self?.pendingKeyboardDismiss = nil
+            self?.dismissKeyboardForTap()
+        }
+    }
+
+    private func cancelPendingKeyboardDismiss() {
+        pendingKeyboardDismiss?.cancel()
+        pendingKeyboardDismiss = nil
+    }
+
+    private func dismissKeyboardForTap() {
         if isFirstResponder {
             _ = dismissKeyboard()
         } else {
             // The Console's Direct Input field owns the keyboard while this
-            // same gesture scrolls the transcript below it, and
-            // `dismissKeyboard()` only speaks for this view's own responder
-            // (review 3, round 12). `endEditing` is the route to a keyboard
-            // some other view raised.
+            // same view shows the transcript below it, and `dismissKeyboard()`
+            // only speaks for this view's own responder (review 3, round 12).
+            // `endEditing` is the route to a keyboard some other view raised.
             window?.endEditing(true)
         }
     }
 
     /// Whether some other view in this window is a text input holding the
-    /// keyboard up. Only asked once a pan has travelled far enough to matter.
+    /// keyboard up. Only asked for a tap that could take it down.
     private var hasEditingResponderInWindow: Bool {
         guard !isFirstResponder, let window else { return false }
         return Self.containsEditingResponder(window)

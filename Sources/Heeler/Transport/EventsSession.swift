@@ -173,6 +173,16 @@ actor EventsSession {
     /// attach with something its surface can show a Reconnect against rather
     /// than sit on "Connecting…" forever.
     private let terminalAcquisitionTimeout: Duration
+    /// Off by default and free when off (see `ConnectionTraceLog`). On, every
+    /// connect, reconnect, path change and Attach hand-off below leaves a line
+    /// in `Documents/connection-trace.log`, which is the only way anyone has
+    /// of learning *why* a Host off Wi-Fi never comes back (Open item 22): the
+    /// retry loop overwrites each attempt's reason with the next one's, and
+    /// the screen shows only the newest.
+    private let connectionTrace: ConnectionTraceLog
+    /// Names this Host in the trace. The id where the caller has one; never an
+    /// address, so a pulled trace can be pasted into an issue.
+    private let traceHost: String
     private static let log = Logger(
         subsystem: "dev.bybee.heeler", category: "events-session")
 
@@ -235,7 +245,9 @@ actor EventsSession {
         updatesBufferLimit: Int = HerdrEventStream.bufferLimit,
         terminalIdleTimeout: Duration = .seconds(5),
         terminalAcquisitionTimeout: Duration = .seconds(30),
-        terminalWaiterDidRegister: (@Sendable () -> Void)? = nil
+        terminalWaiterDidRegister: (@Sendable () -> Void)? = nil,
+        connectionTrace: ConnectionTraceLog = .shared,
+        traceHost: String = "-"
     ) {
         self.subscriptions = subscriptions
         self.connect = connect
@@ -244,6 +256,8 @@ actor EventsSession {
         self.terminalIdleTimeout = terminalIdleTimeout
         self.terminalAcquisitionTimeout = terminalAcquisitionTimeout
         self.terminalWaiterDidRegister = terminalWaiterDidRegister
+        self.connectionTrace = connectionTrace
+        self.traceHost = traceHost
         // Bounded (#22): dropping is safe because every drop is surfaced
         // through `yieldUpdate`'s marker; see the actor doc for the policy
         // and HerdrEventStream.bufferLimit for the sizing rationale.
@@ -413,8 +427,16 @@ actor EventsSession {
             !(error is CancellationError)
         else { return }
         let failure = Self.transportFailure(error)
-        guard Self.indicatesDeadConnection(failure) else { return }
+        guard Self.indicatesDeadConnection(failure) else {
+            trace(
+                .attach, Self.traceOutcome(failure),
+                detail: "not connection evidence")
+            return
+        }
         Self.log.notice("attach channel failed; marking the transport suspect")
+        trace(
+            .suspect, Self.traceOutcome(failure),
+            detail: "the attach channel died")
         transportSuspect = true
         guard let stream = liveStream else { return }
         pendingKeepaliveFailure = failure
@@ -456,6 +478,9 @@ actor EventsSession {
     /// Attach and the attach then sat on it until its deadline.
     func networkPathDidChange() async {
         transportSuspect = true
+        trace(
+            .path, .note("the network path changed"),
+            detail: "phase=\(phase) transport=\(currentTransport == nil ? "none" : "installed")")
         guard phase == .active else { return }
         Self.log.notice("network path changed; marking the transport suspect")
         backoffSleep?.cancel()
@@ -469,6 +494,36 @@ actor EventsSession {
     /// diagnostic surface for the two entry points above.
     var transportIsSuspect: Bool { transportSuspect }
 
+    // MARK: Connection trace
+
+    /// One trace line. Everything but the phase arrives as an autoclosure, so
+    /// a disabled trace costs the `isEnabled` read and this return — no
+    /// description, no interpolation, no formatting.
+    private func trace(
+        _ phase: ConnectionTracePhase,
+        _ outcome: @autoclosure () -> ConnectionTraceEntry.Outcome,
+        attempt: Int? = nil,
+        backoff: Duration? = nil,
+        detail: @autoclosure () -> String? = nil
+    ) {
+        guard connectionTrace.isEnabled else { return }
+        connectionTrace.record(
+            ConnectionTraceEntry(
+                host: traceHost,
+                phase: phase,
+                outcome: outcome(),
+                attempt: attempt,
+                backoff: backoff,
+                detail: detail()))
+    }
+
+    /// A transport failure as the trace records it: the taxonomy case with its
+    /// payload, plus the classification that decides whether the loop retries
+    /// silently or stops and reports.
+    private static func traceOutcome(_ failure: TransportError) -> ConnectionTraceEntry.Outcome {
+        .failed(reason: String(describing: failure), retryable: failure.isRetryable)
+    }
+
     /// Every activation announces `.connecting` synchronously before `run`
     /// is spawned — a first dial, a return from Suspended, and a Reconnect
     /// Request from Connected, Reconnecting or Failed alike. Automatic
@@ -479,6 +534,7 @@ actor EventsSession {
         terminalTransportFailure = nil
         activationGeneration &+= 1
         let generation = activationGeneration
+        trace(.lifecycle, .note("activate"), detail: "activation=\(generation)")
         yieldUpdate(.status(.connecting))
         runTask = Task { await self.run(generation: generation) }
     }
@@ -495,6 +551,7 @@ actor EventsSession {
         }
         activationGeneration &+= 1
         let generation = activationGeneration
+        trace(.lifecycle, .note("retry"), detail: "activation=\(generation)")
         yieldUpdate(.status(.connecting))
         await windDown()
         guard phase == .active, activationGeneration == generation else { return }
@@ -504,6 +561,7 @@ actor EventsSession {
     private func deactivate() async {
         guard phase == .active else { return }
         phase = .suspended
+        trace(.lifecycle, .note("suspend"))
         await windDown()
         yieldUpdate(.status(.suspended))
     }
@@ -511,6 +569,7 @@ actor EventsSession {
     private func finish() async {
         guard phase != .ended else { return }
         phase = .ended
+        trace(.lifecycle, .note("end"))
         await windDown()
         yieldUpdate(.status(.ended))
         updatesContinuation.finish()
@@ -524,6 +583,9 @@ actor EventsSession {
     /// is later shed itself lands right back here and is re-armed (see
     /// `HerdrEvent.eventsDropped`).
     private func yieldUpdate(_ update: EventsSessionUpdate) {
+        if case .status(let status) = update {
+            traceStatus(status)
+        }
         // Ordered before the yield, so no consumer can observe a status that
         // ends a connection while `currentLatency` still holds that
         // connection's measurement.
@@ -534,6 +596,29 @@ actor EventsSession {
         droppedUpdateCount += 1
         if case .dropped = updatesContinuation.yield(.event(.eventsDropped)) {
             droppedUpdateCount += 1
+        }
+    }
+
+    /// Every status transition, as one trace line. `.reconnecting` is the one
+    /// that matters most: it carries the attempt, the backoff the loop chose,
+    /// and the failure the user is actually stuck behind.
+    private func traceStatus(_ status: EventsSessionStatus) {
+        guard connectionTrace.isEnabled else { return }
+        switch status {
+        case .connecting:
+            trace(.status, .started, detail: "connecting")
+        case .connected:
+            trace(.status, .succeeded, detail: "connected")
+        case .reconnecting(let attempt, let delay, let failure):
+            trace(
+                .status, Self.traceOutcome(failure),
+                attempt: attempt, backoff: delay, detail: "reconnecting")
+        case .failed(let failure):
+            trace(.status, Self.traceOutcome(failure), detail: "failed")
+        case .suspended:
+            trace(.status, .note("suspended"))
+        case .ended:
+            trace(.status, .note("ended"))
         }
     }
 
@@ -562,17 +647,31 @@ actor EventsSession {
         var attempt = 0
         while activationIsCurrent(generation) {
             let stream: HerdrEventStream
+            // Which half of the establish sequence a failure below came out
+            // of. Preflight proves connect + ping and stops there; only this
+            // loop also has to get `events.subscribe` open, so the trace must
+            // say which of the two the Host is actually failing.
+            var stage = ConnectionTracePhase.connect
             do {
-                let transport = try await ensureTransport(for: generation)
+                let transport = try await ensureTransport(
+                    for: generation, attempt: attempt + 1)
                 guard activationIsCurrent(generation) else { break }
+                stage = .subscribe
+                trace(.subscribe, .started, attempt: attempt + 1)
                 stream = try await transport.subscribeToEvents(subscriptions)
             } catch {
                 guard activationIsCurrent(generation) else { break }
                 let failure = Self.transportFailure(error)
+                // `ensureTransport` already traced its own two stages with the
+                // detail this cannot see; only the subscribe is untraced here.
+                if stage == .subscribe {
+                    trace(.subscribe, Self.traceOutcome(failure), attempt: attempt + 1)
+                }
                 if failure == .timedOut {
                     // The connection swallowed a request whole; do not trust
                     // it for the retry even if it still looks alive.
                     transportSuspect = true
+                    trace(.suspect, .note("a request timed out"))
                 }
                 // A pane that exited between the snapshot behind this
                 // subscription set and this subscribe is an ordinary race,
@@ -607,6 +706,7 @@ actor EventsSession {
                 break
             }
             liveStream = stream
+            trace(.subscribe, .succeeded)
             attempt = 0
             pendingKeepaliveFailure = nil
             yieldUpdate(.status(.connected))
@@ -652,6 +752,9 @@ actor EventsSession {
                 pendingKeepaliveFailure ?? streamFailure
                 ?? .channelFailed(detail: "events stream ended unexpectedly")
             pendingKeepaliveFailure = nil
+            trace(
+                .subscribe, Self.traceOutcome(failure),
+                attempt: attempt + 1, detail: "the events stream ended")
             guard failure.isRetryable else {
                 recordTerminalTransportFailure(failure)
                 failTerminalTransportWaiters(failure, for: generation)
@@ -701,28 +804,60 @@ actor EventsSession {
     /// The Host's live transport: reuses the current one while its SSH
     /// connection is alive and trusted, otherwise closes it and establishes
     /// a fresh one — pinged first, as on every new connection path.
-    private func ensureTransport(for generation: UInt64) async throws -> any Transport {
+    private func ensureTransport(
+        for generation: UInt64, attempt: Int
+    ) async throws -> any Transport {
         guard activationIsCurrent(generation) else {
             throw TransportError.cancelled
         }
+        // Before the reuse probe, not after: `isConnected` and `close()` are
+        // both awaits into the SSH driver against a possibly dead socket, and
+        // a hang inside either would otherwise leave the log ending on the
+        // previous `.reconnecting` with nothing to separate it from a hang in
+        // the backoff sleep.
+        trace(.connect, .note("attempt begins"), attempt: attempt)
         if let transport = currentTransport {
             if !transportSuspect, await transport.isConnected {
+                // `isConnected` is the driver's own reusable flag, not a
+                // probe: the trace records the reuse so a hang on a socket
+                // that was never re-dialled is visible as such.
+                trace(.connect, .note("reused the installed transport"), attempt: attempt)
                 return transport
             }
+            trace(
+                .connect, .note("closing the installed transport"), attempt: attempt,
+                detail: transportSuspect ? "suspect" : "not connected")
             currentTransport = nil
             try? await transport.close()
         }
-        let transport = try await connect()
+        trace(.connect, .started, attempt: attempt)
+        let transport: any Transport
+        do {
+            transport = try await connect()
+        } catch {
+            trace(
+                .connect, Self.traceOutcome(Self.transportFailure(error)),
+                attempt: attempt)
+            throw error
+        }
+        trace(.connect, .succeeded, attempt: attempt)
         do {
             guard activationIsCurrent(generation) else {
                 throw TransportError.cancelled
             }
+            trace(.ping, .started, attempt: attempt)
             let latency = try await measureLatency(on: transport)
+            trace(
+                .ping, .succeeded, attempt: attempt,
+                detail: "latency=\(latency)")
             guard activationIsCurrent(generation) else {
                 throw TransportError.cancelled
             }
             publishLatency(latency)
         } catch {
+            trace(
+                .ping, Self.traceOutcome(Self.transportFailure(error)),
+                attempt: attempt)
             try? await transport.close()
             throw error
         }
@@ -770,6 +905,15 @@ actor EventsSession {
     /// make any late result harmless, while an installed Transport is still
     /// closed explicitly before lifecycle teardown returns.
     private func windDown() async {
+        // Entry, not exit: this closes the transport and then waits out the
+        // Attach permit, so a stall here would otherwise look exactly like a
+        // stall in the retry that asked for it. The detail records the
+        // suspicion being dropped — the residual hazard a path change while
+        // suspended leans on.
+        trace(
+            .lifecycle, .note("winding down"),
+            detail: "suspect=\(transportSuspect)->false"
+                + " transport=\(currentTransport == nil ? "none" : "installed")")
         isWindingDown = true
         failTerminalTransportWaiters(TransportError.cancelled)
         backoffSleep?.cancel()
@@ -890,6 +1034,9 @@ actor EventsSession {
     /// fresh transport and surfaces this failure in `.reconnecting`.
     private func keepaliveDidFail(_ failure: TransportError, on stream: HerdrEventStream) async {
         guard phase == .active, liveStream === stream else { return }
+        trace(
+            .suspect, Self.traceOutcome(failure),
+            detail: "a keepalive ping failed")
         transportSuspect = true
         pendingKeepaliveFailure = failure
         await stream.end()
@@ -978,6 +1125,9 @@ actor EventsSession {
         Self.log.error(
             "attach waited \(timeout, privacy: .public) for the Host's terminal permit; failing it"
         )
+        trace(
+            .attach, Self.traceOutcome(.timedOut),
+            detail: "an attach outlived its \(timeout) wait for the terminal permit")
         waiter.continuation.resume(throwing: TransportError.timedOut)
     }
 
@@ -1001,18 +1151,28 @@ actor EventsSession {
                 if Task.isCancelled {
                     continuation.resume(throwing: CancellationError())
                 } else if isWindingDown || phase == .ended {
+                    trace(.attach, .note("refused: the session is winding down"))
                     continuation.resume(throwing: TransportError.cancelled)
                 } else if phase == .active, !transportSuspect,
                     let transport = currentTransport
                 {
+                    trace(
+                        .attach, .succeeded,
+                        detail: "the installed transport, generation=\(transportGeneration)")
                     continuation.resume(
                         returning: TerminalTransportReady(
                             transport: transport,
                             activationGeneration: activationGeneration,
                             transportGeneration: transportGeneration))
                 } else if let terminalTransportFailure {
+                    trace(
+                        .attach, Self.traceOutcome(terminalTransportFailure),
+                        detail: "the session's standing failure")
                     continuation.resume(throwing: terminalTransportFailure)
                 } else {
+                    trace(
+                        .attach, .note("parked, waiting for a transport"),
+                        detail: "phase=\(phase)")
                     let expiry = Task { [weak self] in
                         try? await Task.sleep(for: timeout)
                         guard !Task.isCancelled else { return }
@@ -1057,8 +1217,14 @@ actor EventsSession {
             if let expected = waiter.activationGeneration,
                 expected != activationGeneration
             {
+                trace(
+                    .attach, .note("a parked attach belongs to an older activation"),
+                    detail: "expected=\(expected) current=\(activationGeneration)")
                 waiter.continuation.resume(throwing: TransportError.cancelled)
             } else {
+                trace(
+                    .attach, .succeeded,
+                    detail: "a parked attach resumed, generation=\(transportGeneration)")
                 waiter.continuation.resume(returning: ready)
             }
         }
@@ -1076,6 +1242,9 @@ actor EventsSession {
             {
                 retained.append(waiter)
             } else {
+                trace(
+                    .attach, Self.traceOutcome(failure),
+                    detail: "a parked attach was failed")
                 waiter.timeout?.cancel()
                 waiter.continuation.resume(throwing: failure)
             }
@@ -1093,6 +1262,9 @@ actor EventsSession {
         let waiter = terminalTransportWaiters.remove(at: index)
         Self.log.error(
             "attach waited \(timeout, privacy: .public) for the Host's Transport; failing it")
+        trace(
+            .attach, Self.traceOutcome(.timedOut),
+            detail: "a parked attach outlived its \(timeout) deadline")
         waiter.continuation.resume(throwing: TransportError.timedOut)
     }
 
