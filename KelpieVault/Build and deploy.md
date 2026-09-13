@@ -102,3 +102,7 @@ The recipe is the build recipe with `test` and a simulator destination — *if* 
 `TEST_HOST` is pinned in `project.yml` to `$(BUILT_PRODUCTS_DIR)/Kelpie.app/Kelpie`, because XcodeGen derives it from the *target* name (Heeler) while the product is `Kelpie.app`.
 
 Related: [[Architecture]] · [[Testing status]] · [[Pairing and setup]] · [[Archive/round1/fork-notes|the original hang diagnosis]]
+
+## TestFlight upload, the recipe that works (2026-09-13, build 3)
+
+`make bump`, then `xcodebuild archive` for `generic/platform=iOS` with the session's path flags, then unlock the Thyme keychain (`~/Developer/maple-and-salt-agent/config/asc/thyme-dist.keychain-db`, password in `keychain-pass.txt`), then `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions-manual.plist` — the repo's automatic-signing `scripts/ExportOptions.plist` fails with "Failed to Use Accounts" on this Mac, the manual one names the three App Store profiles under `~/Library/MobileDevice/Provisioning Profiles/` — then `xcrun altool --upload-app -f Kelpie.ipa -t ios --apiKey NNU3BKC99D --apiIssuer 69a6de91-4abe-47e3-e053-5b8c7c11a4d1` (the `.p8` lives in `~/.appstoreconnect/private_keys/` or next to the keychain). Build 3's delivery id `7f51e9a6-f931-4ccd-a829-ec4fd2759940`.
