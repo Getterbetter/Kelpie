@@ -1,3 +1,7 @@
+# NOT SENT — upstream already has the wrapper
+
+Checked 2026-09-13 before opening: `Lakr233/libghostty-spm` `main` (`7e45d27`) has `public func sendMousePos(x:y:modifiers: TerminalInputModifiers = [])` since `eb4107b` (2026-09-02). A fork `Getterbetter/libghostty-spm` was created and nothing pushed. Kept for the record.
+
 # Draft PR to Lakr233/libghostty-spm (awaiting Anthony's yes; nothing pushed)
 
 **Branch:** `public-send-mouse-pos` on a fork under Anthony's GitHub account, one commit carrying the `TerminalSurface.swift` hunk from Kelpie's `8834b2a`.
