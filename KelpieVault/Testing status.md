@@ -132,6 +132,10 @@ The open device checks, in [[Open items]] order. Record what comes back in [[Fee
 
 Anything still unverified stays in [[Open items]].
 
+## Round 15 — the key bar (2026-09-15)
+
+Device-confirmed by Anthony on the iPad: the capsule look, the `⇧tab` key and the hide-keyboard button ("looks good"). Installed on the iPhone the same hour, not yet looked at there (the row scrolls on the phone; the dismiss button is pinned outside the scroll). Not exercised: Shift+Tab actually cycling a Claude pane's mode, sticky ctrl/alt's new tinted-caption states, Dynamic Type resizing the pill. The test target compiles for the iPad with the two `rows` coverage tests excluding `.shiftTab` and the new `shiftTabEncodesBackTab`; no suite was run on the device this round, CI runs them on the next push.
+
 ## Build results on record
 
 **Since 2026-09-12, the whole unit suite runs in GitHub Actions on the fork.** `ci.yml` runs on every pull request into `kelpie` (its `pull_request` trigger has no branch filter, while its `push` trigger is `main`-only and never fires here): a `macos-26` runner, an **iPad Air 11-inch (M4)** simulator, **1648 tests in 155 suites**, the real-SSH fixtures included. That is what [[Open items]] 8, "run the unit suite on any machine", now means in practice. It is answered by CI, not by a local simulator.

@@ -232,6 +232,14 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Overtaken — the HeelerSSH package suites cannot run on this Mac.** "Tool-hosted testing is unavailable on device destinations", and the simulator wedged at the test bundle. CI's `run-ci-ios-tests.sh` runs them with a disposable sshd; the new `abandonReturnsWhileTheOperationMutexIsHeld` is unexecuted until a push.
 
+## 2026-09-15 — round 15: the key bar as one pill
+
+**A — The key bar is one floating capsule, not a row of key caps (Open item 31).** Anthony: "The buttons above the keyboard may need better styling - Notion does a good job (see screenshot) of this but open to input." Our call on the shape, taken from his screenshot (`Design/notion-keyboard-toolbar.png`): the bar stays a `UIInputView` in keyboard style so its background is the keyboard's, and inside it one capsule (`systemBackground` in light, a grey lighter than the keyboard in dark, soft shadow with an explicit path) holds plain `.label` glyphs with no caps and no per-key shadow. On a bar wide enough to fit, the keys spread evenly (`.equalSpacing` with a low-priority width tie to the scroll frame); on a phone the same row scrolls. Sticky ctrl and alt lose their tinted cap: armed is a tinted caption, locked is tinted and underlined. The round-11 key-cap look was the alternative and is gone; the group gaps went with it, the only separator now being the hairline before the dismiss button.
+
+**A — Shift+Tab and a hide-keyboard button on the bar (Open item 29).** Anthony: "should also have a shift+tab button to alternate Claude models. Should also have a button the collapse the keyboard". `TerminalControlKey.shiftTab` sends CSI Z (`ESC [ Z`, the bytes `AgentQuickKey.shiftTab` already used) in both cursor modes and stays off the Console pad's `rows`; the two tests that assert the pad covers every case now exclude it. The dismiss button (`keyboard.chevron.compact.down`, "Hide Keyboard") is pinned outside the scroll view so a phone can always reach it, and calls `dismissKeyboard()`, the one route that takes the keyboard down for good (a bare resign is restored by the responder gate).
+
+**Delegation shape.** One Opus builder for the two items in one file area, the diff read by the manager rather than a reviewer (UI only, no transport), the builder's generic-destination product installed on both devices. Item 30 (a composing text field) was kept out: it is a design change, not a bar change.
+
 ## 2026-09-13 — round 13: posts and watches
 
 **A — Post with a yes in the same conversation, never on a carried-over approval.** The r/SideProject and r/ClaudeCode texts had a yes on 2026-09-12 and the r/herdr reply none; all three were shown again verbatim and posted only after "all of them". The Chrome allow rule in `~/.claude/settings.json` says the same: the gate is the delegate skill, not the classifier.

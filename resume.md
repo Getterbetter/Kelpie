@@ -2,11 +2,10 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
-## Where things stand (2026-09-13, after round 14b)
+## Where things stand (2026-09-15, after round 15)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), re-parented onto upstream Heeler `375267c` on 2026-09-12; `upstream` is Heeler.
-- Round 14 (2026-09-13, `/delegate`, commit `f58cae8`): the action plan worked in order. Open item 24 built (tap-to-dismiss replaces scroll-to-dismiss, deferred past the double-tap window), reviewed, installed on both devices. Open item 22 got `ConnectionTrace` (launch with `-kelpie.connection-trace YES`; the iPad is running with it) after the three round-13 candidates were checked against the code — likeliest cause is a long-lived channel dying on the Tailscale path, which the trace will name. Items 26 and 27 surveyed and decided without code (Live Activity works from the root screen once the per-Host toggle is on; background lifetime stays at 20 s, no honest background mode). Item 25 re-vendor checked safe (78 upstream commits, no override breaks, new binary checksum). CLAUDE.md trimmed, `/delegate` made the default (reversed the same day after the token review, see `CLAUDE.md`). All in `KelpieVault/Decisions.md` (round 14) and `Archive/round14/`.
-- Round 14b (2026-09-13 afternoon, commit `173b356`): Anthony confirmed Open items 24 and 26 and 20 (a), (h). The iPhone's connection trace named the Tailscale hang: at the path change the primary Host's session awaited a graceful channel close that waits on `SessionDriver.acquireOperation()`, an undeadlined mutex held by the attach and RPCs on the dead socket; a sibling Host with only the events channel reconnected in 3 s. Fixed with `EventsSession.endStreamPromptly` (2 s, then `SSHConnection.abandon`), reviewed, installed on both devices with the trace on; his off-Wi-Fi retry decides. New Open item 28 built: notification and Live Activity taps land on herdr's own screen. The HeelerSSH package suites cannot run on this Mac (device refuses tool-hosted tests, simulator wedges); CI runs them on push.
+- Round 15 (2026-09-15, `/delegate`, commit `88cd333`): the key bar (Open items 29 and 31). `TerminalControlKey.shiftTab` (CSI Z) with a `⇧tab` key after `tab`; a hide-keyboard button pinned outside the scroll view behind a hairline, calling `dismissKeyboard()`; the row restyled as one floating capsule on the keyboard's own background, Notion-style (plain glyphs, even spacing on the iPad, scrolling on the phone; sticky ctrl/alt armed = tinted caption, locked = tinted and underlined). One Opus builder, diff read by the manager, test target compiled for the iPad (suites not run). Installed on both devices; Anthony: "looks good" on the iPad. Round 14b's Tailscale fix (`173b356`) and Open item 28 stay as they were: his off-Wi-Fi retry still decides 22.
 
 ## Live services, accounts and gates
 
@@ -18,7 +17,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 - **Guards**: `make hooks` once per checkout enables the pre-push close-out check (`scripts/check-round-closeout.sh`). Never `git filter-repo` without re-parenting onto upstream afterwards (round 11b).
 - **Vendored GhosttyTerminal** carries one sanctioned patch (`Packages/GhosttyTerminal/KELPIE-PATCHES.md`, for OSC 8 links); Open item 25's re-vendor retires it. No libghostty-spm PR is needed: upstream has had the same wrapper since `eb4107b`.
 
-## What is next: the action plan (2026-09-13, close of round 14b)
+## What is next: the action plan (2026-09-15, close of round 15)
 
 Work through these in order, one round per session:
 
@@ -27,9 +26,10 @@ Work through these in order, one round per session:
 3. **Open item 25, re-vendor GhosttyTerminal**, own session: recipe and checksum in `KelpieVault/Archive/round14/ghostty-upstream-diff.md` (pin `701d3a5` → `7e45d27`, binary `upstream.82938b633ba6`, drop `KELPIE-PATCHES.md`, note the extra shell-integration resources). Then **Open item 21, rebase onto Heeler upstream** (issue #3, `project.yml` conflict). Round-7 recipe, `xcodegen generate`, device build after.
 4. **Community**: reply to every comment the Reddit watch surfaces within the day; r/ClaudeAI Showcase after a few days of commenting there; r/iPad General Discussion comment when he says; r/iosapps his call; Show HN Tuesday US morning.
 5. **After App Store approval**: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan.
-6. **Possible follow-ups, not scheduled**: a socket-level SSH keepalive (none exists; app-level 30 s ping only); `kelpie.primary-host` is a literal in two files (`PairingSync.swift`, `PrimaryHostStore.swift`).
+6. **Open item 30, its own round**: a composing text field above the key bar so autocorrect, predictive text and dictation reach herdr, with the raw path kept for hardware keyboards and TUI control keys. Design first (per keystroke mirror or send-on-submit), then build.
+7. **Possible follow-ups, not scheduled**: a socket-level SSH keepalive (none exists; app-level 30 s ping only); `kelpie.primary-host` is a literal in two files (`PairingSync.swift`, `PrimaryHostStore.swift`).
 
-**Push pending.** Everything since `8506f4c` (rounds 14 and 14b, the resume trim, this close) is committed on `kelpie` and not on `origin`; Anthony closed the round-14b session before answering the push question. Ask first, then push: CI is the only place the new HeelerSSH package test (`abandonReturnsWhileTheOperationMutexIsHeld`) runs. Gates cleared on 2026-09-13: TestFlight build 3 uploaded, the libghostty-spm PR found unnecessary (see above).
+**Push pending.** Everything since `8506f4c` (rounds 14, 14b and 15, the resume trim, the closes) is committed on `kelpie` and not on `origin`; Anthony closed the round-14b session before answering the push question. Ask first, then push: CI is the only place the new HeelerSSH package test (`abandonReturnsWhileTheOperationMutexIsHeld`) runs. Gates cleared on 2026-09-13: TestFlight build 3 uploaded, the libghostty-spm PR found unnecessary (see above).
 
 ## How to work on it
 
