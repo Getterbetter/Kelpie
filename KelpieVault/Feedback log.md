@@ -258,3 +258,7 @@ Read as: three items for a later round, not this session — logged as [[Open it
 Anthony (2026-09-15, round 15, after the key bar build was installed on the iPad): "looks good, can you deploy to iphone too"
 
 Read as: the Notion-style pill, Shift+Tab and the hide-keyboard button pass on the iPad; Open items 29 and 31 close, and item 12's look-and-feel verdict is in. Install the same build on the iPhone.
+
+Anthony (2026-09-15, at the round-15 close): "looks good. lets close this out and ill start a new session next"
+
+Read as: round 15 is done as written up; the push question was not answered, so everything since `8506f4c` stays local and the next session asks again.
