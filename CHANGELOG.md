@@ -113,6 +113,10 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Added
 
+- The key bar above the software keyboard is one floating pill of plain glyphs
+  rather than a second row of key caps, spreads its keys evenly on an iPad,
+  and gains a Shift+Tab key and a hide-keyboard button that is always in
+  reach on an iPhone.
 - A tap on an agent's screen text puts the software keyboard away; scrolling
   never does, so reading back through a run of actions no longer costs the
   keyboard. A tap on the input row, or on the bottom of an agent's screen,

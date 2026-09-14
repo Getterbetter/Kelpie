@@ -235,6 +235,14 @@ Every must-fix and should-fix from the reviews applied; the set-aside items are 
 
 Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 
+## Round 15 — the key bar as one pill, Shift+Tab, hide keyboard — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| `171e57c` | **docs: Open items 29–31** — Anthony's three keyboard asks logged at session open (Shift+Tab and collapse, a real text field for autocorrect, Notion-style toolbar) with his Notion screenshot at `Design/notion-keyboard-toolbar.png`. |
+| `88cd333` | **Key bar: Shift+Tab, a hide-keyboard button, and one floating pill instead of key caps** — Open items 29 and 31. `TerminalControlKey.shiftTab` (CSI Z, off the Console pad's `rows`; the two coverage tests exclude it, plus a bytes test). `TerminalKeyBar`: keys lose their caps and shadows and sit in `TerminalKeyBarPillView`, a capsule with a soft shadow on the keyboard-style background, 12 pt margins, key height + 8; `.equalSpacing` with a low-priority width tie so the iPad spreads and the phone scrolls; sticky armed/locked shown in the caption; `UIPasteControl` capsule and clear; a `keyboard.chevron.compact.down` button pinned outside the scroll view behind a `.separator` hairline, through `keyBarDidRequestDismiss` → `dismissKeyboard()`. One Opus builder (report in `Archive/round15/`), diff read by the manager, test target compiled for the iPad, Release build installed on the iPad ("looks good") and the iPhone. |
+| `872d125` | **docs: round 15 close-out** — this write-up, `resume.md`, Open items 29 and 31 ticked, item 12's verdict, `CHANGELOG.md` entry. |
+
 ## Round 14b — the Tailscale hang, taps on herdr's screen — 2026-09-13
 
 | Commit | |

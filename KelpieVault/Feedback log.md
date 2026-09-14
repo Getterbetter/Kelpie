@@ -254,3 +254,7 @@ Read as: close round 14b with the definition of done; the push question was not 
 Anthony (2026-09-15, session open, "new items:"): "The row of buttons above the on-screen keyboard should also have a shift+tab button to alternate Claude models. Should also have a button the collapse the keyboard" · "Typing with the on-screen keyboard might need a text box that replicates into kelpie so auto correct and other QOL improvements pass through" · "The buttons above the keyboard may need better styling - Notion does a good job (see screenshot) of this but open to input." (screenshot of Notion's iOS keyboard toolbar attached)
 
 Read as: three items for a later round, not this session — logged as [[Open items]] 29, 30 and 31; the screenshot kept at `KelpieVault/Design/notion-keyboard-toolbar.png`.
+
+Anthony (2026-09-15, round 15, after the key bar build was installed on the iPad): "looks good, can you deploy to iphone too"
+
+Read as: the Notion-style pill, Shift+Tab and the hide-keyboard button pass on the iPad; Open items 29 and 31 close, and item 12's look-and-feel verdict is in. Install the same build on the iPhone.
