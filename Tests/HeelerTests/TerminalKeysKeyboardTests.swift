@@ -54,6 +54,12 @@ struct TerminalKeysKeyboardTests {
         #expect(terminal.keyboardMode == .text)
     }
 
+    /// Back-tab is CSI Z, and no cursor mode changes it.
+    @Test func shiftTabEncodesBackTab() {
+        #expect(TerminalControlKey.shiftTab.bytes(applicationCursor: false) == [0x1B, 0x5B, 0x5A])
+        #expect(TerminalControlKey.shiftTab.bytes(applicationCursor: true) == [0x1B, 0x5B, 0x5A])
+    }
+
     /// Skills sits right beside the control keys when the agent has a skills
     /// source; without one the tab does not exist at all.
     @Test func skillsTabAppearsOnlyWithASkillsContext() throws {
