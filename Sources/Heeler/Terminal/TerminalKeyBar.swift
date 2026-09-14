@@ -14,6 +14,8 @@ protocol TerminalKeyBarHandler: AnyObject {
     func keyBar(
         _ bar: TerminalKeyBar, stickyActivationFor modifier: TerminalPublicStickyModifier
     ) -> TerminalPublicStickyActivation
+    /// The trailing keyboard-dismiss button, pinned outside the scroll view.
+    func keyBarDidRequestDismiss(_ bar: TerminalKeyBar)
 }
 
 /// The key bar's sizes, derived from the reader's text size.
@@ -64,11 +66,10 @@ enum TerminalKeyBarMetrics {
 
 /// One row of keys riding the software keyboard, drawn as keyboard keys.
 ///
-/// The vendored accessory bar draws round buttons on its own blurred gradient,
-/// which reads as a floating pill sitting on the keyboard rather than as part
-/// of it. This is a `UIInputView` in `.keyboard` style, so its background *is*
-/// the keyboard's — the same material, the same seam — and the keys are
-/// rounded rectangles with the one-point bottom shadow iPadOS gives its own.
+/// This is a `UIInputView` in `.keyboard` style, so the bar's background *is*
+/// the keyboard's — the same material, the same seam. Inside it the keys sit
+/// in one floating pill, the shape Notion's iOS toolbar uses: plain glyphs on
+/// a capsule with a soft shadow, rather than a second row of key caps.
 ///
 /// Nothing here is a subview of the terminal, so the full-bounds-container
 /// quirk `TerminalHoldCueView` documents does not apply: the accessory is
@@ -76,26 +77,34 @@ enum TerminalKeyBarMetrics {
 @MainActor
 final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     private static let minimumKeyWidth: CGFloat = 44
-    fileprivate static let keyCornerRadius: CGFloat = 6
     private static let keySpacing: CGFloat = 6
-    private static let groupSpacing: CGFloat = 12
     private static let sideInset: CGFloat = 8
+    /// The gap from the bar's edges to the floating pill.
+    private static let pillMargin: CGFloat = 12
+    /// The pill is the key row plus a little air above and below.
+    private static let pillPadding: CGFloat = 8
+    /// The hairline between the scrolling keys and the dismiss button.
+    private static let dividerHeightRatio: CGFloat = 0.6
 
     private var titleSize: CGFloat { TerminalKeyBarMetrics.titleSize(for: traitCollection) }
     private var keyHeight: CGFloat { TerminalKeyBarMetrics.keyHeight(forTitleSize: titleSize) }
     private var barHeight: CGFloat { TerminalKeyBarMetrics.barHeight(forTitleSize: titleSize) }
 
-    /// White on light, the keyboard's own grey on dark — the colour an iPadOS
-    /// key is, which no semantic colour reproduces on both sides.
-    private static let keyBackgroundColor = UIColor { trait in
+    /// The pill's fill: white on light, a grey lighter than the keyboard's own
+    /// background on dark, so the pill reads as floating above it either way.
+    private static let pillBackgroundColor = UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(white: 0.42, alpha: 1)
+            ? UIColor(white: 0.30, alpha: 1)
             : .systemBackground
     }
 
     private weak var handler: (any TerminalKeyBarHandler)?
     private let stack = UIStackView()
     private let scroll = UIScrollView()
+    private let pill = TerminalKeyBarPillView()
+    private let divider = UIView()
+    private var pillHeightConstraint: NSLayoutConstraint?
+    private var dividerHeightConstraint: NSLayoutConstraint?
     private var stickyKeys:
         [(modifier: TerminalPublicStickyModifier, key: UIButton, caption: String)] = []
     /// Every constraint pinned to the key height, so one text-size change can
@@ -146,7 +155,9 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     private func applyTextSizeMetrics() {
         let keyHeight = self.keyHeight
         for constraint in keyHeightConstraints { constraint.constant = keyHeight }
-        let verticalInset = (barHeight - keyHeight) / 2
+        pillHeightConstraint?.constant = keyHeight + Self.pillPadding
+        dividerHeightConstraint?.constant = (keyHeight * Self.dividerHeightRatio).rounded()
+        let verticalInset = Self.pillPadding / 2
         scroll.contentInset = UIEdgeInsets(
             top: verticalInset, left: Self.sideInset,
             bottom: verticalInset, right: Self.sideInset)
@@ -188,23 +199,34 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     // MARK: - Layout
 
     private func configureKeys(pasteTarget: (any UIPasteConfigurationSupporting)?) {
+        // One floating pill on the keyboard's own background, the shape
+        // Notion's iOS toolbar uses: the keys inside it lose their key caps,
+        // so the row reads as a single object rather than a second keyboard.
+        pill.translatesAutoresizingMaskIntoConstraints = false
+        pill.backgroundColor = Self.pillBackgroundColor
+        addSubview(pill)
+
         // A scroll view so a phone can reach the right-hand keys. On an iPad
-        // the row fits and never scrolls. Its vertical inset is what centres
-        // the key row in the bar (``applyTextSizeMetrics`` sets it); a centre
-        // constraint would fight the scroll view's content offset.
+        // the row fits and stretches instead (see the width constraint below).
+        // Its vertical inset is what centres the key row in the pill;
+        // a centre constraint would fight the scroll view's content offset.
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsHorizontalScrollIndicator = false
-        addSubview(scroll)
+        pill.addSubview(scroll)
 
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .horizontal
         stack.alignment = .center
         stack.spacing = Self.keySpacing
+        // Even spacing when the row fits, the fixed gap plus scrolling when it
+        // does not — the stack's own width settles which, below.
+        stack.distribution = .equalSpacing
         scroll.addSubview(stack)
 
         let controls: [(TerminalControlKey, String?, String?)] = [
             (.escape, "esc", nil),
             (.tab, "tab", nil),
+            (.shiftTab, "⇧tab", nil),
         ]
         for (key, title, symbol) in controls {
             stack.addArrangedSubview(controlKey(key, title: title, symbol: symbol))
@@ -215,7 +237,6 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
             stickyKeys.append((modifier, key, modifier.rawValue))
             stack.addArrangedSubview(key)
         }
-        endGroup()
 
         let arrows: [(TerminalControlKey, String)] = [
             (.left, "arrow.left"),
@@ -226,36 +247,67 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         for (key, symbol) in arrows {
             stack.addArrangedSubview(controlKey(key, title: nil, symbol: symbol))
         }
-        endGroup()
 
         for text in ["|", "~", "/", "-", "_", "`"] {
             stack.addArrangedSubview(symbolKey(text))
         }
 
         if let pasteTarget {
-            endGroup()
             stack.addArrangedSubview(pasteKey(target: pasteTarget))
         }
 
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        divider.backgroundColor = .separator
+        pill.addSubview(divider)
+
+        let dismiss = dismissKey()
+        pill.addSubview(dismiss)
+
+        let pillHeight = pill.heightAnchor.constraint(
+            equalToConstant: keyHeight + Self.pillPadding)
+        pillHeightConstraint = pillHeight
+        let dividerHeight = divider.heightAnchor.constraint(
+            equalToConstant: (keyHeight * Self.dividerHeightRatio).rounded())
+        dividerHeightConstraint = dividerHeight
+
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.pillMargin),
+            pill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.pillMargin),
+            pill.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pillHeight,
+
+            scroll.topAnchor.constraint(equalTo: pill.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: pill.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: pill.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: divider.leadingAnchor),
+
+            divider.widthAnchor.constraint(equalToConstant: 1),
+            divider.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
+            dividerHeight,
+            divider.trailingAnchor.constraint(
+                equalTo: dismiss.leadingAnchor, constant: -Self.keySpacing),
+
+            dismiss.trailingAnchor.constraint(
+                equalTo: pill.trailingAnchor, constant: -Self.sideInset),
+            dismiss.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
+
             stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
         ])
+        // Low priority, so a row too wide to fit keeps its natural width and
+        // scrolls; when it fits, this stretches the stack across the pill and
+        // `.equalSpacing` distributes the keys evenly (the iPad case).
+        let stretch = stack.widthAnchor.constraint(
+            equalTo: scroll.frameLayoutGuide.widthAnchor,
+            constant: -2 * Self.sideInset)
+        stretch.priority = .defaultLow
+        stretch.isActive = true
+
         let stackHeight = stack.heightAnchor.constraint(equalToConstant: keyHeight)
         stackHeight.isActive = true
         keyHeightConstraints.append(stackHeight)
-    }
-
-    /// Widens the gap after the key just added, so the groups read apart.
-    private func endGroup() {
-        guard let last = stack.arrangedSubviews.last else { return }
-        stack.setCustomSpacing(Self.groupSpacing, after: last)
     }
 
     // MARK: - Keys
@@ -299,14 +351,30 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         return button
     }
 
+    /// Always visible, outside the scroll view: on an iPhone the scrolling
+    /// keys can be anywhere, and the way down must not be one of the things
+    /// that scrolls away.
+    private func dismissKey() -> UIButton {
+        let button = makeKey(
+            title: nil, symbol: "keyboard.chevron.compact.down", monospaced: false)
+        button.accessibilityLabel = "Hide Keyboard"
+        button.addAction(
+            UIAction { [weak self] _ in
+                guard let self else { return }
+                UIDevice.current.playInputClick()
+                handler?.keyBarDidRequestDismiss(self)
+            }, for: .touchUpInside)
+        return button
+    }
+
     /// UIKit's own Paste button: it reads the pasteboard under the system's
     /// authority, so no "Allow Paste?" prompt appears, and the terminal's
     /// `paste(itemProviders:)` handles text, images and files alike.
     private func pasteKey(target: any UIPasteConfigurationSupporting) -> UIView {
         let configuration = UIPasteControl.Configuration()
         configuration.displayMode = .iconOnly
-        configuration.cornerStyle = .medium
-        configuration.baseBackgroundColor = Self.keyBackgroundColor
+        configuration.cornerStyle = .capsule
+        configuration.baseBackgroundColor = .clear
         configuration.baseForegroundColor = .label
         let control = UIPasteControl(configuration: configuration)
         control.target = target
@@ -326,8 +394,7 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         configuration.title = title
         configuration.image = symbol.flatMap { Self.symbolImage($0, pointSize: titleSize) }
         configuration.baseForegroundColor = .label
-        configuration.background.backgroundColor = Self.keyBackgroundColor
-        configuration.background.cornerRadius = Self.keyCornerRadius
+        configuration.background.backgroundColor = .clear
         configuration.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: 8, bottom: 0, trailing: 8)
         configuration.titleTextAttributesTransformer =
@@ -343,14 +410,10 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
                 return outgoing
             }
 
-        let button = TerminalKeyBarButton(configuration: configuration, primaryAction: nil)
+        let button = UIButton(configuration: configuration, primaryAction: nil)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.showsMenuAsPrimaryAction = false
         button.isPointerInteractionEnabled = true
-        button.layer.shadowColor = UIColor.black.cgColor
-        button.layer.shadowOpacity = 0.35
-        button.layer.shadowOffset = CGSize(width: 0, height: 1)
-        button.layer.shadowRadius = 0
         let height = button.heightAnchor.constraint(equalToConstant: keyHeight)
         keyHeightConstraints.append(height)
         NSLayoutConstraint.activate([
@@ -372,16 +435,15 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         guard var configuration = key.configuration else { return }
         var title = AttributedString(caption)
         title.font = .systemFont(ofSize: titleSize)
+        // Without a key cap to fill, the tint moves into the caption itself:
+        // armed is tinted, locked is tinted and underlined.
         switch activation {
         case .inactive:
-            configuration.background.backgroundColor = Self.keyBackgroundColor
             title.foregroundColor = .label
         case .armed:
-            configuration.background.backgroundColor = .tintColor
-            title.foregroundColor = .white
+            title.foregroundColor = .tintColor
         case .locked:
-            configuration.background.backgroundColor = .tintColor
-            title.foregroundColor = .white
+            title.foregroundColor = .tintColor
             title.underlineStyle = .single
         }
         configuration.title = nil
@@ -390,14 +452,30 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     }
 }
 
-/// A key whose shadow follows its rounded rect. Without an explicit path UIKit
-/// composites the shadow from the layer tree on every frame, and the button's
-/// own layer is transparent — the rounded background lives one layer down.
-private final class TerminalKeyBarButton: UIButton {
+/// The floating pill the keys sit in. Its corner radius follows its height, so
+/// a Dynamic Type change keeps the capsule a capsule, and its shadow is given
+/// an explicit path — without one UIKit composites the shadow from the layer
+/// tree on every frame.
+private final class TerminalKeyBarPillView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.12
+        layer.shadowOffset = CGSize(width: 0, height: 1)
+        layer.shadowRadius = 3
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        let radius = bounds.height / 2
+        layer.cornerRadius = radius
         layer.shadowPath = UIBezierPath(
-            roundedRect: bounds, cornerRadius: TerminalKeyBar.keyCornerRadius).cgPath
+            roundedRect: bounds, cornerRadius: radius).cgPath
     }
 }
 
@@ -423,5 +501,11 @@ extension HeelerTerminalView: TerminalKeyBarHandler {
         _ bar: TerminalKeyBar, stickyActivationFor modifier: TerminalPublicStickyModifier
     ) -> TerminalPublicStickyActivation {
         stickyActivation(for: modifier)
+    }
+
+    /// The one sanctioned way down: a bare `resignFirstResponder()` is
+    /// something UIKit does on its own and the terminal restores.
+    func keyBarDidRequestDismiss(_ bar: TerminalKeyBar) {
+        _ = dismissKeyboard()
     }
 }

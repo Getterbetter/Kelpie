@@ -2716,6 +2716,26 @@ struct TerminalAttachTests {
         #expect(TerminalKeyboardInset.insetHeight(covered: 20, bottomSafeArea: 34) == 0)
     }
 
+    @Test func terminalControlKeyboardContainsOnlyUsefulMobileKeys() {
+        #expect(
+            TerminalControlKey.rows == [
+                [.escape, .tab, .controlC, .controlD, .backspace],
+                [.home, .pageUp, .up, .pageDown, .end],
+                [.controlZ, .left, .down, .right, .enter],
+            ])
+        // Every row is the same width, so no key ends up wider than its
+        // neighbours just because a row was left short.
+        #expect(Set(TerminalControlKey.rows.map(\.count)).count == 1)
+        // Rearranging the rows must not quietly drop a key on the floor.
+        // Shift+Tab is the key bar's, not the pad's (round 15).
+        let padKeys = TerminalControlKey.allCases.filter { $0 != .shiftTab }
+        let placed = TerminalControlKey.rows.flatMap { $0 }
+        #expect(placed.count == padKeys.count)
+        for key in padKeys {
+            #expect(placed.contains(key), "\(key) fell off the keyboard")
+        }
+    }
+
     @MainActor
     private static func host(_ terminal: HeelerTerminalView) async throws -> UIWindow {
         terminal.frame = CGRect(x: 0, y: 0, width: 390, height: 720)

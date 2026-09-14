@@ -125,6 +125,127 @@ enum AgentQuickKey: Hashable {
     }
 }
 
+enum TerminalControlKey: Equatable, CaseIterable {
+    case escape
+    case tab
+    /// Back-tab. The key bar owns it; it is deliberately absent from ``rows``,
+    /// which is the Console's control pad.
+    case shiftTab
+    case controlC
+    case controlD
+    case controlZ
+    case home
+    case pageUp
+    case up
+    case pageDown
+    case end
+    case backspace
+    case left
+    case down
+    case right
+    case enter
+
+    /// Backspace takes the top row's right edge, where the iOS keyboard puts it
+    /// and where a thumb finds it without looking. It trades places with ⌃Z
+    /// rather than crowding in, so the rows stay evenly sized.
+    static let rows: [[Self]] = [
+        [.escape, .tab, .controlC, .controlD, .backspace],
+        [.home, .pageUp, .up, .pageDown, .end],
+        [.controlZ, .left, .down, .right, .enter],
+    ]
+
+    var title: String? {
+        switch self {
+        case .escape: "Esc"
+        case .tab: "Tab"
+        case .shiftTab: "⇧Tab"
+        case .controlC: "⌃C"
+        case .controlD: "⌃D"
+        case .controlZ: "⌃Z"
+        case .home: "Home"
+        case .pageUp: "PgUp"
+        case .pageDown: "PgDn"
+        case .end: "End"
+        case .up, .backspace, .left, .down, .right, .enter: nil
+        }
+    }
+
+    var systemImageName: String? {
+        switch self {
+        case .up: "arrow.up"
+        case .backspace: "delete.left"
+        case .left: "arrow.left"
+        case .down: "arrow.down"
+        case .right: "arrow.right"
+        case .enter: "return"
+        default: nil
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .escape: "Escape"
+        case .tab: "Tab"
+        case .shiftTab: "Shift Tab"
+        case .controlC: "Control C"
+        case .controlD: "Control D"
+        case .controlZ: "Control Z"
+        case .home: "Home"
+        case .pageUp: "Page Up"
+        case .up: "Up Arrow"
+        case .pageDown: "Page Down"
+        case .end: "End"
+        case .backspace: "Backspace"
+        case .left: "Left Arrow"
+        case .down: "Down Arrow"
+        case .right: "Right Arrow"
+        case .enter: "Enter"
+        }
+    }
+
+    var repeats: Bool {
+        switch self {
+        case .home, .pageUp, .up, .pageDown, .end, .backspace, .left, .down, .right:
+            true
+        case .escape, .tab, .shiftTab, .controlC, .controlD, .controlZ, .enter:
+            false
+        }
+    }
+
+    func bytes(applicationCursor: Bool) -> [UInt8] {
+        switch self {
+        case .escape: TerminalEscapeSequences.escape
+        case .tab: TerminalEscapeSequences.tab
+        case .shiftTab: TerminalEscapeSequences.shiftTab
+        case .controlC: [0x03]
+        case .controlD: [0x04]
+        case .controlZ: [0x1A]
+        case .home:
+            applicationCursor
+                ? TerminalEscapeSequences.homeApplication : TerminalEscapeSequences.homeNormal
+        case .pageUp: TerminalEscapeSequences.pageUp
+        case .up:
+            applicationCursor
+                ? TerminalEscapeSequences.upApplication : TerminalEscapeSequences.upNormal
+        case .pageDown: TerminalEscapeSequences.pageDown
+        case .end:
+            applicationCursor
+                ? TerminalEscapeSequences.endApplication : TerminalEscapeSequences.endNormal
+        case .backspace: TerminalEscapeSequences.backspace
+        case .left:
+            applicationCursor
+                ? TerminalEscapeSequences.leftApplication : TerminalEscapeSequences.leftNormal
+        case .down:
+            applicationCursor
+                ? TerminalEscapeSequences.downApplication : TerminalEscapeSequences.downNormal
+        case .right:
+            applicationCursor
+                ? TerminalEscapeSequences.rightApplication : TerminalEscapeSequences.rightNormal
+        case .enter: TerminalEscapeSequences.enter
+        }
+    }
+}
+
 /// Suppresses the software keyboard while the terminal keeps first responder:
 /// a zero-height input view replaces the system keyboard without resigning,
 /// so the IME session — and its candidate row on return — survives the switch.
