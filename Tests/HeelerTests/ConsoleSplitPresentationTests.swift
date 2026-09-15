@@ -191,18 +191,37 @@ struct ConsoleSplitPresentationTests {
         #expect(state.visibility == .detailOnly)
     }
 
-    @Test func automaticReportDoesNotClaimVisibleOrRecordIntent() {
+    /// `NavigationSplitViewVisibility.automatic` is opaque and compares
+    /// equal to the concrete value the platform resolves it to: `detailOnly`
+    /// on the iPhone, a visible sidebar on the iPad. The state cannot tell
+    /// the two apart, so a report of `automatic` is read exactly as that
+    /// concrete value would be on the device running the test.
+    @Test func automaticReportReadsAsThePlatformsResolution() {
         var state = ConsoleSplitVisibilityState()
         state.update(from: portrait)
         state.systemDidChangeVisibility(.automatic, presentation: portrait)
-        // On the iPhone test destination, automatic resolves to the concrete detailOnly value.
-        #expect(state.reportedSidebarVisibility == false)
-        #expect(state.isSidebarVisible == false)
-        #expect(state.showsAgentsAction)
-        #expect(state.userVisibility == nil)
-        state.showSidebar()
-        #expect(state.visibility == .all)
-        #expect(!state.showsAgentsAction)
+        if NavigationSplitViewVisibility.automatic == .detailOnly {
+            #expect(state.reportedSidebarVisibility == false)
+            #expect(state.isSidebarVisible == false)
+            #expect(state.showsAgentsAction)
+            #expect(state.userVisibility == nil)
+            state.showSidebar()
+            #expect(state.visibility == .all)
+            #expect(!state.showsAgentsAction)
+        } else {
+            let resolvesToVisibleSidebar = NavigationSplitViewVisibility.automatic == .all
+                || NavigationSplitViewVisibility.automatic == .doubleColumn
+            #expect(resolvesToVisibleSidebar)
+            #expect(state.reportedSidebarVisibility == true)
+            #expect(state.isSidebarVisible == true)
+            #expect(!state.showsAgentsAction)
+            // A visible sidebar in portrait deviates from the detail-only
+            // default, so it is recorded as the user's choice.
+            #expect(state.userVisibility == .automatic)
+            state.showSidebar()
+            #expect(state.visibility == .automatic)
+            #expect(!state.showsAgentsAction)
+        }
     }
 
     @Test(arguments: [false, true])
