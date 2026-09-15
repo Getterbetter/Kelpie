@@ -22,8 +22,6 @@ struct ContentView: View {
     @State private var hasRestoredRoute = false
     /// Replaced once restoration knows whether this window is new.
     @State private var activation = SceneActivationTracker(isRestored: false)
-    /// `AgentRoute.sceneStorageValue`; nil while the window shows the Console.
-    @SceneStorage("dev.bybee.heeler.agentRoute") private var storedRoute: String?
     @State private var hardwareKeyboard = HardwareKeyboardObserver()
     /// Owned here with the other client stores so the three products stay
     /// loaded across every presentation of the tip jar sheet.
@@ -112,11 +110,11 @@ struct ContentView: View {
             notificationRouter.agentsDidChange(app.console.agents)
             app.sceneDirectory.sceneRouteDidChange(sceneID: sceneID)
         }
-        // Every navigation is written back, so a relaunch restores the Agent
-        // this window was last on.
+        // Every navigation is written back to the window value. Nothing is
+        // written to scene storage: Kelpie restores no route at launch (see
+        // `restoreRoute`), so a stored one would only go stale.
         .onChange(of: notificationRouter.path) { _, path in
             let route = path.last.map(AgentRoute.init(agentID:))
-            storedRoute = route?.sceneStorageValue
             if windowRoute != route {
                 windowRoute = route
             }
@@ -162,31 +160,20 @@ struct ContentView: View {
         app.sceneDirectory.sceneDidBecomeActive(sceneID: sceneID)
     }
 
-    /// Applies the restoration precedence once, on the window's first
-    /// appearance. A stored or window-value route is placed on the path
-    /// directly rather than through `open`: the Agent detail then shows the
-    /// Host connecting and the Agent loading, and says so if the pane is
-    /// gone, instead of quietly falling back to the Console after a grace
-    /// period. A dragged row's route is returned for the caller to open once
-    /// this window is registered.
+    /// Kelpie restores no route at launch. The window opens on herdr's own
+    /// client with the Console cover down, so a path written from scene
+    /// storage would mark an Agent as presented that nothing shows — which
+    /// suppresses that Agent's notification banners and claims the Host's
+    /// single terminal channel for a window holding no terminal. Only a live
+    /// hand-off activity is carried through, for the caller to open once this
+    /// window is registered.
     private func restoreRoute() -> AgentRoute? {
         guard !hasRestoredRoute else { return nil }
         hasRestoredRoute = true
         let incoming = incomingActivityRoute
         incomingActivityRoute = nil
-        let restoration = SceneRouteRestoration.resolve(
-            sceneStorage: storedRoute, windowValue: windowRoute, userActivity: incoming)
-        // A window back from its own scene storage is one the system
-        // restored, not one the user just opened.
-        activation = SceneActivationTracker(isRestored: restoration?.source == .sceneStorage)
-        guard let restoration else { return nil }
-        switch restoration.source {
-        case .sceneStorage, .windowValue:
-            notificationRouter.path = [restoration.route.agentID]
-            return nil
-        case .userActivity:
-            return restoration.route
-        }
+        activation = SceneActivationTracker(isRestored: false)
+        return incoming
     }
 
     /// Brings this window forward when a deep link picks it. A no-op for the

@@ -70,9 +70,17 @@ targets:
         # over the generated one; keep both versions on the build settings.
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # A dragged Console row carries this activity; iPadOS creates a new
-        # window from it only for a declared type. The generated scene
-        # manifest already declares multiple-scene support.
+        # Kelpie is one window. The root screen is herdr's own client on a
+        # single Attach channel, and a Transport serves one Attach at a time,
+        # so a second scene would build a second client that competes for it.
+        # Declared here rather than left to the generated manifest: this also
+        # makes SwiftUI's `supportsMultipleWindows` false, which is what gates
+        # upstream's "Open in New Window" item and the Console row window drag.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # Kept although no drag can create a window any more: `AgentRoute`
+        # still builds and continues this activity type (ContentView's
+        # `onContinueUserActivity`), and an undeclared type is never delivered.
         NSUserActivityTypes:
           - dev.bybee.heeler.agent
     entitlements:

@@ -11,12 +11,16 @@ struct ConsoleSplitPresentation: Equatable {
     let hasUsableSize: Bool
     let usesRegularColumns: Bool
     let isLandscape: Bool
+    /// An Agent is on the router's path, so the detail column holds a
+    /// terminal rather than the empty-state placeholder.
+    let hasOpenAgent: Bool
     let defaultVisibility: NavigationSplitViewVisibility
     let sidebarWidth: ColumnWidth
 
     init(
         horizontalSizeClass: UserInterfaceSizeClass?, size: CGSize,
-        safeAreaInsets: EdgeInsets = EdgeInsets()
+        safeAreaInsets: EdgeInsets = EdgeInsets(),
+        hasOpenAgent: Bool = false
     ) {
         let width = size.width + safeAreaInsets.leading + safeAreaInsets.trailing
         let height = size.height + safeAreaInsets.top + safeAreaInsets.bottom
@@ -25,18 +29,21 @@ struct ConsoleSplitPresentation: Equatable {
             && width.isFinite && height.isFinite
         usesRegularColumns = horizontalSizeClass == .regular
         isLandscape = hasUsableSize && width > height
+        self.hasOpenAgent = hasOpenAgent
         guard hasUsableSize, horizontalSizeClass == .regular else {
             defaultVisibility = .automatic
             sidebarWidth = ColumnWidth(minimum: 320, ideal: 380, maximum: nil)
             return
         }
-        if isLandscape {
-            defaultVisibility = .all
-            sidebarWidth = ColumnWidth(minimum: 320, ideal: 380, maximum: 440)
-        } else {
-            defaultVisibility = .detailOnly
-            sidebarWidth = ColumnWidth(minimum: 320, ideal: 380, maximum: 400)
-        }
+        // Kelpie: an open terminal is the screen, in either orientation. A
+        // landscape iPad that kept both columns left herdr a column wide, so
+        // an open Agent takes the window and the list returns with the
+        // standard sidebar toggle. With no Agent open, landscape still seeds
+        // both columns so the list is where the user left it.
+        sidebarWidth = isLandscape
+            ? ColumnWidth(minimum: 320, ideal: 380, maximum: 440)
+            : ColumnWidth(minimum: 320, ideal: 380, maximum: 400)
+        defaultVisibility = isLandscape && !hasOpenAgent ? .all : .detailOnly
     }
 }
 

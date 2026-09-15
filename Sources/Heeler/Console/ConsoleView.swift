@@ -73,7 +73,8 @@ struct ConsoleView: View {
             let presentation = ConsoleSplitPresentation(
                 horizontalSizeClass: horizontalSizeClass,
                 size: geometry.size,
-                safeAreaInsets: geometry.safeAreaInsets)
+                safeAreaInsets: geometry.safeAreaInsets,
+                hasOpenAgent: !notificationRouter.path.isEmpty)
             NavigationSplitView(columnVisibility: Binding(
                 get: { splitVisibility.visibility },
                 set: { splitVisibility.systemDidChangeVisibility($0, presentation: presentation) })

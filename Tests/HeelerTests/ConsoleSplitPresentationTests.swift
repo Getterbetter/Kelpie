@@ -16,6 +16,31 @@ struct ConsoleSplitPresentationTests {
         #expect(landscape.sidebarWidth == .init(minimum: 320, ideal: 380, maximum: 440))
     }
 
+    /// Kelpie: an open terminal fills the iPad window in either orientation,
+    /// so the Agent list no longer leaves herdr a column wide in landscape.
+    @Test(arguments: [false, true])
+    func regularWidthWithOpenAgentShowsDetailOnly(isLandscape: Bool) {
+        let presentation = ConsoleSplitPresentation(
+            horizontalSizeClass: .regular,
+            size: isLandscape
+                ? CGSize(width: 1194, height: 834) : CGSize(width: 834, height: 1194),
+            hasOpenAgent: true)
+        #expect(presentation.defaultVisibility == .detailOnly)
+        #expect(presentation.usesRegularColumns)
+        #expect(presentation.isLandscape == isLandscape)
+    }
+
+    /// Opening an Agent is a layout change, so the seed is re-applied.
+    @Test func openingAnAgentInLandscapeReseedsToDetailOnly() {
+        var state = ConsoleSplitVisibilityState()
+        state.update(from: landscape)
+        #expect(state.visibility == .all)
+        state.update(from: ConsoleSplitPresentation(
+            horizontalSizeClass: .regular, size: CGSize(width: 1194, height: 834),
+            hasOpenAgent: true))
+        #expect(state.visibility == .detailOnly)
+    }
+
     @Test func regularPortraitShowsDetail() {
         #expect(portrait.defaultVisibility == .detailOnly)
         #expect(portrait.usesRegularColumns)

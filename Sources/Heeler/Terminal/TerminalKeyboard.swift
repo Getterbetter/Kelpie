@@ -345,29 +345,16 @@ extension HeelerTerminalView {
         return sendKey(press)
     }
 
-    /// The key bar's control keys. Routed through the quick-key encoder so
-    /// the bar, the Console's pad and the hardware keys all encode the same
-    /// way; ⌃C/⌃D/⌃Z are the letter with Control armed.
+    /// The key bar's control keys. Kelpie writes ``TerminalControlKey``'s own
+    /// byte table straight to the session: that table is the device-confirmed
+    /// path (round 15 — Shift+Tab as CSI Z, Escape, Tab, and arrows honouring
+    /// application-cursor mode), and routing it through the quick-key encoder
+    /// instead left the table shipping nowhere. `sendQuickKey` stays for
+    /// upstream's own callers.
     func sendControlKey(_ key: TerminalControlKey) {
         guard isLocalInputEnabled else { return }
-        switch key {
-        case .controlC: sendQuickKey(.character("c"), modifiers: .control)
-        case .controlD: sendQuickKey(.character("d"), modifiers: .control)
-        case .controlZ: sendQuickKey(.character("z"), modifiers: .control)
-        case .escape: sendQuickKey(.escape)
-        case .tab: sendQuickKey(.tab)
-        case .shiftTab: sendQuickKey(.shiftTab)
-        case .home: sendQuickKey(.home)
-        case .pageUp: sendQuickKey(.pageUp)
-        case .up: sendQuickKey(.up)
-        case .pageDown: sendQuickKey(.pageDown)
-        case .end: sendQuickKey(.end)
-        case .backspace: sendQuickKey(.backspace)
-        case .left: sendQuickKey(.left)
-        case .down: sendQuickKey(.down)
-        case .right: sendQuickKey(.right)
-        case .enter: sendQuickKey(.enter)
-        }
+        terminalSession.sendInput(
+            Data(key.bytes(applicationCursor: usesApplicationCursorKeys)))
     }
 
     func sendNewLine() {
