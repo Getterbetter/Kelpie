@@ -27,11 +27,27 @@ struct HerdrClientView: View {
 
     @State private var keyboardInset = TerminalKeyboardInset()
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
-    /// The frame on screen when the app last left the foreground, kept over
-    /// the blank surface a reconnect mounts until that surface paints; see
-    /// ``TerminalLastFrame``. Never shown while the terminal is live.
-    @State private var lastFrame: TerminalLastFrame?
+    /// One Ghostty surface the screen has mounted: the store's pipeline it
+    /// belongs to and the byte feed it draws.
+    private struct MountedSurface: Identifiable {
+        let id: TerminalSurfaceID
+        let feed: TerminalByteFeed
+    }
+    /// The surface for the store's current pipeline. State rather than a
+    /// read of the store, so a replacement mounts one frame after the store
+    /// announces it and the outgoing surface is never dismantled first.
+    @State private var currentSurface: MountedSurface?
+    /// The surface a replacement retired, kept mounted over the new one so
+    /// its last frame stays on screen until the replacement paints. A
+    /// reconnect after the background grace period, or after the Console
+    /// cover, otherwise shows a blank terminal under a Connecting card
+    /// (Open item 35). Ghostty draws only when bytes arrive, and a retired
+    /// feed is silent, so the frame holds. Its surface is not snapshotted:
+    /// `snapshotView` of the Metal layer came back blank on the device.
+    @State private var retiredSurface: MountedSurface?
+    /// Whether the current surface has ever painted. Only such a surface is
+    /// worth retiring; a replacement that never went live is blank.
+    @State private var currentSurfaceHasBeenLive = false
     /// Whether the Connecting card has earned its place. A reconnect that
     /// finishes inside ``connectingCardDelay`` never shows one; the card is
     /// for a wait the user can notice, not for every return from the
@@ -39,14 +55,38 @@ struct HerdrClientView: View {
     @State private var showsConnectingCard = false
     private static let connectingCardDelay = Duration.seconds(1)
     /// Ghostty presents the new surface's first frame a beat after its first
-    /// bytes arrive; releasing the old frame on the bytes alone flashes blank.
-    private static let lastFrameReleaseDelay = Duration.milliseconds(150)
-    /// How long after a return a still-live terminal keeps its captured frame
-    /// on hand, in case the reconnect is only now beginning.
-    private static let lastFrameRetentionAfterReturn = Duration.seconds(2)
+    /// bytes arrive; releasing the old surface on the bytes alone flashes
+    /// blank.
+    private static let retiredSurfaceReleaseDelay = Duration.milliseconds(150)
 
-    private var terminalScreen: TerminalScreenView {
-        var screen = TerminalScreenView(feed: store.terminalFeed)
+    /// Bottom to top: the current surface, then the retired one over it.
+    private var mountedSurfaces: [MountedSurface] {
+        [currentSurface, retiredSurface].compactMap { $0 }
+    }
+
+    /// One builder for both, returning the same view type whichever role the
+    /// surface plays: a `ForEach` keeps a surface's UIKit view across the
+    /// move from current to retired only while its content stays one type.
+    private func screen(for surface: MountedSurface) -> TerminalScreenView {
+        var screen = terminalScreen(feed: surface.feed)
+        guard surface.id != store.terminalID else { return screen }
+        // Retired: draws its last frame and nothing else. Disabling input
+        // dismisses its keyboard, as dismantling the view used to.
+        screen.isLocalInputEnabled = false
+        screen.keyboardControl = nil
+        screen.claimsKeyboard = nil
+        screen.onSizeChanged = nil
+        screen.onSend = nil
+        screen.onScroll = nil
+        screen.onPaste = nil
+        screen.onStageItems = nil
+        screen.onHostPathTap = nil
+        screen.onFontSizeChanged = nil
+        return screen
+    }
+
+    private func terminalScreen(feed: TerminalByteFeed) -> TerminalScreenView {
+        var screen = TerminalScreenView(feed: feed)
         screen.onSizeChanged = { cols, rows in
             store.viewDidResize(cols: cols, rows: rows)
         }
@@ -109,15 +149,14 @@ struct HerdrClientView: View {
     }
 
     var body: some View {
-        terminalScreen
-            .id(store.terminalID)
-            .overlay {
-                if let lastFrame, !isTerminalLive {
-                    TerminalLastFrameView(lastFrame: lastFrame)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
+        ZStack {
+            ForEach(mountedSurfaces) { surface in
+                let isRetired = surface.id != store.terminalID
+                screen(for: surface)
+                    .allowsHitTesting(!isRetired)
+                    .accessibilityHidden(isRetired)
             }
+        }
             .overlay { statusOverlay }
             .padding(.bottom, keyboardLayout.contentInset)
             // After the keyboard inset: an overlay applied before it aligns
@@ -162,29 +201,22 @@ struct HerdrClientView: View {
                 store.didBecomeActive(
                     afterPossibleSuspension: activity.lastAbsenceMayHaveSuspended)
             }
-            // Captured on the way out, while the surface is still drawn and
-            // still the one `keyboardControl` points at. By the time the store
-            // reports the reconnect, SwiftUI has already swapped the surface.
-            .onChange(of: scenePhase) { _, phase in
-                guard phase != .active, isTerminalLive,
-                    let frame = TerminalLastFrame.capture(keyboardControl.terminal)
-                else { return }
-                lastFrame = frame
+            .onChange(of: store.terminalID, initial: true) { _, id in
+                let outgoing = currentSurface
+                currentSurface = MountedSurface(id: id, feed: store.terminalFeed)
+                if let outgoing, outgoing.id != id, currentSurfaceHasBeenLive {
+                    retiredSurface = outgoing
+                }
+                currentSurfaceHasBeenLive = false
+            }
+            .onChange(of: isTerminalLive) { _, isLive in
+                if isLive { currentSurfaceHasBeenLive = true }
             }
             .task(id: isTerminalLive) {
-                guard isTerminalLive, lastFrame != nil else { return }
-                try? await Task.sleep(for: Self.lastFrameReleaseDelay)
+                guard isTerminalLive, retiredSurface != nil else { return }
+                try? await Task.sleep(for: Self.retiredSurfaceReleaseDelay)
                 guard !Task.isCancelled else { return }
-                lastFrame = nil
-            }
-            // An absence the grace period absorbed leaves the terminal live and
-            // the frame unused. It is not dropped the moment the app is active
-            // again: the store's reconnect, when there is one, starts a beat
-            // later and the surface is still reporting live at that point.
-            .task(id: activity.activationCount) {
-                try? await Task.sleep(for: Self.lastFrameRetentionAfterReturn)
-                guard !Task.isCancelled, isTerminalLive else { return }
-                lastFrame = nil
+                retiredSurface = nil
             }
             .task(id: isPresentingConnecting) {
                 showsConnectingCard = false

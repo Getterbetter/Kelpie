@@ -310,3 +310,7 @@ Read as: this project stops steering sessions toward `/delegate`. Remove the `CL
 Anthony (2026-09-15, after the `/delegate` change): "close this out and ill start a new session next"
 
 Read as: close the side task and end this session. Round 17 stays checkpointed in `resume.md`, still waiting on his device check; the next session picks it up there.
+
+Anthony (2026-09-15, round-17 device check): "1- working 2- i see a blank screen 3- working as expected."
+
+Read as: Open item 34 (the iPad keyboard inset) and Open item 32 (hardware Shift+Tab) are confirmed on the device; Open item 35's snapshot bridge did not hold the last frame, so the reconnect still shows a blank terminal and needs a different capture path.
