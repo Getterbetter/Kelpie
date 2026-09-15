@@ -7,6 +7,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 - **Done:** Open items 34, 35 and 32 built in `794fb65` (root screen: `.terminalKeyboardInsetWindow` on `HerdrClientView`; `TerminalLastFrame` snapshot over the reconnect plus a 1 s delay on the Connecting card; Shift+Tab as a mapping row and a priority `UIKeyCommand`). Release build installed and launched on the iPad; the key mapping and client store suites passed on the device (29 tests). Decisions written (`KelpieVault/Decisions.md`, round 17); Open item 35 logged with Anthony's pick.
 - **Waiting on:** Anthony's device check (keyboard inset with the Magic Keyboard detached; background for 30 s and return; hardware Shift+Tab in a Claude pane).
 - **Next:** take his verdicts, fix if needed, then the close-out (Changelog, Testing status, Open items 32/34/35, Kelpie.md, this file) and remove this section.
+- **Side tasks since the checkpoint, already written up:** `d1e5eb5` removed the standing push toward `/delegate` (`CLAUDE.md`, the dependency watch brief and guide; `Decisions.md` and `Changelog.md`, 2026-09-15). Not round work, nothing to verify.
+- **Unpushed:** `cca4df0`, `794fb65`, `11cb5d1`, `d1e5eb5` and this checkpoint update are ahead of `origin/kelpie`; push with the round-17 close-out.
 
 ## Where things stand (2026-09-15, after round 16)
 

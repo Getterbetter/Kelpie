@@ -306,3 +306,7 @@ Read as: remove the simulator data under `~/Library/Developer/CoreSimulator` (13
 Anthony (2026-09-15, a new session while round 17 waits on his device check): "lets remove the push to always use the delegate skill in this project"
 
 Read as: this project stops steering sessions toward `/delegate`. Remove the `CLAUDE.md` line that says when to use it and the dependency watch's advice to run a rebase as a `/delegate` round; he still invokes the skill himself when he wants it. The skill, its global hooks (inert without a delegation marker) and the round history that mentions it stay. Done here, not parked in Open items.
+
+Anthony (2026-09-15, after the `/delegate` change): "close this out and ill start a new session next"
+
+Read as: close the side task and end this session. Round 17 stays checkpointed in `resume.md`, still waiting on his device check; the next session picks it up there.
