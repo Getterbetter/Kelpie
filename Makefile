@@ -150,6 +150,14 @@ upload: ## Upload the existing archive to App Store Connect (TestFlight)
 
 testflight: archive upload ## Archive and upload in one go
 
+# An uploaded build reaches no tester until it is in the external group and
+# through beta review; altool does neither (builds 3 to 5 sat undistributed
+# until 2026-09-15). Dry run by default; APPLY=1 writes. BUILD=<n> picks a
+# build, NOTES="..." is the what-to-test text.
+.PHONY: distribute
+distribute: ## Put the newest VALID build in front of the TestFlight public beta (APPLY=1 BUILD=<n> NOTES="...")
+	@python3 scripts/asc-kelpie.py --distribute-build $(if $(BUILD),--build $(BUILD)) $(if $(NOTES),--notes "$(NOTES)") $(if $(APPLY),--apply)
+
 bump: ## Increment CURRENT_PROJECT_VERSION in project.yml (app + extension stay in lockstep)
 	@CUR=$$(awk -F'"' '/CURRENT_PROJECT_VERSION: "/ { print $$2; exit }' project.yml); \
 	NEW=$$((CUR + 1)); \
