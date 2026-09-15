@@ -140,6 +140,11 @@ struct HerdrClientRootView: View {
         windowWidth > 0 && windowWidth < TerminalZoomSettings.mediumWidthThreshold
     }
 
+    /// The composer field's height while it is on screen, from
+    /// ``HerdrComposerBarHeightKey``; the bottom-corner menu button on a
+    /// phone rides above it.
+    @State private var composerBarHeight: CGFloat = 0
+
     private static func initialAction(
         for action: WelcomeView.Action
     ) -> HostListView.InitialAction {
@@ -167,7 +172,14 @@ struct HerdrClientRootView: View {
         // herdr's mobile header puts its own "switch" button in that corner,
         // so the capsule moves to the bottom corner, where the mobile layout
         // draws nothing. The keyboard covers it while typing, by design.
-        .overlay(alignment: isCompactWidth ? .bottomTrailing : .topTrailing) { menuButton }
+        .onPreferenceChange(HerdrComposerBarHeightKey.self) { height in
+            Task { @MainActor in composerBarHeight = height }
+        }
+        .overlay(alignment: isCompactWidth ? .bottomTrailing : .topTrailing) {
+            // Above the composer field when there is one; the top corner
+            // never meets it.
+            menuButton.padding(.bottom, isCompactWidth ? composerBarHeight : 0)
+        }
         // The foreground Blocked/Done banner (#77) is drawn wherever the app's
         // root is; ConsoleView keeps drawing its own for when the cover is up.
         .overlay(alignment: .top) { banner }

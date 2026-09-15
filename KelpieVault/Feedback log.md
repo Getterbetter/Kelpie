@@ -338,3 +338,7 @@ Read as: a new Open item for a later session; the floating menu button at the to
 Anthony (2026-09-15, round 18, composer device check, with a screenshot): "it works well but it looks a bit funny: [screenshot] the text bar goes end to end whilst the chip row of keys and the keyboard has rounded edges."
 
 Read as: the composer works on the iPad; the visual: the field's strip runs edge to edge while the pill and the floating keyboard are inset with rounded corners, so the field should be drawn as a floating capsule-cornered bar matching the pill's margins.
+
+Anthony (2026-09-15, round 18, after the floating-field build): "yep that works now. except the hosts button seems the cover some of the box so it may need to float above the new text box"
+
+Read as: the floating field is confirmed; the Kelpie menu button (the `ellipsis.circle` capsule) overlaps the composer field, so it has to sit above the field when the composer is on.

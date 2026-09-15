@@ -268,6 +268,14 @@ struct HerdrClientView: View {
             .padding(.horizontal, TerminalKeyBar.pillMargin)
             .padding(.top, 8)
             .padding(.bottom, 4)
+            // Reported upward so the root screen's floating menu button,
+            // which sits in the bottom corner on a phone, moves above the
+            // field rather than over its right end (Anthony, round 18).
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: HerdrComposerBarHeightKey.self, value: proxy.size.height)
+                })
     }
 
     private var themePalette: TerminalThemePalette {
@@ -342,6 +350,15 @@ struct HerdrClientView: View {
             }
             .presentationDetents([.medium, .large])
         }
+    }
+}
+
+/// How tall the composer bar is while it is on screen, zero otherwise; read
+/// by the root screen to keep its floating chrome clear of the field.
+struct HerdrComposerBarHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
