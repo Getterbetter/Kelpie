@@ -6,8 +6,9 @@
 //  inject bytes into the pty without reaching for internal API.
 //
 
-#if canImport(AppKit) && !canImport(UIKit)
+#if !canImport(UIKit) && canImport(AppKit)
     import AppKit
+    import GhosttyKit
 
     extension AppTerminalView {
         /// Make this view the window's first responder, reporting whether
@@ -21,12 +22,37 @@
             return window.makeFirstResponder(self)
         }
 
-        /// Send raw UTF-8 text directly to the underlying pty (bypassing
-        /// key translation). Use this for synthetic input like `\x1b[Z`
-        /// (Shift+Tab / CSI Z) or multi-line paste-style injections.
-        /// No-op when the surface has not been created yet.
-        public func sendText(_ text: String) {
-            surface?.sendText(text)
+        /// Paste text into the terminal. This is the text path: a program
+        /// that enabled bracketed paste receives it framed as a paste, so
+        /// escape sequences and a `\r` in it are pasted characters, not
+        /// keys. Keystrokes — Shift+Tab, Enter, Ctrl+C — go through
+        /// ``sendKey(_:)``. False when the surface has not been created yet.
+        @discardableResult
+        public func paste(text: String) -> Bool {
+            surface?.paste(text: text) ?? false
+        }
+
+        /// Presses and releases a key, as if typed on a hardware keyboard —
+        /// see ``TerminalSurface/sendKey(_:)``. An open IME composition is
+        /// committed first, as it would be ahead of a hardware key. False
+        /// with no surface yet.
+        @discardableResult
+        public func sendKey(_ press: TerminalKeyPress) -> Bool {
+            guard let surface else { return false }
+            if hasMarkedText() {
+                inputHandler?.inputMethodHandler?.commitMarkedText()
+                // The input method keeps its own copy of the composition and
+                // would re-mark it on the next keystroke.
+                inputContext?.discardMarkedText()
+            }
+            return surface.sendKey(press)
+        }
+
+        /// ``sendKey(_:)`` for a key and its modifiers: `sendKey(.enter)`,
+        /// `sendKey(.tab, modifiers: .shift)`.
+        @discardableResult
+        public func sendKey(_ key: TerminalKey, modifiers: TerminalInputModifiers = []) -> Bool {
+            sendKey(TerminalKeyPress(key, modifiers: modifiers))
         }
 
         /// Invoke a named Ghostty binding action (e.g. "copy_to_clipboard",
@@ -49,6 +75,40 @@
         @discardableResult
         public func scrollToRow(_ row: UInt) -> Bool {
             surface?.scrollToRow(row) ?? false
+        }
+
+        /// Whether the application currently owns the mouse.
+        public var isMouseCaptured: Bool {
+            surface?.isMouseCaptured ?? false
+        }
+
+        public func sendMousePos(
+            x: Double,
+            y: Double,
+            modifiers: TerminalInputModifiers = []
+        ) {
+            surface?.sendMousePos(x: x, y: y, modifiers: modifiers)
+        }
+
+        @discardableResult
+        public func sendMouseButton(
+            state: ghostty_input_mouse_state_e,
+            button: ghostty_input_mouse_button_e,
+            modifiers: TerminalInputModifiers = []
+        ) -> Bool {
+            surface?.sendMouseButton(
+                state: state,
+                button: button,
+                modifiers: modifiers
+            ) ?? false
+        }
+
+        public func sendMouseScroll(
+            x: Double,
+            y: Double,
+            mods: TerminalScrollModifiers = TerminalScrollModifiers(precision: true)
+        ) {
+            surface?.sendMouseScroll(x: x, y: y, mods: mods)
         }
     }
 #endif

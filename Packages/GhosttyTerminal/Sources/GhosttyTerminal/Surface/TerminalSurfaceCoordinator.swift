@@ -35,6 +35,12 @@ final class TerminalSurfaceCoordinator {
     }
 
     var surface: TerminalSurface?
+    /// The in-memory session `surface` was handed to at build time. Teardown
+    /// must clear that session, not whichever one `configuration` names by
+    /// then: a rebuild runs from `configuration`'s didSet, after the property
+    /// already holds the new backend, and a swap to another session or to
+    /// `.exec` would otherwise free a surface the old session still uses.
+    private var surfaceSession: InMemoryTerminalSession?
     let bridge = TerminalCallbackBridge()
 
     // MARK: - Platform Hooks
@@ -45,6 +51,7 @@ final class TerminalSurfaceCoordinator {
     var platformSetup: ((inout ghostty_surface_config_s) -> Void)?
     var onMetricsUpdate: (() -> Void)?
     var onCellSizeDidChange: (() -> Void)?
+    var onMouseShape: ((ghostty_action_mouse_shape_e) -> Void)?
 
     /// Called after every display-link render (`tick`).
     ///
@@ -63,6 +70,18 @@ final class TerminalSurfaceCoordinator {
     var onPostRender: (() -> Void)?
 
     private var lastMetrics: TerminalViewportMetrics?
+
+    /// The view size, in points, the surface was last sized to. While a
+    /// resize throttle window is open this trails the live bounds: the
+    /// surface's IOSurface is still the old size, so a platform layer that
+    /// stretches to the new bounds shows the old pixels scaled — and the
+    /// engine, deriving `contentsScale` from old pixels over new points,
+    /// fights the host's correction on every tick. A UIKit host keeps its
+    /// sublayer at *this* size until the trailing sync lands, so the gap
+    /// shows background instead of a stretched frame. `nil` until the first
+    /// sync and after teardown.
+    private(set) var syncedViewSize: (width: Double, height: Double)?
+
     private var isDisplayVisible = true
     /// The last visibility the SwiftUI host declared through
     /// `TerminalViewState.isSurfaceVisible`. The representable forwards only
@@ -72,18 +91,23 @@ final class TerminalSurfaceCoordinator {
     var hostDeclaredDisplayVisible: Bool?
     private var isApplicationActive = true
     private var pendingImmediateTick = true
-    private var lastTickTimestamp: TimeInterval = 0
 
     /// Held only while frames are owed. The engine's wakeups arrive at PTY
     /// speed, not display speed; rendering straight from them draws far more
     /// often than the screen can show and starves input handling under heavy
-    /// output. The link paces draws to vsync (60 fps cap) instead, and is
-    /// released after a stretch of idle frames so a quiet terminal costs no
-    /// per-frame wakeups at all. All instances share one platform link.
+    /// output. The link paces draws to vsync instead, and is released after
+    /// a stretch of idle frames so a quiet terminal costs no per-frame
+    /// wakeups at all. All instances share one platform link.
+    ///
+    /// The range floors at 60: letting the system drop to 30 while output
+    /// streams read as flicker on a scrolling screen. ProMotion displays may
+    /// go to 120.
     private var displayLink: DisplayLink?
     private var idleFrameCount = 0
     private static let displayLinkFrameRateRange = DisplayLinkFrameRateRange(
-        minimum: 30, maximum: 60, preferred: 60
+        minimum: 60,
+        maximum: 120,
+        preferred: 120
     )
     private static let idleFramesBeforeRelease = 30
 
@@ -94,14 +118,13 @@ final class TerminalSurfaceCoordinator {
         bridge.onRenderRequest = { [weak self] in
             self?.requestImmediateTick()
         }
+        bridge.onMouseShape = { [weak self] shape in
+            self?.onMouseShape?(shape)
+        }
     }
 
     func requestImmediateTick() {
         pendingImmediateTick = true
-        ensureDisplayLink()
-    }
-
-    func startDisplayLink() {
         ensureDisplayLink()
     }
 
@@ -179,6 +202,7 @@ final class TerminalSurfaceCoordinator {
         bridge.rawSurface = rawSurface
         let newSurface = TerminalSurface(rawSurface)
         surface = newSurface
+        surfaceSession = configuration.inMemorySession
         newSurface.setOcclusion(effectiveSurfaceVisible)
         // Wakeups must keep draining while the surface is merely occluded:
         // the app mailbox (titles, pwd, bell, child-exit) only empties in
@@ -186,13 +210,16 @@ final class TerminalSurfaceCoordinator {
         // thread on its next push. Only a detached surface or a
         // backgrounded app suspends ticks — visibility gates rendering
         // alone (canRenderFrame).
-        controller.shouldProcessWakeup = { [weak self] in
-            guard let self else { return false }
-            return isApplicationActive && isAttached()
-        }
-        controller.onWakeup = { [weak self] in
-            self?.requestImmediateTick()
-        }
+        controller.addWakeupObserver(
+            ObjectIdentifier(self),
+            shouldProcess: { [weak self] in
+                guard let self else { return false }
+                return isApplicationActive && isAttached()
+            },
+            onWakeup: { [weak self] in
+                self?.requestImmediateTick()
+            }
+        )
         TerminalDebugLog.log(.lifecycle, "surface rebuild succeeded")
         (delegate as? any TerminalSurfaceLifecycleDelegate)?
             .terminalDidAttachSurface(newSurface)
@@ -271,7 +298,11 @@ final class TerminalSurfaceCoordinator {
             return
         }
 
-        performMetricsSync()
+        // Arm only behind a size the surface actually received. The
+        // creation-time cell_size callback lands here while `surface` is still
+        // nil; arming then would make the new surface's own first sync wait
+        // out a full window as a trailing edge.
+        guard performMetricsSync() else { return }
         armResizeThrottle()
     }
 
@@ -290,16 +321,17 @@ final class TerminalSurfaceCoordinator {
             resizeThrottleArmed = false
             guard resizeThrottleTrailing else { return }
             resizeThrottleTrailing = false
-            guard surface != nil else { return }
-            performMetricsSync()
+            guard performMetricsSync() else { return }
             armResizeThrottle()
         }
     }
 
-    private func performMetricsSync() {
+    /// Returns whether a size reached the surface.
+    @discardableResult
+    private func performMetricsSync() -> Bool {
         guard let surface else {
             TerminalDebugLog.log(.metrics, "synchronizeMetrics skipped: missing surface")
-            return
+            return false
         }
 
         let scale = scaleFactor()
@@ -309,7 +341,7 @@ final class TerminalSurfaceCoordinator {
                 .metrics,
                 "synchronizeMetrics skipped: invalid view size=\(String(format: "%.2f", size.width))x\(String(format: "%.2f", size.height))"
             )
-            return
+            return false
         }
 
         let pixelWidth = UInt32((size.width * scale).rounded(.down))
@@ -319,7 +351,7 @@ final class TerminalSurfaceCoordinator {
                 .metrics,
                 "synchronizeMetrics skipped: invalid pixel size=\(pixelWidth)x\(pixelHeight)"
             )
-            return
+            return false
         }
 
         TerminalDebugLog.log(
@@ -329,13 +361,14 @@ final class TerminalSurfaceCoordinator {
 
         surface.setContentScale(x: scale, y: scale)
         surface.setSize(width: pixelWidth, height: pixelHeight)
+        syncedViewSize = size
 
         guard let surfaceSize = surface.size(),
               surfaceSize.columns > 0, surfaceSize.rows > 0
         else {
             TerminalDebugLog.log(.metrics, "sync missing grid metrics after resize")
             onMetricsUpdate?()
-            return
+            return true
         }
 
         let metrics = TerminalViewportMetrics(surfaceSize: surfaceSize, scale: scale)
@@ -345,7 +378,7 @@ final class TerminalSurfaceCoordinator {
                 "sync unchanged \(metrics.debugSummary)"
             )
             onMetricsUpdate?()
-            return
+            return true
         }
 
         lastMetrics = metrics
@@ -376,6 +409,7 @@ final class TerminalSurfaceCoordinator {
             )
         }
         onMetricsUpdate?()
+        return true
     }
 
     func fitToSize() {
@@ -433,12 +467,12 @@ final class TerminalSurfaceCoordinator {
 
     // MARK: - Frame Rendering
 
-    func tick(context: DisplayLinkCallbackContext) {
+    func tick() {
         guard canRenderFrame else {
             releaseDisplayLink()
             return
         }
-        guard shouldRenderFrame(at: context.timestamp) else {
+        guard pendingImmediateTick else {
             idleFrameCount += 1
             if idleFrameCount >= Self.idleFramesBeforeRelease {
                 releaseDisplayLink()
@@ -447,7 +481,6 @@ final class TerminalSurfaceCoordinator {
         }
         idleFrameCount = 0
         pendingImmediateTick = false
-        lastTickTimestamp = context.timestamp
         TerminalDebugLog.log(.render, "tick")
         controller?.tick()
         surface?.refresh()
@@ -500,17 +533,24 @@ final class TerminalSurfaceCoordinator {
     private func tearDownSurface(removingBridgeFrom controller: TerminalController?) {
         TerminalDebugLog.log(.lifecycle, "tear down surface")
         releaseDisplayLink()
-        if let session = configuration.inMemorySession {
-            session.clearSurface(ifMatches: surface?.rawValue)
-        }
-        controller?.onWakeup = nil
-        controller?.shouldProcessWakeup = nil
+        surfaceSession?.clearSurface(ifMatches: surface?.rawValue)
+        surfaceSession = nil
+        controller?.removeWakeupObserver(ObjectIdentifier(self))
+        // Must run before rawSurface is cleared: a clipboard-read
+        // confirmation still awaiting the host's answer must resolve to a
+        // deny before the surface it names goes away, or the requesting
+        // program hangs forever. This is the wrapper-level backstop behind
+        // "exactly one of complete/deny fires for every request" — it
+        // fires regardless of whether the host's own confirmation UI ever
+        // dismisses.
+        bridge.denyAllPendingClipboardRequests()
         bridge.rawSurface = nil
         let hadSurface = surface != nil
         surface?.setFocus(false)
         surface?.free()
         surface = nil
         lastMetrics = nil
+        syncedViewSize = nil
         // Retire any armed timer with the surface it was armed for, and
         // clear the gate so the replacement surface sizes immediately
         // instead of being suppressed by the old surface's armed flag.
@@ -518,7 +558,6 @@ final class TerminalSurfaceCoordinator {
         resizeThrottleArmed = false
         resizeThrottleTrailing = false
         pendingImmediateTick = true
-        lastTickTimestamp = 0
         controller?.remove(bridge)
         if hadSurface {
             (delegate as? any TerminalSurfaceLifecycleDelegate)?
@@ -534,13 +573,6 @@ final class TerminalSurfaceCoordinator {
         synchronizeMetrics()
         requestImmediateTick()
         onCellSizeDidChange?()
-    }
-
-    private func shouldRenderFrame(at _: TimeInterval) -> Bool {
-        guard canRenderFrame else {
-            return false
-        }
-        return pendingImmediateTick || lastTickTimestamp == 0
     }
 
     private func ensureDisplayLink() {
@@ -563,10 +595,6 @@ final class TerminalSurfaceCoordinator {
         TerminalDebugLog.log(.lifecycle, "display link released")
     }
 
-    private static func monotonicTimestamp() -> TimeInterval {
-        ProcessInfo.processInfo.systemUptime
-    }
-
     private var effectiveSurfaceVisible: Bool {
         isDisplayVisible && isApplicationActive
     }
@@ -587,14 +615,7 @@ final class TerminalSurfaceCoordinator {
         }
 
         pendingImmediateTick = true
-        let timestamp = Self.monotonicTimestamp()
-        tick(
-            context: .init(
-                duration: 0,
-                timestamp: timestamp,
-                targetTimestamp: timestamp
-            )
-        )
+        tick()
         ensureDisplayLink()
     }
 }
@@ -602,9 +623,9 @@ final class TerminalSurfaceCoordinator {
 extension TerminalSurfaceCoordinator: DisplayLinkDelegate {
     // The shared CADisplayLink dispatches synchronously on the main run
     // loop; the protocol just cannot say so.
-    nonisolated func synchronization(context: DisplayLinkCallbackContext) {
+    nonisolated func synchronization(context _: DisplayLinkCallbackContext) {
         MainActor.assumeIsolated {
-            tick(context: context)
+            tick()
         }
     }
 }

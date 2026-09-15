@@ -65,6 +65,19 @@
                     reloadInputViews()
                 }
             }
+
+            /// Toggles the software keyboard the way a clean tap does: the
+            /// touch path calls this after the tap's click has been sent.
+            /// Declared in the class body so a host's `makePlatformView`
+            /// subclass can override it — a keyboard lock overrides to do
+            /// nothing, and the click still lands.
+            open func toggleSoftwareKeyboard() {
+                if softwareKeyboard.isVisible {
+                    resignFirstResponder()
+                } else {
+                    becomeFirstResponder()
+                }
+            }
         #endif
 
         open weak var delegate: (any TerminalSurfaceViewDelegate)? {
@@ -79,7 +92,17 @@
 
         open var configuration: TerminalSurfaceOptions {
             get { core.configuration }
-            set { core.configuration = newValue }
+            set {
+                #if !targetEnvironment(macCatalyst)
+                    // SwiftUI stamps the options on every update; only a
+                    // changed fontSize rebuilds the surface at a new size,
+                    // so only then does the pinch counter follow it.
+                    if newValue.fontSize != core.configuration.fontSize {
+                        fontZoom.currentFontSize = newValue.fontSize ?? 14
+                    }
+                #endif
+                core.configuration = newValue
+            }
         }
 
         /// Whether this surface should keep drawing — the UIKit twin of the
@@ -92,7 +115,7 @@
             core.setDisplayVisible(visible)
         }
 
-        var surface: TerminalSurface? {
+        public var surface: TerminalSurface? {
             core.surface
         }
 
@@ -122,7 +145,7 @@
 
             core.isAttached = { [weak self] in self?.window != nil }
             core.scaleFactor = { [weak self] in
-                Double(self?.resolvedDisplayScale() ?? UIScreen.main.nativeScale)
+                Double(self?.resolvedDisplayScale() ?? UITerminalView.fallbackDisplayScale)
             }
             core.viewSize = { [weak self] in
                 guard let self else { return (0, 0) }
@@ -142,6 +165,9 @@
             }
             core.onCellSizeDidChange = { [weak self] in
                 self?.refreshTextInputGeometry(reason: "cell-size-action")
+            }
+            core.onMouseShape = { [weak self] shape in
+                self?.applyMouseShape(shape)
             }
             core.onPostRender = { [weak self] in
                 self?.enforceSublayerScale()

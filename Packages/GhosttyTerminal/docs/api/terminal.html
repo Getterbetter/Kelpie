@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>GhosttyKit · API · Terminal surface</title>
+<title>GhosttyKit · API · Terminal Surface</title>
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
@@ -28,7 +28,7 @@
 </nav>
 
 <main>
-<h1>Terminal surface</h1>
+<h1>Terminal Surface</h1>
 <nav class="on-this-page" aria-label="On this page">
   <strong>On this page:</strong>
   <a href="#TerminalViewState">TerminalViewState</a>
@@ -40,9 +40,18 @@
 </nav>
 
 <h2 id="TerminalViewState">TerminalViewState</h2>
-<p>Main SwiftUI state container. Available on iOS 15, macOS 13, and Mac Catalyst 15.</p>
+<p>Main SwiftUI state container. Available on iOS 15, macOS 13, Mac Catalyst 15, and visionOS 1.</p>
 <pre><code class="language-swift">@MainActor
 public final class TerminalViewState: ObservableObject {
+    public convenience init()
+    public convenience init(configFilePath: String?)
+    public init(
+        configSource: TerminalController.ConfigSource = .none,
+        theme: TerminalTheme = .default,
+        terminalConfiguration: TerminalConfiguration = .init()
+    )
+    public init(controller: TerminalController)
+
     @Published public internal(set) var title: String { get }
     @Published public internal(set) var surfaceSize: TerminalGridMetrics? { get }
     @Published public internal(set) var isFocused: Bool { get }
@@ -54,25 +63,55 @@ public final class TerminalViewState: ObservableObject {
     @Published public internal(set) var workingDirectory: String? { get }
     @Published public internal(set) var lastCommandExitCode: Int? { get }
     @Published public internal(set) var lastCommandDurationNanos: UInt64? { get }
+    @Published public internal(set) var scrollbar: TerminalScrollbar? { get }
     public internal(set) weak var surface: TerminalSurface? { get }
 
     @Published public var configuration: TerminalSurfaceOptions
+    /// False stops rendering for a surface kept mounted but hidden; the
+    /// grid, scrollback, and session are kept.
+    @Published public var isSurfaceVisible: Bool
     public var onClose: ((Bool) -&gt; Void)?
     @Published public internal(set) var controller: TerminalController { get }
+
+    /// The platform view presenting this state; nil while none does.
+    public var attachedPlatformView: TerminalView? { get }
+    /// Factory for a TerminalView subclass; read once, when the surface
+    /// view is made.
+    public var makePlatformView: (@MainActor () -&gt; TerminalView)?
+    #if canImport(UIKit)
+    #if !targetEnvironment(macCatalyst)
+    /// nil shows TerminalInputAccessoryItem.defaultItems; [] hides the bar.
+    @Published public var inputAccessoryItems: [TerminalInputAccessoryItem]?
+    #endif
+    #endif
+
+    /// Opt-in for the iOS long-press text-selection flow.
+    public var onTextSelectionRequest: ((TerminalTextSelectionRequest) -&gt; Void)?
+    /// Presents OSC 52 reads/writes and flagged pastes; nil denies a
+    /// program's request silently and allows a user paste.
+    public var onClipboardConfirmationRequest: ((TerminalClipboardConfirmationRequest) -&gt; Void)?
 
     public var renderedConfig: String { get }
     public var effectiveColorScheme: TerminalColorScheme { get }
     public var theme: TerminalTheme { get }
     public var terminalConfiguration: TerminalConfiguration { get }
 
+    public func paste(text: String) -&gt; Bool
+    public func sendKey(_ press: TerminalKeyPress) -&gt; Bool
+    public func sendKey(_ key: TerminalKey, modifiers: TerminalInputModifiers = []) -&gt; Bool
+    @available(*, deprecated, renamed: "paste(text:)")
     public func send(_ text: String) -&gt; Bool
+    public func requestFocus()
+    public func performBindingAction(_ action: String) -&gt; Bool
+    public func jumpToPrompt(by offset: Int16) -&gt; Bool
+    public func scrollToRow(_ row: UInt) -&gt; Bool
     public func adopt(colorScheme: ColorScheme)
     public func adopt(terminalColorScheme colorScheme: TerminalColorScheme)
     public func setTheme(_ theme: TerminalTheme) -&gt; Bool
     public func setTerminalConfiguration(_ configuration: TerminalConfiguration) -&gt; Bool
 }
 </code></pre>
-<p class="muted"><code>controller</code> exposes a projected publisher for source compatibility, but controller-owned configuration changes are observable through <code>TerminalViewState</code> mutation methods. SwiftUI integrations should mutate through the view state rather than the controller directly.</p>
+<p class="muted"><code>controller</code> exposes a projected publisher for source compatibility. SwiftUI integrations should observe configuration changes through <code>TerminalViewState</code> and mutate the view state rather than the controller.</p>
 
 <h2 id="TerminalSurfaceView">TerminalSurfaceView</h2>
 <pre><code class="language-swift">public struct TerminalSurfaceView: View {
@@ -104,6 +143,26 @@ public final class TerminalController {
     public private(set) var effectiveColorScheme: TerminalColorScheme { get }
     public internal(set) var lastConfigurationIssue: String? { get }
 
+    public static let shared: TerminalController
+
+    /// The default configuration.
+    public convenience init()
+    /// A fully custom configuration, rendered as the config source.
+    public convenience init(
+        configuration: TerminalConfiguration,
+        theme: TerminalTheme = .default
+    )
+    /// Commands composed on top of the default configuration.
+    public convenience init(
+        theme: TerminalTheme = .default,
+        configure: (inout TerminalConfiguration.Builder) -&gt; Void
+    )
+    /// Loads the configuration from a file; nil means no file.
+    public convenience init(
+        configFilePath: String?,
+        theme: TerminalTheme = .default
+    )
+    /// Low-level initialiser for full control over the config source.
     public init(
         configSource: ConfigSource = .none,
         theme: TerminalTheme = .default,
@@ -160,7 +219,7 @@ public final class TerminalController {
 </code></pre>
 
 <nav class="pager" aria-label="Sibling pages">
-  <a class="prev" href="index.html">API hub</a>
+  <a class="prev" href="index.html">API Reference</a>
   <a class="parent" href="index.html">↑ API</a>
   <a class="next" href="configuration.html">Configuration</a>
 </nav>
