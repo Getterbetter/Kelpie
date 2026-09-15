@@ -374,7 +374,7 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Decided: `make distribute` is part of the TestFlight recipe.** The build-5 check found builds 3, 4 and 5 uploaded and never put in the external group; the App Store plan recorded the step, the Build and deploy recipe did not, and three rounds followed the recipe. `asc-kelpie.py --distribute-build` is idempotent and dry-run by default like the rest of that script, and the recipe now ends with it. Why: "uploaded" has meant "nobody can install it" three times.
 
-**Decided: the write to TestFlight waits for Anthony.** The session's permission gate refused the group write, and it is outward-facing to 16 testers; the dry run is in Open item 41 and the command is one line.
+**A — the write to TestFlight waited for Anthony, then went on his "proceed".** The session's permission gate refused the group write, and it is outward-facing to 16 testers; he approved it after the report and build 5 reached `IN_BETA_TESTING` at once, no beta review wait, since the version was already approved on build 2.
 
 **Also fixed: `depwatch_test.py` had been red since round 16** (it asserted the old libghostty tag). It now asserts the pinned tag's shape and the exact parse against a fixture URL, so the next re-vendor does not turn it red again.
 

@@ -382,3 +382,11 @@ Read as: this session's round is Open item 40 (the script that diffs the vendore
 Anthony (2026-09-15, a second session alongside round 21): "let's do social posts"
 
 Read as: the community plan item (resume.md "What is next" 4), worked through the get-noticed skill in a session of its own while round 21 runs in the other: refresh the held drafts from 2026-09-12 against what has shipped since (the composer, the foreground lease), then the venues still open, the r/ClaudeAI Showcase post (dwell served, two nights) and Show HN (Tuesday US morning). Nothing posts without his yes on the exact text in this session. Not a round; no code.
+
+Anthony (2026-09-15, social posts session, on the drafts): "no HN account. schedule posts I'll keep this session open"
+
+Read as: Show HN is held (a new account's Show HN is likely flagged; he makes the account himself and uses it before posting); the r/ClaudeAI Showcase post is scheduled in this session, which he keeps open, and posted through Chrome at the chosen time once he has said yes to the exact final text, including whether the "how Claude fits in" paragraph is true.
+
+Anthony (2026-09-15, round 21, after the close-out): "proceed"
+
+Read as: run `make distribute APPLY=1` for build 5 with the notes shown in the report; the three writes to TestFlight (group, what-to-test text, beta review submission) are approved.
