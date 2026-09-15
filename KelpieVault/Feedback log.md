@@ -346,3 +346,7 @@ Read as: the floating field is confirmed; the Kelpie menu button (the `ellipsis.
 Anthony (2026-09-15, round 18, after the menu-button build): "A bug for the next session: when on iOS, when tapping switch in the top right hand corner to get to the other tabs, it shows the menu for a moment and then just goes straight back to the terminal view. Otherwise, the hosts box now floats above the text box"
 
 Read as: the composer round is confirmed on both devices (the field floats, the phone's menu button rides above it), so Open item 30 closes; and a new Open item for a later session: on the iPhone, herdr's own "switch" button in its mobile header opens its tab menu for a moment and it closes again at once.
+
+Anthony (2026-09-15, round 19 opening): "lets resume on open items 36 37 38"
+
+Read as: this session is Open items 36 (no notification on a device while another device has Kelpie foregrounded), 37 (the floating menu button covering herdr's tab actions on the iPad) and 38 (herdr's "switch" menu closing at once on the iPhone), worked as one round.

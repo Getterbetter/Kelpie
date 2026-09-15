@@ -99,15 +99,15 @@ holds a Reddit token: Anthony's call. Logging the job in was out of scope.
 ## Last run
 
 <!-- redditwatch:start -->
-_Last run: 2026-09-15T04-54-47Z UTC._
+_Last run: 2026-09-15T05-57-46Z UTC._
 
 | Post | Comments | New | Score | State |
 | --- | --- | --- | --- | --- |
 | r/alphaandbetausers | 0 | 0 | n/a | ok |
 | r/SideProject | 1 | 0 | n/a | ok |
 | herdr Discussions, Show and tell | 0 | 0 | 1 | ok |
-| r/herdr | 10 | 0 | n/a | ok |
-| r/ClaudeCode | n/a | 0 | n/a | unreachable |
+| r/herdr | n/a | 0 | n/a | unreachable |
+| r/ClaudeCode | 99 | 0 | n/a | ok |
 | r/herdr | 0 | 0 | n/a | ok |
 
 Nothing new since the last run.
