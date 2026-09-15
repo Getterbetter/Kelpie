@@ -1,6 +1,32 @@
 import GhosttyTerminal
 import UIKit
 
+/// Raw byte sequences for the control keys the key bar sends. Upstream's
+/// quick keys go through Ghostty's own encoder; the bar's `bytes` accessor
+/// stays for the encoding tests.
+private enum TerminalEscapeSequences {
+    static let newLine: [UInt8] = [0x0A]
+    static let escape: [UInt8] = [0x1B]
+    static let tab: [UInt8] = [0x09]
+    static let shiftTab: [UInt8] = [0x1B, 0x5B, 0x5A]
+    static let homeNormal: [UInt8] = [0x1B, 0x5B, 0x48]
+    static let homeApplication: [UInt8] = [0x1B, 0x4F, 0x48]
+    static let pageUp: [UInt8] = [0x1B, 0x5B, 0x35, 0x7E]
+    static let upNormal: [UInt8] = [0x1B, 0x5B, 0x41]
+    static let upApplication: [UInt8] = [0x1B, 0x4F, 0x41]
+    static let pageDown: [UInt8] = [0x1B, 0x5B, 0x36, 0x7E]
+    static let endNormal: [UInt8] = [0x1B, 0x5B, 0x46]
+    static let endApplication: [UInt8] = [0x1B, 0x4F, 0x46]
+    static let backspace: [UInt8] = [0x7F]
+    static let leftNormal: [UInt8] = [0x1B, 0x5B, 0x44]
+    static let leftApplication: [UInt8] = [0x1B, 0x4F, 0x44]
+    static let downNormal: [UInt8] = [0x1B, 0x5B, 0x42]
+    static let downApplication: [UInt8] = [0x1B, 0x4F, 0x42]
+    static let rightNormal: [UInt8] = [0x1B, 0x5B, 0x43]
+    static let rightApplication: [UInt8] = [0x1B, 0x4F, 0x43]
+    static let enter: [UInt8] = [0x0D]
+}
+
 /// One-shot sticky modifiers for the terminal key surfaces (issue #270).
 /// Tapping Ctrl, Alt, or Shift arms the modifier for the next key only;
 /// firing any key consumes and clears it.
@@ -317,6 +343,31 @@ extension HeelerTerminalView {
     func sendQuickKey(_ key: AgentQuickKey, modifiers: TerminalKeyModifiers = []) -> Bool {
         guard let press = Self.keyPress(key, modifiers: modifiers) else { return false }
         return sendKey(press)
+    }
+
+    /// The key bar's control keys. Routed through the quick-key encoder so
+    /// the bar, the Console's pad and the hardware keys all encode the same
+    /// way; ⌃C/⌃D/⌃Z are the letter with Control armed.
+    func sendControlKey(_ key: TerminalControlKey) {
+        guard isLocalInputEnabled else { return }
+        switch key {
+        case .controlC: sendQuickKey(.character("c"), modifiers: .control)
+        case .controlD: sendQuickKey(.character("d"), modifiers: .control)
+        case .controlZ: sendQuickKey(.character("z"), modifiers: .control)
+        case .escape: sendQuickKey(.escape)
+        case .tab: sendQuickKey(.tab)
+        case .shiftTab: sendQuickKey(.shiftTab)
+        case .home: sendQuickKey(.home)
+        case .pageUp: sendQuickKey(.pageUp)
+        case .up: sendQuickKey(.up)
+        case .pageDown: sendQuickKey(.pageDown)
+        case .end: sendQuickKey(.end)
+        case .backspace: sendQuickKey(.backspace)
+        case .left: sendQuickKey(.left)
+        case .down: sendQuickKey(.down)
+        case .right: sendQuickKey(.right)
+        case .enter: sendQuickKey(.enter)
+        }
     }
 
     func sendNewLine() {

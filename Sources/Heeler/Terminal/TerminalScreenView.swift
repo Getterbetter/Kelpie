@@ -2920,12 +2920,6 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         super.pressesEnded(forwarded, with: event)
     }
 
-    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        let forwarded = forwardablePresses(presses)
-        guard !forwarded.isEmpty else { return }
-        super.pressesCancelled(forwarded, with: event)
-    }
-
     /// Answers a press this view owns the bytes for. Returns whether it did,
     /// in which case `super` must see neither the press nor its release.
     private func interceptHardwareKey(_ press: UIPress) -> Bool {
@@ -3049,16 +3043,19 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         if !sceneCommands.isEmpty {
             next?.pressesCancelled(sceneCommands, with: event)
         }
-        var forwarded: Set<UIPress> = []
+        var remaining: Set<UIPress> = []
         for press in presses.subtracting(sceneCommands) {
             let consumed = forgetConsumedArmedModifierPress(press)
             cancelPhysicalKeyForArmedModifiers(token: ObjectIdentifier(press))
             if !consumed {
-                forwarded.insert(press)
+                remaining.insert(press)
             }
         }
+        // Kelpie: also releases the intercepted combos and their Option echo
+        // claim; zoom presses are dropped here too.
+        let forwarded = forwardablePresses(remaining)
         guard !forwarded.isEmpty else { return }
-        super.pressesCancelled(Set(forwarded), with: event)
+        super.pressesCancelled(forwarded, with: event)
     }
 
     /// Applies a one-shot ⌃/⌥/⇧, unioned with modifiers the physical key
