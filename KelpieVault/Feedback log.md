@@ -354,3 +354,7 @@ Read as: this session is Open items 36 (no notification on a device while anothe
 Anthony (2026-09-15, round 19, after the report): "1- done 2- its working now 3- not sure what that is, run it if you need to 4- both devices open & unlocked now if you want to run test. Also: we created an issue on the iphone without knowing, how should we avoid that? that's twice now a change broke something we'd previously developed"
 
 Read as: the iPad is launched; the switcher and capsule checks pass (items 37 and 38 close; the lease check waits on the plugin update, which he leaves to the session); run the unit suites now; and a process question — twice a change has broken earlier device-confirmed work (the trackpad right click after the round-10/11 dependency bump, the tap after the round-16 re-vendor) without anyone noticing until he hit it, so what guard stops the third.
+
+Anthony (2026-09-15, round 19, after the close-out): "can you re run all the tests? start with the iPad through ui automation. iPad is plugged in. once done I'll plug in the iPhone"
+
+Read as: the full `HeelerTests` suite on the iPad first (the device run, test host app and all), then the same on the iPhone once he plugs it in.
