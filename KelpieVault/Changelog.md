@@ -4,7 +4,7 @@ note: Every Kelpie commit on branch `kelpie`, oldest first, grouped by round.
 
 # Changelog
 
-108 commits on branch `kelpie` on top of upstream Heeler v0.1.8 `b384847`, as of 2026-09-15 (round 16 rebased the branch; hashes quoted for earlier rounds resolve through the tag `kelpie-pre-rebase-20260915`, and before round 7 through `kelpie-pre-rebase-20260911`). Remotes are `origin` (public, `github.com/Getterbetter/Kelpie`, default branch `kelpie`) and `upstream` (Heeler). *Corrected 2026-09-12: the old count of 17 on `90e01a9`, and "nothing has ever been pushed", were both true only until round 7.* For the user-facing version of this, see the "Kelpie" section at the top of `CHANGELOG.md` in the repo.
+118 commits on branch `kelpie` on top of upstream Heeler v0.1.8 `b384847`, as of 2026-09-15 (round 16 rebased the branch; hashes quoted for earlier rounds resolve through the tag `kelpie-pre-rebase-20260915`, and before round 7 through `kelpie-pre-rebase-20260911`). Remotes are `origin` (public, `github.com/Getterbetter/Kelpie`, default branch `kelpie`) and `upstream` (Heeler). *Corrected 2026-09-12: the old count of 17 on `90e01a9`, and "nothing has ever been pushed", were both true only until round 7.* For the user-facing version of this, see the "Kelpie" section at the top of `CHANGELOG.md` in the repo.
 
 **On the hashes.** Round 7 rebased the whole branch onto upstream `375267c`, which rewrote every commit before it. The fork-and-rebrand, round 1 and round 2 rows below still carry the **pre-rebase** hashes; those objects live on tag `kelpie-pre-rebase-20260911`, not on `kelpie`. From round 3 down, each row gives the current hash from `git log kelpie` and, where other notes quote it, the pre-rebase one in brackets. Match by subject line if a hash will not resolve.
 
@@ -254,6 +254,16 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | `55b8951` | **Hardware keys after the rebase** — from review 2: `interceptHardwareKey` runs before upstream's `.sceneCommand` route for the chords Kelpie maps, so Cmd+←/→/↑/↓ (Home/End/PageUp/PageDown) and the Cmd+. press backstop work again; Kelpie's bare-Escape `UIKeyCommand` dropped now the package registers its own (with IME withholding), Cmd+. kept and sharing `claimHardwareKeyDelivery`. |
 | `3aa4e6f` | **Makefile: `make install` falls back to any physical device** — from review 3: upstream made it iPhone-only. |
 | (this commit) | **docs: round 16 close-out** — this write-up, `resume.md`, `Decisions`, `Testing status`, Open items 16, 17, 21, 25 ticked and 32, 33 added, the composer design for item 30 with Anthony's four decisions, CLAUDE.md and ADR 0017 naming `HeelerAppModel`, the Reddit watch note corrected (the job has run hourly since 2026-09-12), `CHANGELOG.md` entry. |
+
+## Round 17 — the keyboard inset, the reconnect flash, Shift+Tab — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| `794fb65` | **Root screen: keyboard inset gets its window, the last frame bridges a reconnect, hardware Shift+Tab** — Open items 34, 35, 32. `.terminalKeyboardInsetWindow(keyboardInset)` on `HerdrClientView` (upstream's `4b697cb` made the inset measure against a handed window and nothing else). A `TerminalLastFrame` snapshot over the reconnect and a 1 s delay on the Connecting card. `TerminalHardwareKeyMapping` gains Tab (0x2B) + Shift → CSI Z and `TerminalScreenView` a priority `UIKeyCommand` for the chord; five mapping tests. |
+| `11cb5d1` | **docs: round 17 checkpoint** — `resume.md` In progress, Decisions, Open item 35 with Anthony's pick. |
+| `9d17158` | **Root screen: the retired surface stays mounted over a reconnect; the snapshot bridge is gone** — the `snapshotView` came back blank on the iPad (Metal). `HerdrClientView` mounts its surfaces through a `ForEach` keyed by surface id; a pipeline swap moves the outgoing surface to a retired slot on top (input off, feed silent, last frame held) and releases it 150 ms after the new terminal reports live. `TerminalLastFrame.swift` removed. |
+| (bump) | **build 4** — `CURRENT_PROJECT_VERSION` 3 → 4, archived with the fixed build path and uploaded to TestFlight with `scripts/ExportOptions-manual.plist` and `altool`, delivery id `634bfd55-78b6-454b-b068-80ca78556bee`. `make bump` fixed: its `awk` matched upstream's new `CFBundleVersion: $(CURRENT_PROJECT_VERSION)` line first and wrote 1. |
+| (this commit) | **docs: round 17 close-out** — this write-up, `resume.md`, Decisions, Testing status, Open items 32, 34, 35 ticked, Kelpie status, Build and deploy. |
 
 ## Side task — disk cleanup and the fixed build path — 2026-09-15
 
