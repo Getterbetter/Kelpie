@@ -5,7 +5,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 ## Where things stand (2026-09-15, after round 19)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 121 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915`.
-- Round 19 (2026-09-15, main session, `472665f` to the close-out): Open items 36, 37 and 38 built, installed on both devices, **none device-confirmed** (both devices were locked all session). 38 was a regression from the round-16 re-vendor: Ghostty's `touchesEnded` now sends its own click for a finger tap, doubling Kelpie's, and herdr's mobile switcher's close button shares the header's switch button's cells; direct touches now end for Ghostty as a cancel (`f6b642f`). 37: the Kelpie capsule is bottom-trailing at every width (`472665f`). 36: a `foreground_until` lease on the device's entry in the Host's `notifications.json`, written while active and cleared on background, honoured by the notify hook (`c913786`; plugin 318 tests green; 11 app tests written, unrun). Rounds 17 and 18 are in `Changelog.md` and `Decisions.md`.
+- Round 19 (2026-09-15, main session, `472665f` to the close-out): Open items 36, 37 and 38 built, installed on both devices, 37 and 38 confirmed after the report ("its working now"); 36 has its app side seen live on the mini and awaits his end-to-end check. 38 was a regression from the round-16 re-vendor: Ghostty's `touchesEnded` now sends its own click for a finger tap, doubling Kelpie's, and herdr's mobile switcher's close button shares the header's switch button's cells; direct touches now end for Ghostty as a cancel (`f6b642f`). 37: the Kelpie capsule is bottom-trailing at every width (`472665f`). 36: a `foreground_until` lease on the device's entry in the Host's `notifications.json`, written while active and cleared on background, honoured by the notify hook (`c913786`; plugin 318 tests green; 11 app tests passed on the iPad after the report). Rounds 17 and 18 are in `Changelog.md` and `Decisions.md`.
 
 ## Live services, accounts and gates
 
@@ -13,6 +13,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 - **TestFlight public beta**: `https://testflight.apple.com/join/AkJxAbnJ`, build 4 uploaded 2026-09-15 (round 17; build 3 was 2026-09-13). `make upload` fails "Failed to Use Accounts" on this Mac: export with `scripts/ExportOptions-manual.plist` and upload with `xcrun altool --upload-app` and the API key. The Apple Distribution cert lives in the Thyme keychain (`~/Developer/maple-and-salt-agent/config/asc/thyme-dist.keychain-db`); unlock it before `-exportArchive`.
 - **Push relay**: `kelpie-apns.getter-tilbury-0m.workers.dev` on Anthony's Cloudflare account, APNs key 7RJ68B8QX8 held as a Wrangler secret; the app and plugin defaults point at it.
 - **App Review host**: Hetzner `kelpie-review` (5.78.158.22, about US$20 a month), password in `~/Developer/kelpie-review-host.secret`, runbook `docs/guides/app-review-host.md`. Delete after approval: `DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`.
+- **The mini's herdr plugin** is Kelpie's own since 2026-09-15: `github:Getterbetter/Kelpie/plugin@kelpie` (installed with `herdr plugin install Getterbetter/Kelpie/plugin --ref kelpie --yes`; re-run it after any `plugin/` change is pushed). Config dir `~/.config/herdr/plugins/config/heeler/` is unchanged.
 - **Watches**: `com.kelpie.depwatch` daily at 05:45 with `--publish` (`KelpieVault/Dependency watch.md`; issue #3, the upstream rebase, is Open item 21). `com.kelpie.redditwatch` hourly, drafts in `~/.kelpie/redditwatch/drafts/`; mark a comment done with `scripts/redditwatch.py --answered <id>` (`KelpieVault/Reddit watch.md`).
 - **Guards**: `make hooks` once per checkout enables the pre-push close-out check (`scripts/check-round-closeout.sh`). Never `git filter-repo` without re-parenting onto upstream afterwards (round 11b).
 - **Vendored GhosttyTerminal** is libghostty-spm `7e45d27` (1.6.20260909) with no patches; `KELPIE-PATCHES.md` is gone and the "never edit the vendored package" rule has no exception. The re-vendor recipe is in `KelpieVault/Build and deploy.md`.
@@ -21,7 +22,7 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 
 Work through these in order, one round per session:
 
-1. **Round 19's device checks** (Testing status, round 19): the iPhone's "switch" button holding its switcher (38), the iPad capsule in the bottom corner (37), and the lease — iPad open, iPhone silent; iPad backgrounded, iPhone buzzes (36). Run the three notification suites on an unlocked device (the command is in Testing status). If 38 still closes, pull the key trace: one `tap click` line per tap is the fix holding; two is a third click source.
+1. **Item 36's end-to-end check** (Testing status, round 19): Kelpie open on the iPad, an Agent finishes, the iPhone stays silent; iPad backgrounded, the iPhone buzzes. Kelpie's plugin is on the mini now. Then **item 39**, the guard against upstream regressions (two cheap pieces, his call which first).
 2. **Open item 19, no in-app banner on the foregrounded device**: unchanged by 36 (the foregrounded device still gets its push and `willPresent` routes it); the recipe is in the item.
 3. **Open item 22, if the Tailscale retry still stalls**: the trace again; residual holes in `KelpieVault/Archive/round14/tailscale-candidates.md`. When it holds, close 22 and 27 together.
 4. **The device checklists that never got their session** (Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28): one session with the list open on the iPad would close the lot or turn them into real items.
@@ -30,7 +31,7 @@ Work through these in order, one round per session:
 7. **TestFlight build 5** carrying the composer, the tap fix and the lease once round 19's checks pass (the plugin on the mini needs the new `notify-hook.js` too: the lease is read there).
 8. **Composer follow-ups, not scheduled**: a soft newline (Claude Code wants `\` then Return); the responder flows have no unit coverage; older: the Connecting card's delay seen only on the LAN; a socket-level SSH keepalive; `kelpie.primary-host` is a literal in two files.
 
-**Pending on the remote:** rounds 17, 18 and 19 are local only; `git push origin kelpie` is a plain fast-forward (the pre-push close-out check runs). CI on the fork runs the suites on the next pull request.
+**Remote:** `origin/kelpie` is at the round-19 close-out (pushed 2026-09-15, the mini's plugin installs from it). CI on the fork runs the suites on the next pull request.
 
 ## How to work on it
 

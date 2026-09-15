@@ -350,3 +350,7 @@ Read as: the composer round is confirmed on both devices (the field floats, the 
 Anthony (2026-09-15, round 19 opening): "lets resume on open items 36 37 38"
 
 Read as: this session is Open items 36 (no notification on a device while another device has Kelpie foregrounded), 37 (the floating menu button covering herdr's tab actions on the iPad) and 38 (herdr's "switch" menu closing at once on the iPhone), worked as one round.
+
+Anthony (2026-09-15, round 19, after the report): "1- done 2- its working now 3- not sure what that is, run it if you need to 4- both devices open & unlocked now if you want to run test. Also: we created an issue on the iphone without knowing, how should we avoid that? that's twice now a change broke something we'd previously developed"
+
+Read as: the iPad is launched; the switcher and capsule checks pass (items 37 and 38 close; the lease check waits on the plugin update, which he leaves to the session); run the unit suites now; and a process question — twice a change has broken earlier device-confirmed work (the trackpad right click after the round-10/11 dependency bump, the tap after the round-16 re-vendor) without anyone noticing until he hit it, so what guard stops the third.
