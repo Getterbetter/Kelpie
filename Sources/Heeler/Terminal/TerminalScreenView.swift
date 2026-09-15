@@ -2100,10 +2100,25 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         let forwarded = finishClaimedLinkTouch(
             in: finishClaimedRightButtonTouch(in: touches, reporting: true),
             opening: true)
-        // Ghostty's touchesEnded is where its tap-to-dismiss resign fires, so
-        // the touches stay counted until super returns.
-        if !forwarded.isEmpty {
-            super.touchesEnded(forwarded, with: event)
+        // Since 7e45d27 Ghostty's `touchesEnded` turns a short direct touch
+        // into a click of its own (`sendTapClick`) ahead of its keyboard
+        // toggle. The tap recognizer already reports that click from
+        // ``handleTap(at:)``, with the URL and keyboard policy Ghostty cannot
+        // know, so herdr was receiving every finger tap twice — and its
+        // mobile switcher's close button shares the cells of the header's
+        // switch button, so the second click closed what the first opened
+        // (Open item 38). A direct touch therefore ends for Ghostty as a
+        // cancel, which only disarms its tap candidate. Pointer touches
+        // still end there: their click is Ghostty's to send, and its
+        // tap-to-dismiss resign fires inside, so the touches stay counted
+        // until super returns.
+        let direct = forwarded.filter { $0.type == .direct }
+        let pointer = forwarded.subtracting(direct)
+        if !direct.isEmpty {
+            super.touchesCancelled(direct, with: event)
+        }
+        if !pointer.isEmpty {
+            super.touchesEnded(pointer, with: event)
         }
         responderGate.directTouchesEnded(Self.directTouchCount(in: touches))
     }
@@ -2597,6 +2612,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 row: cell.row)
         else { return false }
 
+        TerminalKeyTrace.log("tap click col=\(cell.column) row=\(cell.row)")
         terminalSession.sendInput(report)
         return true
     }
