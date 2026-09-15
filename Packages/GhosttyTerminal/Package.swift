@@ -7,6 +7,7 @@ let package = Package(
         .iOS(.v15),
         .macOS(.v13),
         .macCatalyst(.v15),
+        .visionOS(.v1),
     ],
     products: [
         .library(name: "GhosttyKit", targets: ["GhosttyKit"]),
@@ -50,7 +51,10 @@ let package = Package(
         .binaryTarget(
             name: "libghostty",
             // Kelpie: vendored. Run scripts/fetch-ghostty-artifact.sh to place the
-            // pinned upstream.1.3.1 GhosttyKit.xcframework here (checksum-verified).
+            // pinned upstream.82938b633ba6 GhosttyKit.xcframework here (checksum-verified).
+            // Upstream form:
+            //   url: "https://github.com/Lakr233/libghostty-spm/releases/download/upstream.82938b633ba6/GhosttyKit.xcframework.zip",
+            //   checksum: "2d9a26e80c3836c450f03ea2cf9d191841d9093d4f61c1cea466d2fc8e215dbb"
             path: "Artifacts/GhosttyKit.xcframework"
         ),
         .testTarget(

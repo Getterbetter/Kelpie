@@ -1,5 +1,6 @@
 import Foundation
-import GhosttyTerminal
+import GhosttyKit
+@testable import GhosttyTerminal
 @testable import ShellCraftKit
 import Testing
 
@@ -23,29 +24,94 @@ struct ShellCraftKitTests {
     }
 
     @Test
+    func `terminal display width treats wide emoji blocks as two cells`() {
+        #expect("\u{1F680}".terminalDisplayWidth == 2)
+        #expect("\u{1F7E2}".terminalDisplayWidth == 2)
+        #expect("\u{1FA90}".terminalDisplayWidth == 2)
+        #expect("\u{1F004}".terminalDisplayWidth == 2)
+        #expect("\u{1F0CF}".terminalDisplayWidth == 2)
+        #expect("\u{1F18E}".terminalDisplayWidth == 2)
+        #expect("\u{1F191}".terminalDisplayWidth == 2)
+        #expect("\u{1F201}".terminalDisplayWidth == 2)
+        #expect("echo \u{1F680}".terminalDisplayWidth == 7)
+    }
+
+    @Test
+    func `wrapped display width counts the spacer a wide glyph leaves at the margin`() {
+        #expect("你".terminalWrappedDisplayWidth(after: 78, terminalColumns: 80) == 80)
+        #expect("你".terminalWrappedDisplayWidth(after: 79, terminalColumns: 80) == 82)
+        #expect("a".terminalWrappedDisplayWidth(after: 79, terminalColumns: 80) == 80)
+        #expect("你好".terminalWrappedDisplayWidth(after: 0, terminalColumns: 3) == 5)
+    }
+
+    @Test
+    func `rendered input state places the cursor past a wide glyph that wrapped`() {
+        let input = String(repeating: "a", count: 61) + "你abc"
+
+        let atEnd = terminalRenderedInputState(
+            promptDisplayWidth: 18,
+            input: input,
+            cursorPosition: input.count,
+            terminalColumns: 80
+        )
+        #expect(atEnd.totalLineCount == 2)
+        #expect(atEnd.cursorLineOffset == 1)
+        #expect(atEnd.cursorColumn == 6)
+
+        let afterWide = terminalRenderedInputState(
+            promptDisplayWidth: 18,
+            input: input,
+            cursorPosition: 62,
+            terminalColumns: 80
+        )
+        #expect(afterWide.cursorLineOffset == 1)
+        #expect(afterWide.cursorColumn == 3)
+
+        let beforeWide = terminalRenderedInputState(
+            promptDisplayWidth: 18,
+            input: input,
+            cursorPosition: 61,
+            terminalColumns: 80
+        )
+        #expect(beforeWide.cursorLineOffset == 0)
+        #expect(beforeWide.cursorColumn == 80)
+
+        let straddling = terminalRenderedInputState(
+            promptDisplayWidth: 0,
+            input: String(repeating: "a", count: 19) + "你" + String(repeating: "a", count: 19),
+            cursorPosition: 0,
+            terminalColumns: 20
+        )
+        #expect(straddling.totalLineCount == 3)
+    }
+
+    @Test
     func `cursor column uses display width instead of character count`() {
         #expect(
-            terminalCursorColumn(
+            terminalRenderedInputState(
                 promptDisplayWidth: 8,
                 input: "测试",
-                cursorPosition: 2
-            ) == 13
+                cursorPosition: 2,
+                terminalColumns: .max
+            ).cursorColumn == 13
         )
 
         #expect(
-            terminalCursorColumn(
+            terminalRenderedInputState(
                 promptDisplayWidth: 8,
                 input: "a测b",
-                cursorPosition: 2
-            ) == 12
+                cursorPosition: 2,
+                terminalColumns: .max
+            ).cursorColumn == 12
         )
 
         #expect(
-            terminalCursorColumn(
+            terminalRenderedInputState(
                 promptDisplayWidth: 8,
                 input: "你好吗",
-                cursorPosition: 1
-            ) == 11
+                cursorPosition: 1,
+                terminalColumns: .max
+            ).cursorColumn == 11
         )
     }
 
@@ -246,7 +312,6 @@ struct ShellCraftKitTests {
     func `shell word boundaries remain whitespace delimited for control W`() {
         #expect(terminalPreviousShellWordBoundary(in: "foo-bar baz", from: 11) == 8)
         #expect(terminalPreviousShellWordBoundary(in: "alpha beta  ", from: 12) == 6)
-        #expect(terminalNextShellWordBoundary(in: "alpha   beta", from: 5) == 12)
     }
 
     @Test
@@ -280,6 +345,40 @@ struct ShellCraftKitTests {
 
         #expect(result.input == "foo-bar ")
         #expect(result.cursorPosition == 8)
+    }
+
+    @Test
+    func `user defined help command replaces the built-in listing`() {
+        let viewport = InMemoryTerminalViewport(columns: 80, rows: 24)
+        let shell = ShellDefinition(prompt: "$ ", welcomeMessage: "") {
+            ShellCommand("help", summary: "Custom") { _ in .output("custom\r\n") }
+        }
+
+        guard case let .output(custom) = shell.processCommand(
+            "help",
+            username: "tester",
+            terminalSize: viewport
+        ) else {
+            Issue.record("expected the user's help command to run")
+            return
+        }
+        #expect(custom == "custom\r\n")
+
+        let builtIn = ShellDefinition(prompt: "$ ", welcomeMessage: "") {
+            ShellCommand("echo", summary: "Echo") { _ in .output("") }
+        }
+        guard case let .output(listing) = builtIn.processCommand(
+            "help",
+            username: "tester",
+            terminalSize: viewport
+        ) else {
+            Issue.record("expected the built-in help listing")
+            return
+        }
+        let helpLines = listing.components(separatedBy: "\n").filter { $0.hasPrefix("  help") }
+        #expect(helpLines.count == 1)
+        #expect(listing.contains("Show this help message"))
+        #expect(listing.contains("echo"))
     }
 
     @Test
@@ -442,5 +541,171 @@ struct ShellCraftKitTests {
         let (text, leftover) = decodeUTF8Incrementally(input)
         #expect(text == "AB")
         #expect(leftover.isEmpty)
+    }
+
+    // MARK: - Engine
+
+    @Test
+    func `engine keeps the cursor on a grapheme boundary when a combining mark merges`() async {
+        let shell = await EngineHarness()
+        await shell.start()
+
+        await shell.feed("a")
+        await shell.feed("\u{0E01}")
+        await shell.feed("\u{0E31}")
+        _ = shell.drain()
+
+        await shell.feed([0x7F])
+        #expect(shell.drain().contains("$ a\u{1B}[4G"))
+
+        await shell.feed("\r")
+        #expect(shell.drain().contains("a: command not found"))
+    }
+
+    @Test
+    func `engine submits a line feed that does not follow a carriage return`() async {
+        let shell = await EngineHarness()
+        await shell.start()
+
+        await shell.feed("\r")
+        _ = shell.drain()
+
+        await shell.feed("whoami\n")
+        #expect(shell.drain().components(separatedBy: "tester").count == 2)
+
+        await shell.feed("whoami\r\n")
+        #expect(shell.drain().components(separatedBy: "tester").count == 2)
+    }
+
+    @Test
+    func `engine redraws after a resize from the reflowed cursor row`() async {
+        let shell = await EngineHarness(columns: 20)
+        await shell.start()
+        let input = String(repeating: "a", count: 30)
+        await shell.feed(input)
+        _ = shell.drain()
+
+        await shell.resize(columns: 40)
+        #expect(shell.drain().hasPrefix("\r\u{1B}[J$ \(input)\u{1B}[33G"))
+
+        await shell.resize(columns: 20)
+        #expect(shell.drain().hasPrefix("\r\u{1B}[1A\r\u{1B}[J$ \(input)\u{1B}[13G"))
+    }
+
+    @Test
+    func `engine moves to the end of a wrapped input before submitting`() async {
+        let shell = await EngineHarness(columns: 20)
+        await shell.start()
+        let input = String(repeating: "a", count: 30)
+        await shell.feed(input)
+        await shell.feed([0x01])
+        _ = shell.drain()
+
+        await shell.feed("\r")
+        #expect(shell.drain().hasPrefix("\u{1B}[1B\u{1B}[13G\r\n\(input): command not found\r\n$ "))
+
+        await shell.feed(input)
+        await shell.feed([0x01])
+        _ = shell.drain()
+
+        await shell.feed([0x03])
+        #expect(shell.drain().hasPrefix("\u{1B}[1B\u{1B}[13G^C\r\n$ "))
+    }
+
+    @Test
+    func `engine handles session events in arrival order`() async {
+        let shell = await EngineHarness()
+        let (stream, events) = AsyncStream.makeStream(of: ShellSessionEvent.self)
+        events.yield(.start)
+        for _ in 0 ..< 50 {
+            for byte in "whoami\r".utf8 {
+                events.yield(.write(Data([byte])))
+            }
+        }
+        events.finish()
+
+        await shell.engine.run(stream)
+        #expect(shell.drain().components(separatedBy: "tester").count == 51)
+    }
+
+    @Test
+    func `shell session releases its terminal session when dropped`() {
+        weak var terminalSession: InMemoryTerminalSession?
+        do {
+            let session = ShellSession(shell: defaultSandboxShell)
+            terminalSession = session.terminalSession
+            withExtendedLifetime(session) {
+                #expect(terminalSession != nil)
+            }
+        }
+        #expect(terminalSession == nil)
+    }
+}
+
+private struct EngineHarness {
+    let engine: Engine
+    private let session: InMemoryTerminalSession
+    private let output: CapturedOutput
+
+    init(columns: UInt16 = 80) async {
+        let output = CapturedOutput()
+        let session = InMemoryTerminalSession(
+            write: { _ in },
+            resize: { _ in },
+            surfaceWrite: { _, data in output.append(data) },
+            processExit: { _, _, _ in }
+        )
+        session.setSurface(UnsafeMutableRawPointer(bitPattern: 0x10)!)
+        let shell = ShellDefinition(prompt: "$ ", welcomeMessage: "") {
+            ShellCommand("whoami", summary: "Show current user") { _ in .output("tester\r\n") }
+        }
+        let engine = Engine(shell: shell, session: session)
+        await engine.updateSize(InMemoryTerminalViewport(columns: columns, rows: 24))
+
+        self.engine = engine
+        self.session = session
+        self.output = output
+    }
+
+    func start() async {
+        await engine.start()
+        _ = drain()
+    }
+
+    func feed(_ string: String) async {
+        await engine.handleOutbound(Data(string.utf8))
+    }
+
+    func feed(_ bytes: [UInt8]) async {
+        await engine.handleOutbound(Data(bytes))
+    }
+
+    func resize(columns: UInt16) async {
+        await engine.updateSize(InMemoryTerminalViewport(columns: columns, rows: 24))
+    }
+
+    func drain() -> String {
+        session.waitForPendingOutput()
+        return output.take()
+    }
+}
+
+private final class CapturedOutput: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock()
+        data.append(chunk)
+        lock.unlock()
+    }
+
+    func take() -> String {
+        lock.lock()
+        defer {
+            data.removeAll()
+            lock.unlock()
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 }

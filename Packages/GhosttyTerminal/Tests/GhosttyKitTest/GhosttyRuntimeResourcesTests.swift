@@ -26,6 +26,37 @@ struct GhosttyRuntimeResourcesTests {
         )
     }
 
+    /// The bundle ships into every host app, so it may hold only the files
+    /// we wrote or vendored under MIT: upstream's bash and zsh integration is
+    /// GPLv3 and came back once already (see Script/check-licenses.sh).
+    @Test
+    func `bundled shell integration is exactly the MIT set and carries no GPL text`() throws {
+        let resources = try #require(GhosttyRuntimeResources.directoryURL)
+        let integration = resources.appendingPathComponent("shell-integration")
+        let enumerator = try #require(FileManager.default.enumerator(
+            at: integration,
+            includingPropertiesForKeys: [.isRegularFileKey]
+        ))
+
+        var files: [String] = []
+        for case let url as URL in enumerator {
+            guard try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { continue }
+            files.append(url.path.replacingOccurrences(of: integration.path + "/", with: ""))
+
+            let text = try String(contentsOf: url, encoding: .utf8)
+            // Split so the license name itself never appears in this tree.
+            #expect(!text.localizedCaseInsensitiveContains("General Public " + "License"), "\(url.lastPathComponent)")
+        }
+
+        #expect(files.sorted() == [
+            "bash/LICENSE-bash-preexec.md",
+            "bash/bash-preexec.sh",
+            "bash/ghostty.bash",
+            "zsh/.zshenv",
+            "zsh/ghostty-integration",
+        ])
+    }
+
     @Test
     func `configuration exports Ghostty resource root`() throws {
         let previous = getenv("GHOSTTY_RESOURCES_DIR").map { String(cString: $0) }

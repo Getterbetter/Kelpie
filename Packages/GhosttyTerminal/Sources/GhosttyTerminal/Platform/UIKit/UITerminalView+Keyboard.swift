@@ -14,11 +14,13 @@
         /// A press the key path already delivered, telling the UITextInput
         /// echo to stay silent.
         var keyHandled = false
-        /// Signatures of control combos already delivered this runloop turn.
-        /// One physical press can reach us twice — `pressesBegan` and a
-        /// matching `UIKeyCommand` — and which arrives (or both) varies by
-        /// iPadOS version; whichever runs first claims the press here.
-        var recentControlKeyDeliveries: Set<String> = []
+        /// Signatures of keys already delivered this runloop turn by one of
+        /// the two paths that can carry a key we register as a `UIKeyCommand`
+        /// (the Ctrl combos, Escape). One physical press can reach us twice —
+        /// `pressesBegan` and the matching command — and which arrives (or
+        /// both) varies by iPadOS version; whichever runs first claims the
+        /// press here.
+        var recentKeyCommandDeliveries: Set<String> = []
         /// Keys loaned to the input method this runloop turn. The text input
         /// system claims them through any UITextInput mutation; whatever is
         /// still here when the turn ends is replayed to the surface.
@@ -42,6 +44,9 @@
         /// Presses whose began was forwarded to `super`; their ended must
         /// complete there too.
         var pressesForwardedToInputMethod: Set<UIPress> = []
+        /// Last hardware modifier flags seen on a `UIKey`. Pointer events
+        /// read this when the hover recognizer is not the live source.
+        var heldModifierFlags: UIKeyModifierFlags = []
     }
 
     /// Software-keyboard visibility and tap-to-toggle state; behavior in
@@ -78,89 +83,6 @@
     }
 
     extension UITerminalView {
-        /// Ctrl combos the text input system would otherwise interpret
-        /// itself: as a `UITextInput` first responder, the view hands
-        /// hardware keys to UIKit's text machinery, which consumes most
-        /// Ctrl+letter chords (its emacs-style bindings) before
-        /// `pressesBegan` ever fires. Registering them as key commands with
-        /// priority over system behavior is the only reliable claim — the
-        /// same route Blink and SwiftTerm take.
-        private static let controlKeyCommandInputs: [String] = {
-            var inputs = (UInt8(ascii: "a") ... UInt8(ascii: "z")).map {
-                String(UnicodeScalar($0))
-            }
-            inputs += (UInt8(ascii: "0") ... UInt8(ascii: "9")).map {
-                String(UnicodeScalar($0))
-            }
-            inputs += [" ", "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/", "`"]
-            return inputs
-        }()
-
-        private static let controlKeyCommands: [UIKeyCommand] =
-            controlKeyCommandInputs.map { input in
-                let command = UIKeyCommand(
-                    input: input,
-                    modifierFlags: .control,
-                    action: #selector(handleControlKeyCommand(_:))
-                )
-                command.wantsPriorityOverSystemBehavior = true
-                return command
-            }
-
-        override open var keyCommands: [UIKeyCommand]? {
-            #if targetEnvironment(macCatalyst)
-                return super.keyCommands
-            #else
-                var commands = super.keyCommands ?? []
-                commands.append(contentsOf: Self.controlKeyCommands)
-                return commands
-            #endif
-        }
-
-        @objc private func handleControlKeyCommand(_ command: UIKeyCommand) {
-            #if !targetEnvironment(macCatalyst)
-                guard let input = command.input, !input.isEmpty else { return }
-                guard claimControlKeyDelivery(
-                    input: input,
-                    modifierFlags: command.modifierFlags
-                ) else { return }
-                TerminalDebugLog.log(
-                    .input,
-                    "uikit key command input=\(TerminalDebugLog.describe(input)) mods=0x\(String(command.modifierFlags.rawValue, radix: 16))"
-                )
-                _ = sendModifiedTextKey(
-                    input,
-                    modifiers: TerminalInputModifiers(from: command.modifierFlags)
-                )
-            #endif
-        }
-
-        /// Whether this path gets to deliver the combo. Whichever of
-        /// `pressesBegan` / the key command runs first wins the press; the
-        /// entry expires at the end of the runloop turn, before the key can
-        /// physically repeat.
-        func claimControlKeyDelivery(
-            input: String,
-            modifierFlags: UIKeyModifierFlags
-        ) -> Bool {
-            let relevant = modifierFlags.intersection(
-                [.control, .shift, .alternate, .command]
-            )
-            let signature = "\(input.lowercased())|\(relevant.rawValue)"
-            guard !hardwareKeyboard.recentControlKeyDeliveries.contains(signature) else {
-                TerminalDebugLog.log(
-                    .input,
-                    "uikit key delivery deduped signature=\(signature)"
-                )
-                return false
-            }
-            hardwareKeyboard.recentControlKeyDeliveries.insert(signature)
-            DispatchQueue.main.async { [weak self] in
-                self?.hardwareKeyboard.recentControlKeyDeliveries.remove(signature)
-            }
-            return true
-        }
-
         override open func pressesBegan(
             _ presses: Set<UIPress>,
             with event: UIPressesEvent?
@@ -264,6 +186,7 @@
             _ key: UIKey,
             action: ghostty_input_action_e
         ) {
+            notePointerModifierFlags(key.modifierFlags)
             guard let surface else {
                 TerminalDebugLog.log(.input, "uikit key ignored: missing surface")
                 return
@@ -320,13 +243,13 @@
                 keyEvent.unshifted_codepoint = codepoint.value
             }
 
-            // The key command fallback may have sent this very combo already
-            // (see `controlKeyCommands`); on systems that deliver both, the
-            // first claim wins and this press stays silent.
+            // The key command fallback may have sent this very key already
+            // (see `controlKeyCommands` and `escapeKeyCommands`); on systems
+            // that deliver both, the first claim wins and this press stays
+            // silent.
             if action == GHOSTTY_ACTION_PRESS,
-               filteredModifierFlags.contains(.control),
-               let input = filteredIgnoringModifiers,
-               !claimControlKeyDelivery(
+               let input = keyCommandInput(for: key, filteredModifierFlags: filteredModifierFlags),
+               !claimKeyCommandDelivery(
                    input: input,
                    modifierFlags: filteredModifierFlags
                )
@@ -374,19 +297,43 @@
             isCommandModified: Bool
         ) -> Bool {
             guard !isCommandModified else { return false }
-            // Ctrl combos travel the key path above — the text system's
-            // rendition is a bare control byte with the modifier context
-            // stripped (`sendTypedText` zeroes mods), which double-fires the
-            // combo at best and loses the ctrl semantics at worst. Alt stays
-            // on the text path: option+letter legitimately types the
-            // composed character.
-            guard key.modifierFlags.intersection([.alternate]).isEmpty else {
-                return false
-            }
+            // Ctrl and Alt combos travel the key path above, which already
+            // carries the composed character (option+a → "å") with alt
+            // consumed, exactly as AppKit's keyDown does. The text system's
+            // echo would type it a second time; for Ctrl it is a bare
+            // control byte with the modifier context stripped
+            // (`sendTypedText` zeroes mods), which loses the ctrl semantics
+            // as well.
             guard !key.characters.isEmpty else {
                 return key.keyCode == .keyboardDeleteOrBackspace
             }
             return true
+        }
+
+        /// The `UIKeyCommand.input` this press would arrive under, if it is
+        /// one of the keys `keyCommands` registers — the shared signature
+        /// both paths claim with. Nil for every other key.
+        private func keyCommandInput(
+            for key: UIKey,
+            filteredModifierFlags: UIKeyModifierFlags
+        ) -> String? {
+            if key.keyCode == .keyboardEscape,
+               !filteredModifierFlags.contains(.command)
+            {
+                return UIKeyCommand.inputEscape
+            }
+            guard filteredModifierFlags.contains(.control) else { return nil }
+            return TerminalInputText.filteredFunctionKeyText(key.charactersIgnoringModifiers)
+        }
+
+        /// Pointer-only. Does not change key routing.
+        func notePointerModifierFlags(_ flags: UIKeyModifierFlags) {
+            let relevant = flags.intersection([
+                .shift, .control, .alternate, .command, .alphaShift,
+            ])
+            guard hardwareKeyboard.heldModifierFlags != relevant else { return }
+            hardwareKeyboard.heldModifierFlags = relevant
+            refreshPointerPositionForModifierChange()
         }
 
         private func filteredModifierFlags(for key: UIKey) -> UIKeyModifierFlags {
@@ -502,7 +449,7 @@
             private func scheduleInputMethodKeyFlush(after delay: TimeInterval = 0) {
                 guard !hardwareKeyboard.inputMethodFlushScheduled else { return }
                 hardwareKeyboard.inputMethodFlushScheduled = true
-                let flush = { [weak self] in
+                let flush: @MainActor @Sendable () -> Void = { [weak self] in
                     guard let self else { return }
                     hardwareKeyboard.inputMethodFlushScheduled = false
                     replayUnclaimedInputMethodKeys()

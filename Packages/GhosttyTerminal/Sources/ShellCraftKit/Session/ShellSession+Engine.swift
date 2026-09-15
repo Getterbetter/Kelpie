@@ -9,7 +9,7 @@ actor Engine {
     }
 
     private let shell: ShellDefinition
-    private let sessionBridge: SessionBridge
+    private weak var session: InMemoryTerminalSession?
     private var startedAt = Date()
     private var currentInput = ""
     private var cursorPosition = 0
@@ -35,9 +35,25 @@ actor Engine {
         heightPixels: 0
     )
 
-    init(shell: ShellDefinition, sessionBridge: SessionBridge) {
+    init(shell: ShellDefinition, session: InMemoryTerminalSession) {
         self.shell = shell
-        self.sessionBridge = sessionBridge
+        self.session = session
+    }
+
+    /// Consumes the session's events one at a time so writes are parsed in
+    /// arrival order; the parser keeps state across writes (`escapeState`,
+    /// `pendingText`), and one Task per write would race for the actor.
+    func run(_ events: AsyncStream<ShellSessionEvent>) async {
+        for await event in events {
+            switch event {
+            case .start:
+                start()
+            case let .write(data):
+                handleOutbound(data)
+            case let .resize(size):
+                updateSize(size)
+            }
+        }
     }
 
     func start() {
@@ -68,6 +84,15 @@ actor Engine {
         shellDebugLog(
             .actions,
             "shell redraw after resize input=\(shellDebugDescribe(currentInput)) cursorPosition=\(cursorPosition)"
+        )
+        // ghostty reflows the soft-wrapped prompt+input block to the new
+        // width before it reports the resize, so the cursor's row offset
+        // inside the block is already the new-width one.
+        renderedInputState = terminalRenderedInputState(
+            promptDisplayWidth: shell.promptDisplayWidth,
+            input: currentInput,
+            cursorPosition: cursorPosition,
+            terminalColumns: Int(size.columns)
         )
         redrawInputLine()
 
@@ -100,9 +125,7 @@ actor Engine {
         switch escapeState {
         case .escape:
             flushPendingText()
-            if byte == 0x5B {
-                escapeState = .csi(Data())
-            } else if byte == 0x4F {
+            if byte == 0x5B || byte == 0x4F {
                 escapeState = .csi(Data())
             } else {
                 escapeState = .none
@@ -132,6 +155,10 @@ actor Engine {
             break
         }
 
+        if byte != 0x0A {
+            ignoreNextLineFeed = false
+        }
+
         switch byte {
         case 0x1B:
             flushPendingText()
@@ -147,6 +174,7 @@ actor Engine {
 
         case 0x03:
             flushPendingText()
+            moveCursorToRenderedInputEnd()
             currentInput.removeAll(keepingCapacity: true)
             cursorPosition = 0
             resetHistoryState()
@@ -320,7 +348,10 @@ actor Engine {
         let previousCursorPosition = cursorPosition
         let idx = currentInput.index(currentInput.startIndex, offsetBy: cursorPosition)
         currentInput.insert(contentsOf: text, at: idx)
-        cursorPosition += text.count
+        // A combining scalar typed on its own merges into the previous
+        // Character, so count the graphemes now before the cursor rather
+        // than adding `text.count`.
+        cursorPosition = (String(previousInput.prefix(previousCursorPosition)) + text).count
 
         if applyIncrementalAppendIfPossible(
             insertedText: text,
@@ -471,6 +502,7 @@ actor Engine {
     }
 
     private func submitCurrentInput() {
+        moveCursorToRenderedInputEnd()
         send("\r\n")
 
         let command = currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -500,7 +532,7 @@ actor Engine {
         case .exit:
             isTerminated = true
             send("logout\r\n")
-            sessionBridge.session?.finish(
+            session?.finish(
                 exitCode: 0,
                 runtimeMilliseconds: elapsedMilliseconds
             )
@@ -531,10 +563,6 @@ actor Engine {
             cursorPosition: currentInput.count,
             terminalColumns: Int(terminalSize.columns)
         )
-        let linesToClear = max(
-            renderedInputState.totalLineCount,
-            nextState.totalLineCount
-        )
 
         shellDebugLog(
             .actions,
@@ -542,7 +570,7 @@ actor Engine {
         )
 
         moveCursorToRenderedInputStart(renderedInputState)
-        clearRenderedBlock(linesToClear)
+        clearRenderedBlock()
         send(shell.prompt)
         send(currentInput)
         moveCursor(
@@ -604,6 +632,18 @@ actor Engine {
         return true
     }
 
+    private func moveCursorToRenderedInputEnd() {
+        moveCursor(
+            from: renderedInputState,
+            to: terminalRenderedInputState(
+                promptDisplayWidth: shell.promptDisplayWidth,
+                input: currentInput,
+                cursorPosition: currentInput.count,
+                terminalColumns: Int(terminalSize.columns)
+            )
+        )
+    }
+
     private func moveCursorToRenderedInputStart(
         _ state: TerminalRenderedInputState
     ) {
@@ -612,12 +652,7 @@ actor Engine {
         send("\u{1B}[\(state.cursorLineOffset)A\r")
     }
 
-    private func clearRenderedBlock(_ count: Int) {
-        guard count > 0 else { return }
-        shellDebugLog(
-            .actions,
-            "shell clear rendered block lines=\(count)"
-        )
+    private func clearRenderedBlock() {
         send("\u{1B}[J")
     }
 
@@ -636,11 +671,7 @@ actor Engine {
     }
 
     private func send(_ string: String) {
-        sessionBridge.session?.receive(string)
-    }
-
-    private func send(_ data: Data) {
-        sessionBridge.session?.receive(data)
+        session?.receive(string)
     }
 
     private var elapsedMilliseconds: UInt64 {
@@ -665,432 +696,6 @@ actor Engine {
             break
         }
     }
-}
-
-enum TerminalMetaEditingAction: Equatable {
-    case moveBackwardWord
-    case moveForwardWord
-    case deleteBackwardWord
-    case deleteForwardWord
-}
-
-enum TerminalCSIEditingAction: Equatable {
-    case historyUp
-    case historyDown
-    case moveCursorLeft
-    case moveCursorRight
-    case moveCursorBackwardWord
-    case moveCursorForwardWord
-    case moveCursorToStart
-    case moveCursorToEnd
-    case deleteForward
-    case deleteForwardWord
-}
-
-func terminalMetaEditingAction(for byte: UInt8) -> TerminalMetaEditingAction? {
-    switch byte {
-    case 0x08, 0x7F:
-        .deleteBackwardWord
-    case 0x62:
-        .moveBackwardWord
-    case 0x64:
-        .deleteForwardWord
-    case 0x66:
-        .moveForwardWord
-    default:
-        nil
-    }
-}
-
-func terminalCSIEditingAction(
-    params: Data,
-    finalByte: UInt8
-) -> TerminalCSIEditingAction? {
-    switch finalByte {
-    case 0x41: // A - Up
-        return .historyUp
-
-    case 0x42: // B - Down
-        return .historyDown
-
-    case 0x43: // C - Right
-        if terminalCSIHasAltModifier(params) {
-            return .moveCursorForwardWord
-        }
-        return .moveCursorRight
-
-    case 0x44: // D - Left
-        if terminalCSIHasAltModifier(params) {
-            return .moveCursorBackwardWord
-        }
-        return .moveCursorLeft
-
-    case 0x48: // H - Home
-        return .moveCursorToStart
-
-    case 0x46: // F - End
-        return .moveCursorToEnd
-
-    case 0x7E: // ~ - Extended keys
-        guard let csiParams = terminalCSIParameters(params) else { return nil }
-        guard csiParams.first == 3 else { return nil }
-        if csiParams.hasAltModifier {
-            return .deleteForwardWord
-        }
-        return .deleteForward
-
-    default:
-        return nil
-    }
-}
-
-func terminalCSIHasAltModifier(_ params: Data) -> Bool {
-    terminalCSIParameters(params)?.hasAltModifier == true
-}
-
-func terminalPreviousWordBoundary(
-    in input: String,
-    from cursorPosition: Int
-) -> Int {
-    terminalPreviousBoundary(
-        in: input,
-        from: cursorPosition,
-        skippingTrailingCharactersWhere: { !$0.isTerminalWordCharacter },
-        consumingCharactersWhere: { $0.isTerminalWordCharacter }
-    )
-}
-
-func terminalNextWordBoundary(
-    in input: String,
-    from cursorPosition: Int
-) -> Int {
-    terminalNextBoundary(
-        in: input,
-        from: cursorPosition,
-        skippingLeadingCharactersWhere: { !$0.isTerminalWordCharacter },
-        consumingCharactersWhere: { $0.isTerminalWordCharacter }
-    )
-}
-
-func terminalPreviousShellWordBoundary(
-    in input: String,
-    from cursorPosition: Int
-) -> Int {
-    terminalPreviousBoundary(
-        in: input,
-        from: cursorPosition,
-        skippingTrailingCharactersWhere: { $0.isTerminalWordWhitespace },
-        consumingCharactersWhere: { !$0.isTerminalWordWhitespace }
-    )
-}
-
-func terminalNextShellWordBoundary(
-    in input: String,
-    from cursorPosition: Int
-) -> Int {
-    terminalNextBoundary(
-        in: input,
-        from: cursorPosition,
-        skippingLeadingCharactersWhere: { $0.isTerminalWordWhitespace },
-        consumingCharactersWhere: { !$0.isTerminalWordWhitespace }
-    )
-}
-
-func terminalDeleteBackwardWord(
-    input: String,
-    cursorPosition: Int
-) -> (input: String, cursorPosition: Int) {
-    let clampedCursorPosition = min(max(cursorPosition, 0), input.count)
-    let boundary = terminalPreviousWordBoundary(
-        in: input,
-        from: clampedCursorPosition
-    )
-    guard boundary < clampedCursorPosition else {
-        return (input, clampedCursorPosition)
-    }
-
-    var updatedInput = input
-    let start = updatedInput.index(updatedInput.startIndex, offsetBy: boundary)
-    let end = updatedInput.index(
-        updatedInput.startIndex,
-        offsetBy: clampedCursorPosition
-    )
-    updatedInput.removeSubrange(start ..< end)
-    return (updatedInput, boundary)
-}
-
-func terminalDeleteForwardWord(
-    input: String,
-    cursorPosition: Int
-) -> (input: String, cursorPosition: Int) {
-    let clampedCursorPosition = min(max(cursorPosition, 0), input.count)
-    let boundary = terminalNextWordBoundary(
-        in: input,
-        from: clampedCursorPosition
-    )
-    guard clampedCursorPosition < boundary else {
-        return (input, clampedCursorPosition)
-    }
-
-    var updatedInput = input
-    let start = updatedInput.index(
-        updatedInput.startIndex,
-        offsetBy: clampedCursorPosition
-    )
-    let end = updatedInput.index(updatedInput.startIndex, offsetBy: boundary)
-    updatedInput.removeSubrange(start ..< end)
-    return (updatedInput, clampedCursorPosition)
-}
-
-func terminalDeleteBackwardShellWord(
-    input: String,
-    cursorPosition: Int
-) -> (input: String, cursorPosition: Int) {
-    let clampedCursorPosition = min(max(cursorPosition, 0), input.count)
-    let boundary = terminalPreviousShellWordBoundary(
-        in: input,
-        from: clampedCursorPosition
-    )
-    guard boundary < clampedCursorPosition else {
-        return (input, clampedCursorPosition)
-    }
-
-    var updatedInput = input
-    let start = updatedInput.index(updatedInput.startIndex, offsetBy: boundary)
-    let end = updatedInput.index(
-        updatedInput.startIndex,
-        offsetBy: clampedCursorPosition
-    )
-    updatedInput.removeSubrange(start ..< end)
-    return (updatedInput, boundary)
-}
-
-func terminalCursorColumn(
-    promptDisplayWidth: Int,
-    input: String,
-    cursorPosition: Int
-) -> Int {
-    terminalRenderedInputState(
-        promptDisplayWidth: promptDisplayWidth,
-        input: input,
-        cursorPosition: cursorPosition,
-        terminalColumns: .max
-    ).cursorColumn
-}
-
-struct TerminalRenderedInputState: Equatable {
-    let totalLineCount: Int
-    let cursorLineOffset: Int
-    let cursorColumn: Int
-}
-
-func terminalRenderedInputState(
-    promptDisplayWidth: Int,
-    input: String,
-    cursorPosition: Int,
-    terminalColumns: Int
-) -> TerminalRenderedInputState {
-    let columns = max(terminalColumns, 1)
-    let clampedCursorPosition = min(max(cursorPosition, 0), input.count)
-    let totalWidth = promptDisplayWidth + input.terminalDisplayWidth
-    let cursorWidth = promptDisplayWidth
-        + String(input.prefix(clampedCursorPosition)).terminalDisplayWidth
-    let hasTrailingContent = cursorWidth < totalWidth
-
-    let cursorLineOffset: Int
-    let cursorColumn: Int
-
-    if cursorWidth <= 0 {
-        cursorLineOffset = 0
-        cursorColumn = 1
-    } else if cursorWidth % columns == 0, !hasTrailingContent {
-        cursorLineOffset = max((cursorWidth / columns) - 1, 0)
-        cursorColumn = columns
-    } else {
-        cursorLineOffset = cursorWidth / columns
-        cursorColumn = (cursorWidth % columns) + 1
-    }
-
-    return TerminalRenderedInputState(
-        totalLineCount: wrappedTerminalLineCount(
-            displayWidth: totalWidth,
-            terminalColumns: columns
-        ),
-        cursorLineOffset: cursorLineOffset,
-        cursorColumn: cursorColumn
-    )
-}
-
-func wrappedTerminalLineCount(
-    displayWidth: Int,
-    terminalColumns: Int
-) -> Int {
-    let columns = max(terminalColumns, 1)
-    return max(1, (max(displayWidth, 1) - 1) / columns + 1)
-}
-
-func terminalExpandedTabText(
-    promptDisplayWidth: Int,
-    input: String,
-    cursorPosition: Int,
-    terminalColumns: Int,
-    tabWidth: Int = 8
-) -> String {
-    let cursorColumn = terminalRenderedInputState(
-        promptDisplayWidth: promptDisplayWidth,
-        input: input,
-        cursorPosition: cursorPosition,
-        terminalColumns: terminalColumns
-    ).cursorColumn
-    let zeroBasedColumn = max(cursorColumn - 1, 0)
-    let spacesUntilNextStop = max(1, tabWidth - (zeroBasedColumn % tabWidth))
-    return String(repeating: " ", count: spacesUntilNextStop)
-}
-
-func canIncrementallyAppendInput(
-    previousInput: String,
-    previousCursorPosition: Int,
-    insertedText: String
-) -> Bool {
-    guard !insertedText.isEmpty else { return false }
-    guard previousCursorPosition == previousInput.count else { return false }
-    return insertedText.unicodeScalars.allSatisfy { scalar in
-        scalar.value >= 0x20 && scalar.value != 0x7F
-    }
-}
-
-private extension Character {
-    var isTerminalWordWhitespace: Bool {
-        unicodeScalars.allSatisfy(\.properties.isWhitespace)
-    }
-
-    var isTerminalWordCharacter: Bool {
-        unicodeScalars.allSatisfy { scalar in
-            scalar.properties.isAlphabetic || scalar.properties.numericType != nil || scalar == "_"
-        }
-    }
-}
-
-private struct TerminalCSIParameters {
-    let values: [Int]
-
-    var first: Int? {
-        values.first
-    }
-
-    var hasAltModifier: Bool {
-        guard let last = values.last, values.count > 1 else { return false }
-        // Decode the xterm-style CSI modifier suffix (`CSI 1;<mod><final>` or
-        // `CSI 3;<mod>~`) where the trailing parameter stores 1 + bitmask.
-        // Bit 1 is Shift, bit 2 is Alt, and bit 4 is Control.
-        return max(last - 1, 0) & 0x2 != 0
-    }
-}
-
-private func terminalCSIParameters(_ params: Data) -> TerminalCSIParameters? {
-    guard !params.isEmpty else { return TerminalCSIParameters(values: []) }
-    guard let ascii = String(data: params, encoding: .ascii) else { return nil }
-    let components = ascii.split(separator: ";")
-    let values = components.compactMap { Int($0) }
-    guard values.count == components.count else { return nil }
-    return TerminalCSIParameters(values: values)
-}
-
-private func terminalPreviousBoundary(
-    in input: String,
-    from cursorPosition: Int,
-    skippingTrailingCharactersWhere shouldSkipTrailing: (Character) -> Bool,
-    consumingCharactersWhere shouldConsume: (Character) -> Bool
-) -> Int {
-    var index = input.index(
-        input.startIndex,
-        offsetBy: min(max(cursorPosition, 0), input.count)
-    )
-    while index > input.startIndex {
-        let previous = input.index(before: index)
-        guard shouldSkipTrailing(input[previous]) else { break }
-        index = previous
-    }
-    while index > input.startIndex {
-        let previous = input.index(before: index)
-        guard shouldConsume(input[previous]) else { break }
-        index = previous
-    }
-    return input.distance(from: input.startIndex, to: index)
-}
-
-private func terminalNextBoundary(
-    in input: String,
-    from cursorPosition: Int,
-    skippingLeadingCharactersWhere shouldSkipLeading: (Character) -> Bool,
-    consumingCharactersWhere shouldConsume: (Character) -> Bool
-) -> Int {
-    var index = input.index(
-        input.startIndex,
-        offsetBy: min(max(cursorPosition, 0), input.count)
-    )
-    while index < input.endIndex, shouldSkipLeading(input[index]) {
-        index = input.index(after: index)
-    }
-    while index < input.endIndex, shouldConsume(input[index]) {
-        index = input.index(after: index)
-    }
-    return input.distance(from: input.startIndex, to: index)
-}
-
-/// Decode as many complete UTF-8 characters as possible from raw bytes.
-///
-/// Returns the decoded text and any trailing bytes that form an incomplete
-/// (but potentially valid) UTF-8 sequence. Invalid bytes are skipped
-/// immediately — only genuinely incomplete tails are retained as leftover.
-func decodeUTF8Incrementally(_ data: Data) -> (String, Data) {
-    var decoded = ""
-    var i = data.startIndex
-
-    while i < data.endIndex {
-        let byte = data[i]
-
-        let sequenceLength: Int
-        switch byte {
-        case 0x00 ... 0x7F: sequenceLength = 1
-        case 0xC2 ... 0xDF: sequenceLength = 2
-        case 0xE0 ... 0xEF: sequenceLength = 3
-        case 0xF0 ... 0xF4: sequenceLength = 4
-        default:
-            i += 1
-            continue
-        }
-
-        let remaining = data.endIndex - i
-        if remaining < sequenceLength {
-            // Verify trailing bytes are valid continuations (0x80-0xBF).
-            // If any trailing byte is NOT a continuation, the sequence can
-            // never be completed — skip the lead byte and keep scanning.
-            var validPrefix = true
-            for j in (i + 1) ..< data.endIndex {
-                if data[j] & 0xC0 != 0x80 {
-                    validPrefix = false
-                    break
-                }
-            }
-            if validPrefix {
-                break
-            }
-            i += 1
-            continue
-        }
-
-        let slice = data[i ..< i + sequenceLength]
-        if let char = String(data: Data(slice), encoding: .utf8) {
-            decoded += char
-            i += sequenceLength
-        } else {
-            i += 1
-        }
-    }
-
-    let leftover = i < data.endIndex ? Data(data[i...]) : Data()
-    return (decoded, leftover)
 }
 
 private func shellDebugLog(

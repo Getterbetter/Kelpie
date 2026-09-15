@@ -19,12 +19,14 @@ packages:
   # checked-in native artifacts. The one SSH backend (ADR 0011).
   HeelerSSH:
     path: Packages/HeelerSSH
-  # Pin the reviewed 1.4.0 source commit because upstream removed its release
-  # tag. This keeps the same prebuilt libghostty checksum without taking the
-  # much larger, unaudited 1.5.1 source and binary update.
-  # Kelpie: vendored copy of that commit (356f730b) under Packages/GhosttyTerminal
-  # with the prebuilt libghostty placed locally by scripts/fetch-ghostty-artifact.sh,
-  # because the remote binary download stalls in Xcode's downloader on some networks.
+  # Pinned to the reviewed libghostty-spm commit 7e45d27 (release 1.6.20260909),
+  # which carries the public sendMousePos(x:y:modifiers:) Kelpie used to patch in,
+  # so no local patch remains.
+  # Kelpie: vendored copy of that commit under Packages/GhosttyTerminal with the
+  # prebuilt libghostty (release tag upstream.82938b633ba6, sha256
+  # 2d9a26e80c3836c450f03ea2cf9d191841d9093d4f61c1cea466d2fc8e215dbb) placed
+  # locally by scripts/fetch-ghostty-artifact.sh, because the remote binary
+  # download stalls in Xcode's downloader on some networks.
   GhosttyTerminal:
     path: Packages/GhosttyTerminal
 

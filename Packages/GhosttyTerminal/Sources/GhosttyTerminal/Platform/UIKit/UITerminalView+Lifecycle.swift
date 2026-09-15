@@ -91,7 +91,6 @@
                     core.synchronizeMetrics()
                 }
                 updateColorScheme()
-                core.startDisplayLink()
                 core.requestImmediateTick()
                 // Defer sublayer frame and metrics sync to the next runloop
                 // so that AutoLayout has resolved final bounds.
@@ -112,6 +111,7 @@
                 // The surface survives on purpose: this detach may be a
                 // cover's temporary one, and the view's own teardown frees
                 // the surface when the terminal really goes away.
+                cancelReportedPointerButton()
                 core.stopDisplayLink()
             }
         }
@@ -126,14 +126,30 @@
             core.fitToSize()
         }
 
+        /// The scale used when neither the window nor the trait collection can
+        /// say. visionOS has no `UIScreen` — a window there is a rectangle in a
+        /// shared space, not on a display — and its content is rendered at 2×
+        /// for the compositor to resample; the trait collection reports 2.0 on
+        /// every device so far, and this is what `traitCollection.displayScale`
+        /// falls back to as well.
+        static var fallbackDisplayScale: CGFloat {
+            #if os(visionOS)
+            2.0
+            #else
+            UIScreen.main.nativeScale
+            #endif
+        }
+
         func resolvedDisplayScale() -> CGFloat {
+            #if !os(visionOS)
             if let screen = window?.screen {
                 return screen.nativeScale
             }
+            #endif
             if traitCollection.displayScale > 0 {
                 return traitCollection.displayScale
             }
-            return UIScreen.main.nativeScale
+            return Self.fallbackDisplayScale
         }
 
         func updateDisplayScale() {
@@ -147,13 +163,37 @@
             updateSublayerFrames()
         }
 
+        /// Where the engine's layer sits: the view's bounds, except while a
+        /// resize throttle is holding the surface at an older size. Then
+        /// the layer stays that size, anchored top-left, so the pixels it
+        /// holds are shown 1:1 and the uncovered strip is background. A
+        /// layer stretched to the new bounds shows the old frame scaled,
+        /// and the engine — deriving `contentsScale` from its pixel size
+        /// over the layer's points — writes a wrong scale on each draw
+        /// that `enforceSublayerScale` then undoes: a whole-pane flicker
+        /// for as long as the window is open. `layoutSubviews` sizes the
+        /// surface right after placing the layer, so with the throttle off
+        /// the surface catches up inside the same pass and
+        /// `onMetricsUpdate` re-places the layer at the bounds.
+        var sublayerFrame: CGRect {
+            guard let synced = core.syncedViewSize,
+                  synced.width != bounds.width || synced.height != bounds.height
+            else { return bounds }
+            // The full synced size, even past the bounds on a shrink: a
+            // frame clipped to the bounds would scale the pixels just the
+            // same. The view's layer masks the overflow instead.
+            return CGRect(x: 0, y: 0, width: synced.width, height: synced.height)
+        }
+
         func updateSublayerFrames() {
             let scale = resolvedDisplayScale()
             contentScaleFactor = scale
             layer.contentsScale = scale
+            layer.masksToBounds = true
             guard let sublayers = layer.sublayers else { return }
+            let frame = sublayerFrame
             for sublayer in sublayers {
-                sublayer.frame = bounds
+                sublayer.frame = frame
                 sublayer.contentsScale = scale
             }
         }
@@ -161,12 +201,13 @@
         func enforceSublayerScale() {
             let scale = resolvedDisplayScale()
             guard let sublayers = layer.sublayers else { return }
+            let frame = sublayerFrame
             for sublayer in sublayers {
                 if sublayer.contentsScale != scale {
                     sublayer.contentsScale = scale
                 }
-                if sublayer.frame != bounds {
-                    sublayer.frame = bounds
+                if sublayer.frame != frame {
+                    sublayer.frame = frame
                 }
             }
         }
@@ -217,6 +258,12 @@
         @discardableResult
         override open func resignFirstResponder() -> Bool {
             let result = super.resignFirstResponder()
+            #if !targetEnvironment(macCatalyst)
+                // A handoff to another responder keeps the keyboard up, so
+                // `keyboardDidHide` never fires for this view; the flag means
+                // "this view owns the visible keyboard" and must drop here.
+                softwareKeyboard.isVisible = false
+            #endif
             core.setFocus(false)
             focusBridge.onFocusChange?(false)
             return result

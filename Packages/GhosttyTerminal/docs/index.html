@@ -45,7 +45,7 @@
 <h2 id="install">Install</h2>
 <p>Add the package to <code>Package.swift</code>:</p>
 <pre><code class="language-swift">dependencies: [
-    .package(url: "https://github.com/Lakr233/libghostty-spm.git", from: "1.2.0"),
+    .package(url: "https://github.com/Lakr233/libghostty-spm.git", from: "1.5.2"),
 ],
 targets: [
     .target(name: "App", dependencies: [
@@ -67,15 +67,16 @@ targets: [
 
 <h2 id="platforms">Platforms</h2>
 <table>
-<thead><tr><th>Platform</th><th>Floor</th></tr></thead>
+<thead><tr><th>Platform</th><th>Minimum Version</th></tr></thead>
 <tbody>
 <tr><td>iOS</td><td>15.0</td></tr>
 <tr><td>macOS</td><td>13.0</td></tr>
 <tr><td>Mac Catalyst</td><td>15.0</td></tr>
+<tr><td>visionOS</td><td>1.0</td></tr>
 </tbody>
 </table>
 
-<h2 id="quick-start">Quick start</h2>
+<h2 id="quick-start">Quick Start</h2>
 <pre><code class="language-swift">import SwiftUI
 import GhosttyTerminal
 

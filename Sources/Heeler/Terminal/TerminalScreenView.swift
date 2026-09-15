@@ -1054,7 +1054,16 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         target: self,
         action: #selector(handleHerdrTextSelectionGesture(_:)))
 
+    /// Upstream's `UITerminalView` conforms to `UIDropInteractionDelegate`
+    /// with non-open members, so Kelpie's staging drop carries its own.
+    fileprivate let mediaDropDelegate = HeelerTerminalDropDelegate()
+
     #if !targetEnvironment(macCatalyst)
+        /// Upstream's `UITerminalView` conforms to `UIGestureRecognizerDelegate`
+        /// with a non-open `shouldRecognizeSimultaneouslyWith`, so the
+        /// pointer-scroll pan answers for itself here instead of overriding it.
+        private let pointerScrollDelegate = HeelerPointerScrollGestureDelegate()
+
         private lazy var pointerScrollGesture = UIPanGestureRecognizer(
             target: self,
             action: #selector(handleHerdrPointerScrollGesture(_:)))
@@ -1879,7 +1888,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         if action == #selector(copy(_:)), touchSelectionOverlay.selection != nil {
             return true
         }
-        if action == #selector(handleEscapeKeyCommand(_:)) {
+        if action == #selector(heelerEscapeKeyCommand(_:)) {
             let answer = super.canPerformAction(action, withSender: sender)
             TerminalKeyTrace.log("canPerformAction escape -> \(answer)")
             return answer
@@ -2239,16 +2248,6 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             at: touch.location(in: touchSelectionOverlay))
     }
 
-    func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer
-    ) -> Bool {
-        #if !targetEnvironment(macCatalyst)
-            return gestureRecognizer === pointerScrollGesture
-        #else
-            return false
-        #endif
-    }
 
     private func reloadInputViewsAfterWindowResize() {
         guard let windowSize = window?.bounds.size else { return }
@@ -2732,7 +2731,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             ]
             pointerScrollGesture.cancelsTouchesInView = false
             pointerScrollGesture.delaysTouchesBegan = false
-            pointerScrollGesture.delegate = self
+            pointerScrollGesture.delegate = pointerScrollDelegate
             addGestureRecognizer(pointerScrollGesture)
         }
     #endif
@@ -2741,7 +2740,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// it goes to the Host over SFTP and its path is typed into the pane.
     /// Text-only drags are left alone — nothing here improves on them.
     private func installMediaDrop() {
-        addInteraction(UIDropInteraction(delegate: self))
+        for interaction in interactions where interaction is UIDropInteraction {
+            removeInteraction(interaction)
+        }
+        mediaDropDelegate.view = self
+        addInteraction(UIDropInteraction(delegate: mediaDropDelegate))
     }
 
     /// Ghostty ships its own pinch handler that mutates the surface font size
@@ -2800,7 +2803,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             let command = UIKeyCommand(
                 input: entry.input,
                 modifierFlags: entry.modifierFlags,
-                action: #selector(handleEscapeKeyCommand(_:)))
+                action: #selector(heelerEscapeKeyCommand(_:)))
             command.wantsPriorityOverSystemBehavior = true
             // Both spellings mean Escape, and this is the text the iPad's
             // ⌘-hold shortcut HUD lists them under.
@@ -2809,7 +2812,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
     }()
 
-    @objc private func handleEscapeKeyCommand(_ command: UIKeyCommand) {
+    @objc private func heelerEscapeKeyCommand(_ command: UIKeyCommand) {
         TerminalKeyTrace.log("escape key command input=\(command.input ?? "nil") mods=0x\(String(command.modifierFlags.rawValue, radix: 16))")
         let key =
             command.modifierFlags.contains(.command)
@@ -3836,11 +3839,42 @@ extension HeelerTerminalView: @MainActor UIEditMenuInteractionDelegate {
 /// Photos and files dropped onto the terminal. A drop of plain text is
 /// refused: it would race the text-input path for the same insertion, and
 /// staging is the only thing this interaction adds.
-extension HeelerTerminalView: UIDropInteractionDelegate {
+/// Simultaneity for the pointer-scroll pan only.
+final class HeelerPointerScrollGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer
+    ) -> Bool {
+        true
+    }
+}
+
+@MainActor
+final class HeelerTerminalDropDelegate: NSObject, UIDropInteractionDelegate {
+    weak var view: HeelerTerminalView?
+
     func dropInteraction(
         _: UIDropInteraction,
         canHandle session: any UIDropSession
     ) -> Bool {
+        guard let view else { return false }
+        return view.canStageDrop(session)
+    }
+
+    func dropInteraction(
+        _: UIDropInteraction,
+        sessionDidUpdate _: any UIDropSession
+    ) -> UIDropProposal {
+        UIDropProposal(operation: view?.acceptsStagingDrop == true ? .copy : .cancel)
+    }
+
+    func dropInteraction(_: UIDropInteraction, performDrop session: any UIDropSession) {
+        view?.performStagingDrop(session)
+    }
+}
+
+extension HeelerTerminalView {
+    fileprivate func canStageDrop(_ session: any UIDropSession) -> Bool {
         // A PDF, a text file or an archive from Files conforms to
         // `public.data`, never to `public.file-url`, so the narrower list
         // refused them before the proposal was ever made.
@@ -3851,14 +3885,9 @@ extension HeelerTerminalView: UIDropInteractionDelegate {
             && session.items.contains { Self.isStageable($0.itemProvider) }
     }
 
-    func dropInteraction(
-        _: UIDropInteraction,
-        sessionDidUpdate _: any UIDropSession
-    ) -> UIDropProposal {
-        UIDropProposal(operation: isLocalInputEnabled ? .copy : .cancel)
-    }
+    fileprivate var acceptsStagingDrop: Bool { isLocalInputEnabled }
 
-    func dropInteraction(_: UIDropInteraction, performDrop session: any UIDropSession) {
+    fileprivate func performStagingDrop(_ session: any UIDropSession) {
         guard isLocalInputEnabled else { return }
         stageMedia(from: session.items.map(\.itemProvider))
     }

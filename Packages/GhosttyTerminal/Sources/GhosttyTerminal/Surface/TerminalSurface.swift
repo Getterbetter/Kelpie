@@ -42,8 +42,11 @@ public final class TerminalSurface {
         return result
     }
 
+    /// Pastes text into the surface. This is the text path: ghostty treats
+    /// it as a paste, wrapping it in bracketed-paste markers for a program
+    /// that asked for them. Keystrokes go through ``sendKey(_:)``.
     @discardableResult
-    public func sendText(_ text: String) -> Bool {
+    public func paste(text: String) -> Bool {
         guard let s = surface else {
             TerminalDebugLog.log(.input, "surface text ignored: missing surface")
             return false
@@ -59,7 +62,16 @@ public final class TerminalSurface {
     }
 
     @discardableResult
-    func sendMouseButton(
+    public func sendMouseButton(
+        state: ghostty_input_mouse_state_e,
+        button: ghostty_input_mouse_button_e,
+        modifiers: TerminalInputModifiers = []
+    ) -> Bool {
+        sendMouseButton(state: state, button: button, mods: modifiers.ghosttyMods)
+    }
+
+    @discardableResult
+    public func sendMouseButton(
         state: ghostty_input_mouse_state_e,
         button: ghostty_input_mouse_button_e,
         mods: ghostty_input_mods_e
@@ -76,21 +88,15 @@ public final class TerminalSurface {
         return result
     }
 
-    /// Move the core's mouse to a point in host view coordinates, carrying
-    /// modifiers.
-    ///
-    /// **Kelpie patch** (see `Packages/GhosttyTerminal/KELPIE-PATCHES.md`). The
-    /// core hit-tests links wherever its mouse is put and reports the result
-    /// through `GHOSTTY_ACTION_MOUSE_OVER_LINK`, but only when the mouse mods
-    /// match the link's modifier — so a host that wants to ask "which link
-    /// covers this cell?" needs a mods-carrying mouse move. `mods` is the only
-    /// reason this exists; ``TerminalInputModifiers`` keeps the C enum out of
-    /// the public API.
-    public func sendMousePos(x: Double, y: Double, modifiers: TerminalInputModifiers) {
+    public func sendMousePos(
+        x: Double,
+        y: Double,
+        modifiers: TerminalInputModifiers = []
+    ) {
         sendMousePos(x: x, y: y, mods: modifiers.ghosttyMods)
     }
 
-    func sendMousePos(x: Double, y: Double, mods: ghostty_input_mods_e) {
+    public func sendMousePos(x: Double, y: Double, mods: ghostty_input_mods_e) {
         guard let s = surface else {
             TerminalDebugLog.log(.input, "surface mouse position ignored: missing surface")
             return
@@ -100,6 +106,14 @@ public final class TerminalSurface {
             "surface mousePos x=\(String(format: "%.2f", x)) y=\(String(format: "%.2f", y)) mods=0x\(String(mods.rawValue, radix: 16))"
         )
         ghostty_surface_mouse_pos(s, x, y, mods)
+    }
+
+    public func sendMouseScroll(
+        x: Double,
+        y: Double,
+        mods: TerminalScrollModifiers = TerminalScrollModifiers(precision: true)
+    ) {
+        sendMouseScroll(x: x, y: y, mods: mods.rawValue)
     }
 
     func sendMouseScroll(x: Double, y: Double, mods: ghostty_input_scroll_mods_t) {
@@ -112,6 +126,15 @@ public final class TerminalSurface {
             "surface scroll x=\(String(format: "%.2f", x)) y=\(String(format: "%.2f", y)) mods=0x\(String(mods, radix: 16))"
         )
         ghostty_surface_mouse_scroll(s, x, y, mods)
+    }
+
+    /// Whether the application currently owns the mouse (DEC 1000/1002/1003).
+    /// Host UI (copy menu, context menu) must not steal a click while this
+    /// is true. Ghostty still owns reporting vs local selection for events
+    /// that reach the surface.
+    public var isMouseCaptured: Bool {
+        guard let s = surface else { return false }
+        return ghostty_surface_mouse_captured(s)
     }
 
     func preedit(_ text: String) {
@@ -238,7 +261,7 @@ public final class TerminalSurface {
         let offsetLength: UInt32
     }
 
-    func hasSelection() -> Bool {
+    public func hasSelection() -> Bool {
         guard let s = surface else {
             TerminalDebugLog.log(.input, "surface selection query ignored: missing surface")
             return false
@@ -248,7 +271,7 @@ public final class TerminalSurface {
         return result
     }
 
-    func readSelection() -> String? {
+    public func readSelection() -> String? {
         readSelectionResult()?.text
     }
 
@@ -309,14 +332,19 @@ public final class TerminalSurface {
     #if canImport(UIKit) || canImport(AppKit)
         struct QuicklookWordResult {
             let word: String
+            /// Linear cell index of the word's first cell in the viewport grid
+            /// (`row * columns + column`); the grid position to use, see
+            /// `TerminalSelectionAnchor`.
             let offsetStart: UInt32
             let offsetLength: UInt32
             // tl_px_x / tl_px_y are reported in host points (view coordinates),
             // not surface pixels. Ghostty's embedded API receives mouse_pos in
             // points and stores the cursor position * contentScale internally,
             // then divides by contentScale when reporting selection coordinates
-            // back. Callers must convert cell pixel dimensions to points before
-            // dividing.
+            // back. Despite the name, tl_px_y is the row's text baseline plus
+            // the top window padding, not the cell top, and tl_px_x includes
+            // the left padding — dividing them by the cell size does not give
+            // the grid position.
             let pointX: Double
             let pointY: Double
         }
@@ -380,6 +408,11 @@ public final class TerminalSurface {
     /// user runs a program in the pty this is that program's pid, so hosts can
     /// correlate a surface with an external process list. Ghostty returns 0
     /// when the surface has no process yet — surfaced here as nil.
+    ///
+    /// Always nil on the pinned Ghostty 1.3.1, for every backend: that release
+    /// predates upstream's process-info API, and the shipped
+    /// `ghostty_surface_foreground_pid` is a stub from
+    /// `Patches/ghostty/0002-host-managed-io.patch` that reports 0.
     var foregroundPid: pid_t? {
         guard let s = surface else { return nil }
         let pid = ghostty_surface_foreground_pid(s)
@@ -388,6 +421,10 @@ public final class TerminalSurface {
 
     /// Name of the pty's controlling tty (e.g. `/dev/ttys004`), or nil when the
     /// surface has no process yet. Useful as a cross-check for ``foregroundPid``.
+    ///
+    /// Always nil on the pinned Ghostty 1.3.1, for every backend: the shipped
+    /// `ghostty_surface_tty_name` is a stub that returns the empty string, for
+    /// the same reason ``foregroundPid`` is nil there.
     var ttyName: String? {
         guard let s = surface else { return nil }
         let str = ghostty_surface_tty_name(s)

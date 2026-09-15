@@ -9,6 +9,7 @@ Swift Package wrapping [Ghostty](https://ghostty.org)'s terminal emulator librar
 - macOS 13+
 - iOS 15+
 - Mac Catalyst 15+
+- visionOS 1+
 
 ## Products
 
@@ -21,21 +22,9 @@ Swift Package wrapping [Ghostty](https://ghostty.org)'s terminal emulator librar
 
 ## Installation
 
-Add to your `Package.swift`. Tracking `main` is the recommended way to
-integrate — fixes land there continuously, while tagged releases are cut
-irregularly and may lag well behind:
-
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Lakr233/libghostty-spm.git", branch: "main"),
-]
-```
-
-If your project requires a pinned version instead:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/Lakr233/libghostty-spm.git", from: "1.2.0"),
+    .package(url: "https://github.com/Lakr233/libghostty-spm.git", from: "1.5.2"),
 ]
 ```
 
@@ -52,12 +41,12 @@ Then add the product you need:
 
 ## Usage
 
-The example apps are the best starting point for real integration:
+Start from the example apps:
 
 - `Example/GhosttyTerminalApp/` — macOS AppKit demo with delegate callbacks
 - `Example/MobileGhosttyApp/` — iOS UIKit demo with keyboard, safe area, themes, and text selection
 
-### SwiftUI (iOS 15+ / macOS 13+ / Mac Catalyst 15+)
+### SwiftUI (iOS 15+ / macOS 13+ / Mac Catalyst 15+ / visionOS 1+)
 
 ```swift
 import SwiftUI
@@ -86,6 +75,10 @@ struct ContentView: View {
 }
 ```
 
+A host that keeps several surfaces mounted at once (tabs hidden behind
+`opacity(0)`) sets `terminal.isSurfaceVisible = false` on the hidden ones.
+The surface keeps its grid, scrollback, and session; only rendering stops.
+
 ### UIKit / AppKit
 
 ```swift
@@ -101,7 +94,29 @@ terminalView.configuration = TerminalSurfaceOptions(
 
 `TerminalView` is a type alias that resolves to `UITerminalView` (iOS/Catalyst) or `AppTerminalView` (macOS).
 
-### Prompt and scrollback navigation
+### Keys and Pasted Text
+
+`TerminalViewState` and `TerminalView` expose the same two input paths, and
+they are not interchangeable:
+
+```swift
+terminal.sendKey(.enter)                         // Press and release a key.
+terminal.sendKey(.c, modifiers: .ctrl)           // Ctrl+C.
+terminal.sendKey(TerminalKeyPress(typing: "C")!) // c with Shift, from the US layout.
+terminal.paste(text: "ls -la")                   // A paste, not keystrokes.
+```
+
+`sendKey(_:)` is the key path (also on `TerminalSurface`): `TerminalKey`
+mirrors every libghostty key, the press is encoded the way the program's key
+mode expects, and a release follows. `paste(text:)` is the text path: a
+program that enabled bracketed paste receives it framed as a paste, so a `\r`
+in it is a pasted character, not Enter. `paste(text:)` is the only name the
+text path answers to on all three: 2.0.0 removed `TerminalViewState.send(_:)`,
+`AppTerminalView.sendText(_:)` and the `TerminalSurface.sendText(_:)`
+primitive, because none of them ever sent keystrokes and the names said
+otherwise.
+
+### Prompt and Scrollback Navigation
 
 `TerminalViewState`, `TerminalView`, and `TerminalSurface` expose the same
 programmatic navigation APIs:
@@ -112,10 +127,75 @@ terminal.jumpToPrompt(by: 1)  // Next prompt.
 terminal.scrollToRow(0)        // First absolute scrollback row.
 ```
 
-Prompt navigation requires [Ghostty shell integration](https://ghostty.org/docs/features/shell-integration),
-which records prompt boundaries. A host-managed backend must preserve or emit
+Prompt navigation requires [shell integration](https://ghostty.org/docs/features/shell-integration),
+which records prompt boundaries. The package bundles its own MIT-licensed
+bash and zsh integration (OSC 133 prompt marks, OSC 7 working directory,
+OSC 2 title, cursor shape) under `Resources/Ghostty/shell-integration`, and
+the `.exec` backend injects it the way upstream Ghostty does; upstream's own
+scripts are GPLv3 and are deliberately not shipped. Other shells get no
+automatic integration. A host-managed backend must preserve or emit
 equivalent OSC 133 prompt markers. Arbitrary Ghostty actions remain available
 through `performBindingAction(_:)`.
+
+### Pasting and Dropping Files
+
+A paste reads the pasteboard the way Ghostty's macOS app does: URLs first —
+a file URL as its shell-escaped path, any other URL verbatim — then the
+string. A file copied in Finder or Files therefore pastes its path, never the
+display name that sits beside it on the pasteboard. On iOS and Mac Catalyst,
+image or document data with no path of its own (a screenshot, a photo, a file
+copied out of Files) is written to a file first and the file's escaped path is
+pasted.
+
+Ghostty asks the host before a protected clipboard operation — a program
+reading the clipboard through OSC 52, writing it when `clipboard-write = ask`,
+or a paste that paste protection flagged — through
+`TerminalViewState.onClipboardConfirmationRequest` (a delegate adopts
+`TerminalSurfaceClipboardConfirmationDelegate`); the host presents the request
+and answers `respond(allow:)`. While the hook is `nil`, a program's read or
+write is denied silently and a paste the user started is allowed.
+
+Dropping onto the terminal works the same way on iOS and Mac Catalyst: files
+and images are copied into the staging directory and their escaped paths are
+pasted; a dropped folder, link, or text pastes as text. Everything a drop
+delivers travels the text path, like a paste — never as keystrokes.
+
+Staged files live under `TerminalFileStaging.directory`, a `ghostty-paste`
+folder in the app's temporary directory by default. A host whose shell cannot
+read the app container points it somewhere both can reach before the first
+paste or drop. Files stay until `TerminalFileStaging.staleFileAge` (24 hours)
+has passed — swept whenever a new file is written, or on
+`TerminalFileStaging.removeStaleFiles()`. A host calls
+`TerminalFileStaging.removeAllFiles()` once no shell can reach the staged
+files — its last shell ended, or the app is quitting together with its shells.
+
+```swift
+// A host that ends every shell when it quits.
+func applicationWillTerminate(_: UIApplication) {
+    endAllSessions()
+    TerminalFileStaging.removeAllFiles()
+}
+```
+
+### Surface Snapshots and Host View Subclasses
+
+`TerminalView.snapshotImage()` renders the surface's current on-screen
+contents into a `UIImage`/`NSImage`, and
+`TerminalViewState.attachedPlatformView` hands the presenting view to hosts
+that hold only the state. On UIKit the snapshot is a render-server pass
+(`drawHierarchy`), so the Metal layer's presented frame is included; on AppKit
+it is `cacheDisplay`, best-effort for Metal content.
+
+Hosts that need their own view behavior — an interaction lock, custom hit
+testing, a keyboard policy — set `TerminalViewState.makePlatformView` to
+return a `TerminalView` subclass before the surface first appears; the
+SwiftUI representable instantiates it instead of the base class. Policy
+belongs in such a subclass, never in the byte stream: output keeps flowing
+and rendering regardless. The overridable seams are everything UIKit/AppKit
+give a view (`hitTest`, `canBecomeFirstResponder`) plus
+`UITerminalView.toggleSoftwareKeyboard()`, which a clean tap calls after its
+click has been sent — override it to keep a tap from raising or dismissing
+the software keyboard.
 
 ## Notes
 
@@ -127,27 +207,56 @@ through `performBindingAction(_:)`.
 
 ## Building from Source
 
-The package includes a pre-built XCFramework. To rebuild libghostty from the Ghostty source:
+The package downloads a pre-built XCFramework. To rebuild libghostty from the Ghostty source:
 
 ```bash
-# Requires: zig compiler
-./Script/build.sh
+# Requires: zig (CI builds with 0.16.0 — the pinned upstream's minimum_zig_version)
+./build.sh
+./build.sh --platforms macos,ios --source /path/to/ghostty --skip-tests
 ```
 
-This applies patches from `Patches/ghostty/`, builds for all target architectures, and assembles the XCFramework.
+`build.sh` forwards to `Script/build.sh`. Without `--source` it clones Ghostty
+into `References/ghostty-upstream`; `--ref` checks out a tag or commit there
+(`Ghostty.ref` is the commit the shipped asset was built from). It applies the
+patches in `Patches/ghostty/`, builds each platform group (`macos`, `ios`,
+`maccatalyst`, `visionos` by default; macOS, Catalyst, and simulator slices
+are arm64 and x86_64), assembles `BinaryTarget/GhosttyKit.xcframework` and
+`build/GhosttyKit.xcframework.zip`, and runs `Script/test.sh` and `swift test`
+against the result unless `--skip-tests` is given. `Package.local.swift`
+points the binary target at that local `BinaryTarget/` build; `--download-url`
+regenerates `Package.swift` from `Package.swift.template` for an uploaded zip.
 
-## Release Versioning
+The `visionos` group builds against a patched copy of the Zig standard
+library only when `Patches/zig/` holds a patch for the Zig on PATH (staged
+under `build/cache` by `Script/prepare-zig-lib.sh`; the toolchain itself is
+never modified). Zig 0.16.0 needs none. Xcode 27 needs the Metal toolchain
+component installed (`xcodebuild -downloadComponent MetalToolchain`). An SDK
+overlay script lived under `Script/support/` for Zig 0.15.2, which could not
+link its build runner against that SDK; 0.16 does it unaided, so the script
+was removed.
 
-Bare semantic-version tags such as `1.3.1` are GhosttyKit Swift package
-versions. They are independent from Ghostty's upstream tags. The matching
-`storage.1.3.1` release stores the XCFramework consumed by that package tag.
+## Versions
 
-Release builds use the immutable upstream Ghostty commit recorded in
-`Ghostty.ref`. Updating Ghostty requires a reviewed change to that file, so a
-package release cannot silently switch to a different upstream tag or commit.
-Manual releases require an explicit package version; scheduled releases only
-increment the package patch version when `main` is newer than the latest
-package tag.
+Pin `1.5.2` or later (`from: "1.5.2"`). The `1.4.0` … `1.4.13` and `1.5.0`
+tags and releases were withdrawn and no longer exist; `1.5.1` is the
+oldest live tag on this track and the first with visionOS slices. Versions
+after `1.5.2` are `<major.minor>.<UTC YYYYMMDD>` (`1.5.20260903`): a
+release lands every week with Ghostty pinned to upstream main's head of
+that Monday (`Ghostty.ref`, a commit rather than a release, because
+upstream tags rarely and main carries the fixes we need), the date is the
+patch number so a `from:` pin takes each one, and major.minor moves only
+for a breaking change to this package's API. Package tags are cut by the
+"Release Package" workflow only; `Script/audit-releases.sh` checks every
+tag's manifest against the asset it downloads.
+
+`upstream.<sha12>` releases carry the XCFramework built from that Ghostty
+commit (`upstream.<sha12>-<N>` when the same commit was rebuilt with a
+changed patch stack or target set — `Ghostty.build` holds `N`). The older
+`upstream.1.3.1`, `upstream.1.3.1-2` (the first asset with visionOS slices)
+and `upstream.1.3.1-3` were named after the upstream release instead; each
+package tag's `Package.swift` downloads one of these. Those and the still
+older `storage.*` tags are XCFramework assets, not package versions. SPM
+should not depend on them.
 
 ## Trimmed Build
 
@@ -165,20 +274,30 @@ The bundled `libghostty` is a trimmed build optimized for sandboxed, embedded us
 | Terminal inspector (ImGui)       | Yes              | **No**           | `dcimgui` removed (`-Dinspector=false`). Debug inspector UI replaced with no-op stubs.                                                                |
 | Sentry crash reporting           | Yes              | **No**           | Disabled (`-Dsentry=false`).                                                                                                                          |
 | Native app runtime               | Yes              | **No**           | Cocoa/GTK/Wayland app shell disabled (`-Dapp-runtime=none`). The host app provides its own runtime.                                                   |
-| Standalone executable            | Yes              | **No**           | No terminal `.app` or CLI binary emitted (`-Demit-exe=false`).                                                                                        |
+| Standalone executable            | Yes              | **No**           | No terminal `.app`, CLI binary, or upstream xcframework emitted (`-Demit-exe=false`, `-Demit-macos-app=false`, `-Demit-xcframework=false`).           |
 | Documentation generation         | Yes              | **No**           | Skipped (`-Demit-docs=false`).                                                                                                                        |
 | Frame data generator             | Build-time tool  | **Pre-compiled** | `framedata.compressed` shipped pre-built; framegen C tool dependency removed.                                                                         |
 | Host-managed I/O backend         | No               | **Added**        | New `GHOSTTY_SURFACE_IO_BACKEND_HOST_MANAGED` for non-PTY, sandbox-safe terminal I/O.                                                                 |
 | iOS Metal rendering fixes        | No               | **Added**        | IOSurface +1px tolerance, synchronous present, 64-byte row alignment for iOS.                                                                         |
-| iOS platform fixes               | No               | **Added**        | Deployment target lowered, private API removed, kqueue fix for simulator.                                                                             |
+| iOS platform fixes               | No               | **Added**        | Deployment target lowered to 15.0, private window blur API removed, kqueue fix for simulator.                                                        |
+| macOS Metal texture storage      | No               | **Added**        | Shared textures on iOS and Apple GPUs, managed on Intel/AMD macOS GPUs.                                                                              |
+| libc++ availability              | No               | **Added**        | Zig's libc++ headers built with Apple availability annotations; `__libcpp_verbose_abort` shipped in the archive so apps launch below iOS 16.3 / macOS 13.3. |
+| Scroll remainder fix             | No               | **Added**        | Wheel scrolling keeps its sub-row remainder instead of zeroing it.                                                                                   |
+| History replay                   | No               | **Added**        | `ghostty_surface_write_buffer_replay` feeds reconstructed history through the parser with terminal protocol responses suppressed.                     |
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-The bundled `libghostty` binary is built from [Ghostty](https://ghostty.org), which has its own license terms.
+The bundled `libghostty` binary is built from [Ghostty](https://ghostty.org), MIT License, Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors.
+
+`Sources/GhosttyTerminal/Resources/terminfo/` is the `xterm-ghostty` terminfo entry compiled from Ghostty's `src/terminfo/ghostty.zig` (same MIT License and copyright).
+
+`Sources/GhosttyTerminal/Resources/Ghostty/shell-integration/` is this package's own bash and zsh integration, MIT License, written from scratch — Ghostty's own bash and zsh integration scripts are GPLv3 and are not shipped. `bash/bash-preexec.sh` is vendored from [bash-preexec](https://github.com/rcaloras/bash-preexec), MIT License; see [LICENSE-bash-preexec.md](Sources/GhosttyTerminal/Resources/Ghostty/shell-integration/bash/LICENSE-bash-preexec.md).
+
+`GhosttyTheme` color data comes from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes), MIT License; see [Sources/GhosttyTheme/LICENSE](Sources/GhosttyTheme/LICENSE).
 
 ## Sponsor
 
 - [LookInside](https://lookinside-app.com/) helps you inspect a running iOS or macOS app UI from your Mac.
-- This project/repository is sponsored by AFK AI, INC.
+- This project is sponsored by AFK AI, INC.

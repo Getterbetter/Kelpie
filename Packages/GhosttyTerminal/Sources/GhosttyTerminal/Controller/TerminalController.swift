@@ -56,14 +56,33 @@ public final class TerminalController {
     var renderedConfigContents: String = TerminalController.defaultRenderedConfig
 
     public internal(set) var lastConfigurationIssue: String?
-    var onWakeup: (() -> Void)?
-    var shouldProcessWakeup: (() -> Bool)?
+    /// One surface's interest in a wakeup. Every surface shares this
+    /// controller, so a single handler is not enough.
+    struct WakeupObserver {
+        let shouldProcess: () -> Bool
+        let onWakeup: () -> Void
+    }
+
+    private var wakeupObservers: [ObjectIdentifier: WakeupObserver] = [:]
+
+    func addWakeupObserver(
+        _ key: ObjectIdentifier,
+        shouldProcess: @escaping () -> Bool,
+        onWakeup: @escaping () -> Void
+    ) {
+        wakeupObservers[key] = WakeupObserver(shouldProcess: shouldProcess, onWakeup: onWakeup)
+    }
+
+    func removeWakeupObserver(_ key: ObjectIdentifier) {
+        wakeupObservers.removeValue(forKey: key)
+    }
 
     // MARK: - Config Resolution State
 
-    /// The base config before theme/colorScheme are applied.
-    private let baseConfigSource: ConfigSource
-    private var baseConfigTemplate: String = ""
+    /// The base config before theme/colorScheme are applied: what actually
+    /// loaded, so `.none` after init fell back from a rejected file.
+    var baseConfigSource: ConfigSource = .none
+    var baseConfigTemplate: String = ""
 
     /// Per-session configuration overrides (e.g. font size changes).
     public private(set) var terminalConfiguration: TerminalConfiguration
@@ -142,17 +161,21 @@ public final class TerminalController {
     ) {
         Self.initializeRuntimeIfNeeded()
 
-        baseConfigSource = configSource
         self.theme = theme
         self.terminalConfiguration = terminalConfiguration
         self.configSource = configSource
 
         // Load the base config (without theme) so ghostty validates it.
         applyInitialConfig(source: configSource)
+        baseConfigSource = self.configSource
         baseConfigTemplate = renderedConfigContents
+        let baseIssue = lastConfigurationIssue
 
         // Now apply theme on top and push to ghostty.
         reconfigure()
+        // The theme pass loading does not make a rejected base config
+        // load; the fallback is what a host reads here after init.
+        if let baseIssue { lastConfigurationIssue = baseIssue }
         createApp()
     }
 
@@ -245,7 +268,7 @@ public final class TerminalController {
     // MARK: - Config Resolution
 
     @discardableResult
-    private func reconfigure() -> Bool {
+    func reconfigure() -> Bool {
         applyResolvedConfig(resolveEffectiveConfig(), willChange: nil)
     }
 
@@ -288,13 +311,15 @@ public final class TerminalController {
     }
 
     func handleWakeup() {
-        guard shouldProcessWakeup?() ?? true else {
+        let observers = Array(wakeupObservers.values)
+        // One detached surface must not stop the tick for the others.
+        guard observers.isEmpty || observers.contains(where: { $0.shouldProcess() }) else {
             TerminalDebugLog.log(.lifecycle, "wakeup suspended")
             return
         }
 
         tick()
-        onWakeup?()
+        for observer in observers { observer.onWakeup() }
     }
 
     private static func initializeRuntimeIfNeeded() {

@@ -7,14 +7,29 @@ import Foundation
 import GhosttyKit
 
 extension TerminalController {
+    /// Generated config files belong to the host app. Hosts may remove this
+    /// directory before creating any controllers and when terminating, so a
+    /// forced exit does not leave files behind indefinitely. Never clear it
+    /// while controllers are in use. User-supplied config files live elsewhere.
+    public static var managedConfigDirectory: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent(
+            Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName,
+            isDirectory: true
+        )
+    }
+
     @discardableResult
     public func updateConfigSource(_ source: ConfigSource) -> Bool {
-        guard source != configSource else { return true }
-
+        // No same-source short-circuit: a host re-giving `.file(path)` is
+        // asking for the file to be read again.
         switch Self.prepareConfig(source: source) {
         case let .success(value):
+            // The new source becomes the base, the same way init loads
+            // it: applied bare, then theme and overrides on top.
             applyPreparedConfigToRuntime(value, source: source)
-            return true
+            baseConfigSource = source
+            baseConfigTemplate = value.renderedContents
+            return reconfigure()
 
         case let .failure(issue):
             lastConfigurationIssue = issue.description
@@ -91,6 +106,8 @@ extension TerminalController {
                 return
             }
             applyPreparedConfig(fallback, source: .none)
+            // The fallback loading is not the requested source loading.
+            lastConfigurationIssue = issue.description
         }
     }
 
@@ -141,13 +158,17 @@ extension TerminalController {
             }
 
         case let .file(path):
+            // ghostty_config_load_file requires an absolute path: it takes
+            // dirname(path) as the base for relative includes, which is
+            // null for a bare filename.
+            let absolutePath = URL(fileURLWithPath: path).standardizedFileURL.path
             do {
-                resolvedContents = try String(contentsOfFile: path, encoding: .utf8)
+                resolvedContents = try String(contentsOfFile: absolutePath, encoding: .utf8)
             } catch {
                 return .failure(ConfigurationIssue("failed to load ghostty config template: \(error)"))
             }
             managedConfigURL = nil
-            configPath = path
+            configPath = absolutePath
         }
 
         guard let rawValue = ghostty_config_new() else {
@@ -181,11 +202,13 @@ extension TerminalController {
     }
 
     private static func writeManagedConfig(contents: String) -> Result<URL, ConfigurationIssue> {
-        let url = FileManager.default.temporaryDirectory
+        let directory = managedConfigDirectory
+        let url = directory
             .appendingPathComponent("ghostty-config-\(UUID().uuidString)")
             .appendingPathExtension("conf")
 
         do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return .success(url)
         } catch {

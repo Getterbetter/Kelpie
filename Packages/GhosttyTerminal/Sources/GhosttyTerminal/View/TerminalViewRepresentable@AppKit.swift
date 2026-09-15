@@ -5,13 +5,13 @@
 //  Created by Lakr233 on 2026/3/16.
 //
 
-#if canImport(AppKit) && !canImport(UIKit)
+#if !canImport(UIKit) && canImport(AppKit)
     import AppKit
     import SwiftUI
 
     extension TerminalViewRepresentable: NSViewRepresentable {
         func makeNSView(context _: Context) -> TerminalView {
-            let view = TerminalView(frame: .zero)
+            let view = context.makePlatformView?() ?? TerminalView(frame: .zero)
             configureView(view, initial: true)
             view.focusBridge.onFocusChange = { focused in
                 focusBinding.setFocused(focused)

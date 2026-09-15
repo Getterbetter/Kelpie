@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GhosttyKit
 import SwiftUI
 
 @MainActor
@@ -35,6 +36,19 @@ public final class TerminalViewState: ObservableObject {
     /// The platform view currently presenting this state, set by the SwiftUI
     /// representable. Weak: the state outlives detached views.
     weak var attachedView: TerminalView?
+
+    /// The platform view currently presenting this state, for host work that
+    /// needs the real view — a rendered ``TerminalView/snapshotImage()``,
+    /// coordinate math. `nil` while no view presents this state; weak like
+    /// `attachedView`, because the state outlives detached views.
+    public var attachedPlatformView: TerminalView? { attachedView }
+
+    /// Factory for the platform view the SwiftUI representable creates.
+    /// Hosts that need their own view behavior — an interaction lock,
+    /// custom hit testing — return a `TerminalView` subclass here; `nil`
+    /// (the default) instantiates the base class. Read once, when the
+    /// surface view is made: set it before the surface first appears.
+    public var makePlatformView: (@MainActor () -> TerminalView)?
     private var pendingFocusRequest = false
 
     /// Whether the attached surface should keep drawing. Hosts that keep
@@ -49,12 +63,14 @@ public final class TerminalViewState: ObservableObject {
     public var onClose: ((Bool) -> Void)?
     @Published public internal(set) var controller: TerminalController
 
-    #if canImport(UIKit) && !targetEnvironment(macCatalyst)
-        /// Items of the software keyboard's input accessory bar, in order.
-        /// `nil` shows `TerminalInputAccessoryItem.defaultItems`; an empty
-        /// array hides the bar. Applied to the platform view by the SwiftUI
-        /// representable.
-        @Published public var inputAccessoryItems: [TerminalInputAccessoryItem]?
+    #if canImport(UIKit)
+        #if !targetEnvironment(macCatalyst)
+            /// Items of the software keyboard's input accessory bar, in order.
+            /// `nil` shows `TerminalInputAccessoryItem.defaultItems`; an empty
+            /// array hides the bar. Applied to the platform view by the SwiftUI
+            /// representable.
+            @Published public var inputAccessoryItems: [TerminalInputAccessoryItem]?
+        #endif
     #endif
 
     /// Host hook for the iOS long-press text-selection flow. Setting this is
@@ -62,6 +78,16 @@ public final class TerminalViewState: ObservableObject {
     /// exactly as if the delegate never adopted
     /// ``TerminalSurfaceTextSelectionRequestDelegate``.
     public var onTextSelectionRequest: ((TerminalTextSelectionRequest) -> Void)?
+
+    /// Host hook for clipboard decisions ghostty will not make alone: a
+    /// program reading the clipboard through OSC 52 (`clipboard-read = ask`,
+    /// the default), writing it when `clipboard-write = ask`, or a paste
+    /// that paste protection flagged as unsafe. The host presents the
+    /// request and answers it with ``TerminalClipboardConfirmationRequest/respond(allow:)``.
+    /// While this is `nil`, a program's read or write is denied silently and
+    /// a paste the user started is allowed; a host that wants programs to
+    /// read the clipboard, or wants a say on unsafe pastes, sets it.
+    public var onClipboardConfirmationRequest: ((TerminalClipboardConfirmationRequest) -> Void)?
 
     /// Hands keyboard focus to the attached terminal view, imperatively.
     ///
@@ -90,14 +116,35 @@ public final class TerminalViewState: ObservableObject {
         pendingFocusRequest = false
     }
 
-    /// Sends text to the attached surface.
+    /// Pastes text into the attached surface. This is the text path: a
+    /// program that enabled bracketed paste receives it framed as a paste,
+    /// so a `\r` in it lands in the shell's edit line instead of running
+    /// it. Keystrokes — Enter, Tab, Ctrl+C — go through ``sendKey(_:)``.
     @discardableResult
-    public func send(_ text: String) -> Bool {
+    public func paste(text: String) -> Bool {
         guard let surface else {
-            TerminalDebugLog.log(.input, "view state send ignored: missing surface")
+            TerminalDebugLog.log(.input, "view state paste ignored: missing surface")
             return false
         }
-        return surface.sendText(text)
+        return surface.paste(text: text)
+    }
+
+    /// Presses and releases a key on the attached surface, as if typed on a
+    /// hardware keyboard — see ``TerminalSurface/sendKey(_:)``.
+    @discardableResult
+    public func sendKey(_ press: TerminalKeyPress) -> Bool {
+        guard let surface else {
+            TerminalDebugLog.log(.input, "view state key ignored: missing surface")
+            return false
+        }
+        return surface.sendKey(press)
+    }
+
+    /// ``sendKey(_:)`` for a key and its modifiers: `sendKey(.enter)`,
+    /// `sendKey(.c, modifiers: .ctrl)`.
+    @discardableResult
+    public func sendKey(_ key: TerminalKey, modifiers: TerminalInputModifiers = []) -> Bool {
+        sendKey(TerminalKeyPress(key, modifiers: modifiers))
     }
 
     /// Invoke a named Ghostty binding action on the attached surface.
@@ -119,6 +166,40 @@ public final class TerminalViewState: ObservableObject {
     @discardableResult
     public func scrollToRow(_ row: UInt) -> Bool {
         surface?.scrollToRow(row) ?? false
+    }
+
+    /// Whether the application currently owns the mouse (DEC 1000/1002/1003).
+    public var isMouseCaptured: Bool {
+        surface?.isMouseCaptured ?? false
+    }
+
+    public func sendMousePos(
+        x: Double,
+        y: Double,
+        modifiers: TerminalInputModifiers = []
+    ) {
+        surface?.sendMousePos(x: x, y: y, modifiers: modifiers)
+    }
+
+    @discardableResult
+    public func sendMouseButton(
+        state: ghostty_input_mouse_state_e,
+        button: ghostty_input_mouse_button_e,
+        modifiers: TerminalInputModifiers = []
+    ) -> Bool {
+        surface?.sendMouseButton(
+            state: state,
+            button: button,
+            modifiers: modifiers
+        ) ?? false
+    }
+
+    public func sendMouseScroll(
+        x: Double,
+        y: Double,
+        mods: TerminalScrollModifiers = TerminalScrollModifiers(precision: true)
+    ) {
+        surface?.sendMouseScroll(x: x, y: y, mods: mods)
     }
 
     public convenience init() {
