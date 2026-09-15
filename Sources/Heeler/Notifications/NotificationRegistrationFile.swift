@@ -183,6 +183,30 @@ struct NotificationRegistrationFile: Sendable, Equatable {
         }
     }
 
+    /// Writes (or with `nil` removes) `foreground_until` on the matching
+    /// device entry: the foreground lease the plugin's notify hook reads to
+    /// keep an alert off every *other* device while this one is on screen
+    /// (open item 36). Every other field of the entry, and every other
+    /// entry, is left as it was; an unknown token is a no-op.
+    func settingForegroundUntil(
+        _ date: Date?, forDeviceToken deviceToken: String
+    ) -> NotificationRegistrationFile {
+        mutatingDevice(token: deviceToken) { entry in
+            entry.setKey("foreground_until", to: date.map { .string(Self.iso8601String(from: $0)) })
+        }
+    }
+
+    /// The foreground lease instant the entry carrying `token` holds, nil
+    /// when the device is unregistered or the field is missing, null, empty
+    /// or unparseable — all of which mean "no lease", matching the plugin's
+    /// lenient `Date.parse` reading.
+    func foregroundUntil(token: String) -> Date? {
+        guard let entry = devices.first(where: { $0["token"]?.stringValue == token }),
+            let raw = entry["foreground_until"]?.stringValue, !raw.isEmpty
+        else { return nil }
+        return Self.iso8601Date(from: raw)
+    }
+
     /// Drops `live_activity` from the matching device entry, preserving
     /// every other field. An unknown token is a no-op.
     func clearingLiveActivity(forDeviceToken deviceToken: String) -> NotificationRegistrationFile {
@@ -270,6 +294,17 @@ struct NotificationRegistrationFile: Sendable, Equatable {
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter.string(from: date)
+    }
+
+    /// Parses what `iso8601String(from:)` writes; fractional seconds are
+    /// accepted too, since another writer's instant is still a valid lease.
+    private static func iso8601Date(from string: String) -> Date? {
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let date = plain.date(from: string) { return date }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: string)
     }
 
     /// The wire shape: `v` stays an integer end to end (`JSONValue` would

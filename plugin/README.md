@@ -307,6 +307,7 @@ revokes that device.
 | `env`            | string  | `production` or `sandbox`: which APNs environment the token belongs to, following the app build that registered it. |
 | `notify.blocked` | boolean | Send a push when an Agent becomes Blocked. |
 | `notify.done`    | boolean | Send a push when an Agent reaches Done. A missing flag means do not send (fail closed). |
+| `foreground_until` | string | Optional ISO 8601 UTC instant: a **foreground lease**, written by the device while Kelpie is on screen there and refreshed well inside its length. While a Host's clock is before it, that device is foregrounded. Missing, null, empty or unparseable means no lease. The plugin never writes it; it is preserved on rewrite. See [Notify hook](#notify-hook). |
 | `live_activity`  | object  | Optional per-device Live Activity registration. Present while the app is showing this Host's activity. See [Activity hook](#activity-hook). |
 | `live_activity.token` | string | The per-activity APNs push token, lowercase hex. Distinct from the alert `token`. |
 | `live_activity.started_at` | string | ISO 8601 timestamp the app wrote when it started (or rotated) the activity. Ignored by the hook; preserved on rewrite. |
@@ -444,6 +445,15 @@ Anti-noise, in order:
 2. **Dedupe**: the last notified status is recorded per pane under
    `HERDR_PLUGIN_STATE_DIR/notify/`; a same-status repeat sends nothing. A
    *different* status that survives its own debounce re-arms the pane.
+3. **Foreground lease**: if any entry in `notifications.json` (eligible or
+   not) carries a `foreground_until` in the future, the push goes only to
+   those devices — someone is looking at Kelpie, and the other devices must
+   not buzz for what that screen already shows. The foregrounded device still
+   gets its push, which the app turns into an in-app banner. If no such device
+   is eligible for this status, nothing is sent at all. With no live lease
+   anywhere, every eligible device is sent to as before. Live Activity updates
+   are wanted on every device, so the [Activity hook](#activity-hook) does not
+   apply this rule.
 
 Each eligible device gets one `POST https://heeler-apns.bybee.dev/push` by
 default (see `relay/README.md`), carrying the encrypted envelope and an opaque

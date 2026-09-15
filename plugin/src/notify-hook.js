@@ -87,8 +87,15 @@ function readEligibleDevices(configDir, status) {
   }
   if (file?.v !== 1 || !Array.isArray(file.devices)) return [];
   const devices = [];
+  // A device writes foreground_until while Kelpie is on screen there (a
+  // foreground lease, refreshed well inside its length). While any device
+  // holds one, the others must stay silent — see the filter below.
+  const leased = new Set();
+  const now = Date.now();
   for (const entry of file.devices) {
     if (typeof entry?.token !== "string" || entry.token.length === 0) continue;
+    // Missing, null, empty or unparseable all mean no lease (NaN > now is false).
+    if (Date.parse(entry.foreground_until) > now) leased.add(entry.token);
     if (!APNS_ENVIRONMENTS.has(entry.env)) continue;
     // Per the v1 contract a missing notify flag means do not send (fail closed).
     if (entry.notify?.[flag] !== true) continue;
@@ -96,7 +103,12 @@ function readEligibleDevices(configDir, status) {
     if (key?.length !== KEY_BYTES) continue;
     devices.push({ token: entry.token, env: entry.env, key });
   }
-  return devices;
+  // No lease anywhere: everyone eligible hears about it. Otherwise only the
+  // foregrounded devices do (the app shows it in-app), and an intersection
+  // that comes out empty sends nothing: the user is already watching a screen
+  // that shows the Agent. Live Activities are unaffected; see activity-hook.js.
+  if (leased.size === 0) return devices;
+  return devices.filter((device) => leased.has(device.token));
 }
 
 /**

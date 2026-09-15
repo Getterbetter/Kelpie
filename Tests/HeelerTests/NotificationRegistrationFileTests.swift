@@ -290,4 +290,72 @@ struct NotificationRegistrationFileTests {
                 from: file.devices.first?["live_activity"]?["pinned_pane_ids"])
                 == [])
     }
+
+    // MARK: Foreground lease (open item 36)
+
+    @Test func foregroundLeaseIsWrittenOnTheRightEntryOnlyAndPreservesTheRest() throws {
+        let file = try NotificationRegistrationFile.decode(
+            Data(
+                (#"{"v":1,"devices":[{"token":"ffff","key":"kk","env":"production","#
+                    + #""notify":{"blocked":true,"done":true},"extra":"kept"}]}"#).utf8)
+        ).upserting(entry)
+        let until = Date(timeIntervalSince1970: 1_757_923_950)
+
+        let leased = file.settingForegroundUntil(until, forDeviceToken: entry.token.hex)
+
+        let reloaded = try NotificationRegistrationFile.decode(leased.encoded())
+        #expect(reloaded.foregroundUntil(token: entry.token.hex) == until)
+        #expect(reloaded.devices.first?["foreground_until"] == nil)
+        #expect(reloaded.foregroundUntil(token: "ffff") == nil)
+        #expect(reloaded.devices.first?["extra"]?.stringValue == "kept")
+        #expect(reloaded.preferences(token: entry.token.hex) == entry.notify)
+        #expect(reloaded.environment(token: entry.token.hex) == .production)
+        let mine = try #require(
+            reloaded.devices.first { $0["token"]?.stringValue == entry.token.hex })
+        #expect(mine["foreground_until"] == .string("2025-09-15T08:12:30Z"))
+    }
+
+    @Test func clearingTheForegroundLeaseRemovesOnlyThatField() throws {
+        let leased = NotificationRegistrationFile().upserting(entry).settingLiveActivity(
+            token: "abcd", startedAt: Date(timeIntervalSince1970: 0),
+            forDeviceToken: entry.token.hex
+        ).settingForegroundUntil(Date(), forDeviceToken: entry.token.hex)
+
+        let cleared = leased.settingForegroundUntil(nil, forDeviceToken: entry.token.hex)
+
+        #expect(cleared.foregroundUntil(token: entry.token.hex) == nil)
+        #expect(cleared.devices.first?["foreground_until"] == nil)
+        #expect(
+            cleared.liveActivity(forDeviceToken: entry.token.hex)
+                == leased.liveActivity(forDeviceToken: entry.token.hex))
+        #expect(cleared.preferences(token: entry.token.hex) == entry.notify)
+    }
+
+    @Test func anUnregisteredTokenIsANoOpBothWays() {
+        let file = NotificationRegistrationFile().upserting(entry)
+
+        #expect(file.settingForegroundUntil(Date(), forDeviceToken: "missing") == file)
+        #expect(file.settingForegroundUntil(nil, forDeviceToken: "missing") == file)
+        #expect(file.foregroundUntil(token: "missing") == nil)
+    }
+
+    /// Missing, null, empty or unparseable all mean "no lease" — the same
+    /// lenient reading the plugin's `Date.parse` gives them.
+    @Test(arguments: [
+        #"{"v":1,"devices":[{"token":"ffff"}]}"#,
+        #"{"v":1,"devices":[{"token":"ffff","foreground_until":null}]}"#,
+        #"{"v":1,"devices":[{"token":"ffff","foreground_until":""}]}"#,
+        #"{"v":1,"devices":[{"token":"ffff","foreground_until":"soon"}]}"#,
+        #"{"v":1,"devices":[{"token":"ffff","foreground_until":123}]}"#,
+    ])
+    func malformedForegroundLeasesReadAsNone(text: String) throws {
+        let file = try NotificationRegistrationFile.decode(Data(text.utf8))
+        #expect(file.foregroundUntil(token: "ffff") == nil)
+    }
+
+    @Test func aFractionalSecondsInstantStillParses() throws {
+        let file = try NotificationRegistrationFile.decode(
+            Data(#"{"v":1,"devices":[{"token":"ffff","foreground_until":"2025-09-15T08:12:30.500Z"}]}"#.utf8))
+        #expect(file.foregroundUntil(token: "ffff") == Date(timeIntervalSince1970: 1_757_923_950.5))
+    }
 }

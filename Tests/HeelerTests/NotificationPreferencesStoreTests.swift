@@ -773,6 +773,125 @@ struct NotificationPreferencesStoreTests {
         #expect(store.registrationNotes[host.id] == nil)
     }
 
+    // MARK: The foreground lease (open item 36)
+
+    /// A Host's file read as registered for this device: the lease is only
+    /// ever written onto an entry that already exists.
+    private func registeredFile() throws -> Data {
+        try NotificationRegistrationFile().upserting(
+            NotificationDeviceEntry(
+                token: token, key: Data(0..<32), notify: NotificationTriggerPreferences())
+        ).encoded()
+    }
+
+    private func makeLeaseStore(
+        hosts: [Host],
+        transports: [Host.ID: any Transport],
+        refreshInterval: Duration = .seconds(60),
+        center: NotificationCenter
+    ) -> NotificationPreferencesStore {
+        let store = NotificationPreferencesStore(
+            transports: ScriptedTransportProvider(transports: transports),
+            deviceToken: { self.token },
+            defaults: UserDefaults(suiteName: "lease-\(UUID().uuidString)") ?? .standard,
+            ceremony: NotificationRegistrationCeremony(keys: keys),
+            foregroundCenter: center,
+            foregroundRefreshInterval: refreshInterval)
+        store.setHosts(hosts)
+        return store
+    }
+
+    /// While this device is on screen its lease holds the plugin's alerts
+    /// off every *other* device; an unregistered Host has no entry to hang
+    /// one on, and backgrounding takes it away again.
+    @Test func foregroundingLeasesEveryRegisteredHostAndBackgroundingClearsIt() async throws {
+        let center = NotificationCenter()
+        let unregistered = Host(name: "mini", address: "10.0.0.3", username: "z")
+        let registered = ScriptedTransport()
+        await registered.setNotificationRegistration(try registeredFile())
+        let bare = ScriptedTransport()
+        let store = makeLeaseStore(
+            hosts: [host, unregistered],
+            transports: [host.id: registered, unregistered.id: bare],
+            center: center)
+        let before = Date()
+
+        center.post(name: NotificationPreferencesStore.foregroundNotification, object: nil)
+
+        try await waitUntil("foregrounding should write a lease") {
+            await leaseOnHost(registered) != nil
+        }
+        let lease = try #require(await leaseOnHost(registered))
+        #expect(lease > before)
+        #expect(lease <= before.addingTimeInterval(180))
+        #expect(await leaseOnHost(bare) == nil)
+
+        center.post(name: NotificationPreferencesStore.backgroundNotification, object: nil)
+
+        try await waitUntil("backgrounding should clear the lease") {
+            await leaseOnHost(registered) == nil
+        }
+        #expect(store.hosts.count == 2)
+    }
+
+    /// The loop is what keeps a 180 s lease alive through a long session.
+    /// It is counted at the read rather than the write: the lease is an ISO
+    /// instant to the second, so two ticks 50 ms apart produce the same
+    /// string and the ceremony rightly writes nothing.
+    @Test func theLeaseLoopKeepsRewritingWhileTheAppIsActive() async throws {
+        let center = NotificationCenter()
+        let transport = ScriptedTransport()
+        await transport.setNotificationRegistration(try registeredFile())
+        let store = makeLeaseStore(
+            hosts: [host], transports: [host.id: transport],
+            refreshInterval: .milliseconds(50), center: center)
+
+        center.post(name: NotificationPreferencesStore.foregroundNotification, object: nil)
+
+        try await waitUntil("foregrounding should write a lease") {
+            await leaseOnHost(transport) != nil
+        }
+        let readsAfterFirstLease = await transport.notificationRegistrationReads
+
+        try await waitUntil("the refresh loop should keep rereading the file") {
+            await transport.notificationRegistrationReads >= readsAfterFirstLease + 2
+        }
+        let lease = try #require(await leaseOnHost(transport))
+        #expect(lease > Date())
+        // Keeps the store — and so its loop — alive to the end.
+        #expect(store.hosts.count == 1)
+    }
+
+    /// Best effort: a Host that cannot be written to costs the others
+    /// nothing, and nothing is surfaced to the user.
+    @Test func aHostThatCannotBeWrittenLeavesTheOthersLeased() async throws {
+        let center = NotificationCenter()
+        let second = Host(name: "mini", address: "10.0.0.3", username: "z")
+        let failing = ScriptedTransport()
+        await failing.setNotificationRegistration(try registeredFile())
+        await failing.setNotificationRegistrationWriteFailure(
+            .writeFailed(detail: "read-only"))
+        let healthy = ScriptedTransport()
+        await healthy.setNotificationRegistration(try registeredFile())
+        let store = makeLeaseStore(
+            hosts: [host, second],
+            transports: [host.id: failing, second.id: healthy],
+            center: center)
+
+        await store.appDidBecomeActive()
+
+        #expect(await leaseOnHost(healthy) != nil)
+        #expect(await leaseOnHost(failing) == nil)
+        #expect(store.registrationNotes.isEmpty)
+    }
+
+    private func leaseOnHost(_ transport: ScriptedTransport) async -> Date? {
+        guard let data = await transport.notificationRegistration,
+            let file = try? NotificationRegistrationFile.decode(data)
+        else { return nil }
+        return file.foregroundUntil(token: token.hex)
+    }
+
     /// Polls until `condition` holds, yielding so the store's tasks progress.
     private func waitUntil(
         _ comment: Comment, timeout: Duration = .seconds(2),

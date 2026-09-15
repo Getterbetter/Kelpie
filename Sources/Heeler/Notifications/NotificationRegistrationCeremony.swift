@@ -125,6 +125,24 @@ struct NotificationRegistrationCeremony: Sendable {
         try await transport.replaceNotificationRegistration(try updated.encoded())
     }
 
+    /// Writes (or with `nil` clears) this device's foreground lease on one
+    /// Host, so the notify hook holds alerts off the other devices while
+    /// this one is on screen (open item 36). Best effort by design: an
+    /// absent file or an unregistered device is a no-op, and a lease that is
+    /// already the one on file writes nothing — the refresh loop runs every
+    /// minute and must not rewrite the file for nothing.
+    func setForegroundLease(
+        until date: Date?,
+        deviceToken: APNSDeviceToken,
+        over transport: any Transport
+    ) async throws {
+        guard let data = try await transport.readNotificationRegistration() else { return }
+        let file = try NotificationRegistrationFile.decode(data)
+        let updated = file.settingForegroundUntil(date, forDeviceToken: deviceToken.hex)
+        guard updated != file else { return }
+        try await transport.replaceNotificationRegistration(try updated.encoded())
+    }
+
     /// Drops `live_activity` from this device's entry, leaving the rest of
     /// the object (alert token, key, notify flags, unknown fields) intact.
     /// An unregistered device is a no-op, matching `remove`.
