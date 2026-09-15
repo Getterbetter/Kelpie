@@ -168,17 +168,20 @@ struct HerdrClientRootView: View {
         // A different Host is a different attach: rebuild rather than
         // repoint the pipeline.
         .id(host.id)
-        // Top-trailing beside herdr's tab strip on a wide window; on a phone
-        // herdr's mobile header puts its own "switch" button in that corner,
-        // so the capsule moves to the bottom corner, where the mobile layout
-        // draws nothing. The keyboard covers it while typing, by design.
+        // The bottom corner at every width. It began top-trailing over the
+        // right end of herdr's tab strip on the iPad, and moved to the
+        // bottom on phones in round 11 because herdr's mobile header puts
+        // its own "switch" button up there; in round 19 the iPad followed
+        // (Open item 37: "it blocks some tab actions", the tab strip's
+        // right end being herdr's, not empty). The bottom corner is where
+        // neither of herdr's layouts draws anything to tap. The keyboard
+        // covers it while typing, by design.
         .onPreferenceChange(HerdrComposerBarHeightKey.self) { height in
             Task { @MainActor in composerBarHeight = height }
         }
-        .overlay(alignment: isCompactWidth ? .bottomTrailing : .topTrailing) {
-            // Above the composer field when there is one; the top corner
-            // never meets it.
-            menuButton.padding(.bottom, isCompactWidth ? composerBarHeight : 0)
+        .overlay(alignment: .bottomTrailing) {
+            // Above the composer field when there is one.
+            menuButton.padding(.bottom, composerBarHeight)
         }
         // The foreground Blocked/Done banner (#77) is drawn wherever the app's
         // root is; ConsoleView keeps drawing its own for when the cover is up.
@@ -423,11 +426,10 @@ struct HerdrClientRootView: View {
         )
     }
 
-    /// Still sized to sit over the empty right end of herdr's own tab strip,
-    /// but labelled: this is the only way to Hosts, Agents and Settings, and
-    /// it has to be findable without a pointer resting on it. Naming the
-    /// current Host earns the width — it says which machine is on screen as
-    /// well as where to go to change it.
+    /// One capsule in the bottom corner, labelled: this is the only way to
+    /// Hosts, Agents and Settings, and it has to be findable without a
+    /// pointer resting on it. Naming the current Host earns the width — it
+    /// says which machine is on screen as well as where to go to change it.
     private var menuButton: some View {
         Menu {
             if hosts.hosts.count > 1 {
@@ -517,10 +519,10 @@ struct HerdrClientRootView: View {
                 // …while the tap target is padded out to the 44 pt HIG
                 // minimum without the capsule growing (screen #7). This is
                 // the only route to Hosts, Agents, Settings and Reconnect,
-                // it is ~28 pt tall on its own, and on a phone it sits in
-                // the bottom corner over herdr's mobile surface — where a
-                // miss is forwarded to the PTY as a click. The rectangle
-                // swallows that margin instead.
+                // it is ~28 pt tall on its own, and it sits in the bottom
+                // corner over herdr's surface — where a miss is forwarded to
+                // the PTY as a click. The rectangle swallows that margin
+                // instead.
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
