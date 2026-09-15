@@ -282,3 +282,7 @@ Read as: he ran the unit tests himself on the rebased build and they passed; `ke
 Anthony (2026-09-15, after the round-16 close): "can you run the unit tests? ipad is plugged in."
 
 Read as: run the full `HeelerTests` suite on the iPad against the rebased head here, in this session, and report the numbers; the result goes into [[Testing status]].
+
+Anthony (2026-09-15, after the hand-test list): "all tests passed. one other thing to add to next time: when the onscreen keyboard appears for the ipad, it doesnt make space for it in the terminal like it does on the iphone. we'll pick that up in the next session, close this one out"
+
+Read as: the sixteen hand checks on the rebased build pass on the iPad, so Open item 33 closes and items 23 and 28 stay confirmed after the rebase (item 32, hardware Shift+Tab, was expected to fail and stays open). New Open item 34: on the iPad the terminal does not inset itself for the on-screen keyboard the way the iPhone does. Session over; the next one starts from `resume.md`.
