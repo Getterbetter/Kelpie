@@ -19,7 +19,12 @@ IOS_WATCH_DEBOUNCE ?= 1s
 
 # First physical iPhone / iPad paired with devicectl; override with
 # `make install DEVICE=<uuid>` or `make install-ipad DEVICE_IPAD=<uuid>`.
+# Kelpie: `make install` falls back to the first physical device of any kind
+# when no iPhone is paired, so a Mac with only the iPad still installs.
 DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/iPhone.*physical[a-z]* *$$/ { for (i = 1; i <= NF; i++) if ($$i ~ /^[0-9A-Fa-f-]{36}$$/) { print $$i; exit } }')
+ifeq ($(strip $(DEVICE)),)
+DEVICE := $(shell xcrun devicectl list devices 2>/dev/null | awk '/physical[a-z]* *$$/ { for (i = 1; i <= NF; i++) if ($$i ~ /^[0-9A-Fa-f-]{36}$$/) { print $$i; exit } }')
+endif
 DEVICE_IPAD ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/iPad.*physical[a-z]* *$$/ { for (i = 1; i <= NF; i++) if ($$i ~ /^[0-9A-Fa-f-]{36}$$/) { print $$i; exit } }')
 
 .PHONY: help generate resolve build test test-app test-ipad test-ci-app build-device install install-ipad watch-ios-device sim sim-ipad build-sim sim-id archive upload testflight bump publish clean check-device check-device-ipad ssh-artifacts verify-ssh-artifacts
