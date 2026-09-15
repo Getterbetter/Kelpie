@@ -255,6 +255,12 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | `3aa4e6f` | **Makefile: `make install` falls back to any physical device** — from review 3: upstream made it iPhone-only. |
 | (this commit) | **docs: round 16 close-out** — this write-up, `resume.md`, `Decisions`, `Testing status`, Open items 16, 17, 21, 25 ticked and 32, 33 added, the composer design for item 30 with Anthony's four decisions, CLAUDE.md and ADR 0017 naming `HeelerAppModel`, the Reddit watch note corrected (the job has run hourly since 2026-09-12), `CHANGELOG.md` entry. |
 
+## Side task — disk cleanup and the fixed build path — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
+
 ## Round 14b — the Tailscale hang, taps on herdr's screen — 2026-09-13
 
 | Commit | |

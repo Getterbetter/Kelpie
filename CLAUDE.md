@@ -14,6 +14,7 @@ The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen
 
 - The iOS simulator does not run reliably on this Mac (not enough RAM; launches wedge with "Mach error -308, server died"). Do not spend time on it.
 - Build, install and launch on Anthony's paired 11-inch iPad Pro (or the iPhone) with the exact xcodebuild and `devicectl` recipe in `KelpieVault/Build and deploy.md`. Always pass `-clonedSourcePackagesDirPath` and `-derivedDataPath`, log to a file and read only the tail; two builds sharing one derived-data path lock each other out.
+- **Builds go to one fixed path, never the session scratchpad.** Main-checkout builds use `S=~/Library/Caches/kelpie-build` (`$S/kelpie-dd`, `$S/kelpie-spm`) in every session, so there is only ever one copy and it stays warm. Every session's scratchpad is a new folder under `/private/tmp/claude-501/` that nothing ever deletes: building there, one folder per session and per worker, filled the disk with 22 GB of dead derived data by 2026-09-15. A build that cannot use the fixed path (a worktree, a `/delegate` worker, or a second build while another session's holds the lock) builds in the scratchpad and deletes its `-derivedDataPath`, `-clonedSourcePackagesDirPath` and `.xcresult` folders as soon as it has installed or reported. Worker specs must say so. After a re-vendor, delete `$S/kelpie-dd` too.
 - Unit tests that need a host app run on the device too; a simulator destination only if one happens to boot.
 
 ## Build quirks
@@ -33,6 +34,7 @@ The vault is the durable record; a round is not finished until it is reconciled.
 - `KelpieVault/Feedback log.md`: Anthony's words verbatim, recorded before acting on them.
 - Facts about herdr, Heeler upstream, the build or the mini go in the matching note (`herdr.md`, `Heeler upstream.md`, `Build and deploy.md`), not only in chat.
 - Commit the vault with the code it describes. Specs, reviews and worker reports go under `KelpieVault/Archive/round<n>/`.
+- No build output is left behind: the round's scratchpad derived data, SPM clones, `.xcresult` bundles and worktrees are deleted, and `du -sh /private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie` reads megabytes, not gigabytes.
 
 This is enforced, not only asked for. `scripts/check-round-closeout.sh` runs from the `.githooks/pre-push` hook (enable it once per checkout with `make hooks`) and on demand as `make closeout-check`. It refuses a push whose branch no longer descends from the upstream base commit, and — when the push carries `kelpie` — a push whose `resume.md` claims a round that `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md` do not write up, or an `Open items.md` with two items sharing a number. **A `git filter-repo` must always be followed by re-parenting onto upstream** (`git rebase --onto <upstream base> <rewritten twin> kelpie`): the purge rewrites the shared history too, so the branch is left with no common commit with upstream and every later rebase would replay upstream's own commits. That is the ancestry check's whole reason to exist.
 
