@@ -79,6 +79,7 @@ struct HerdrClientView: View {
         screen.isLocalInputEnabled = false
         screen.keyboardControl = nil
         screen.composerControl = nil
+        screen.onKeyboardHandoffEnded = nil
         screen.claimsKeyboard = nil
         screen.onSizeChanged = nil
         screen.onSend = nil

@@ -271,6 +271,13 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
 
+## Round 18 — the composer text field — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| `a90ee7d` | **Root screen: assisted typing on the on-screen keyboard (Open item 30, Stage 0)** — a `TerminalTextInputStyle.assisted` (autocorrect, spell check, predictions on; capitalisation, smart quotes and dashes off) on the root screen's terminal; installed on the iPad and the iPhone. Failed the device check ("teh went to yeh") and was removed by the next commit. |
+| `dabbc0f` | **Root screen: a composer text field for the on-screen keyboard (Open item 30)** — new `TerminalComposer.swift`: `TerminalComposerMirror` (the prefix diff: DELs plus the new tail, CR on submit, controls sanitised), `TerminalComposerControl` (the persisted toggle `kelpie.composer-enabled`, availability, routing, the inset handoff) and `TerminalComposerTextView`/`TerminalComposerView` (a `UITextView` riding the terminal's own key bar as its accessory). `TerminalKeyBar` gains the leading toggle key and two handler methods with defaults; `HeelerTerminalView` gains `composerControl`, `sharedKeyBar`, `sendComposerBytes`, refuses first responder while the composer is active and redirects `requestKeyboard` to the field; `HerdrClientView` mounts the field under the terminal. 14 tests in `TerminalComposerTests`. `CHANGELOG.md` entry. |
+
 ## Side task — no standing push toward `/delegate` — 2026-09-15
 
 | Commit | |

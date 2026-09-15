@@ -330,3 +330,7 @@ Read as: the Stage 0 build goes on both devices before he checks it; the iPad al
 Anthony (2026-09-15, round 18, Stage 0 device check): "the tests failed, the auto correct is really bad, teh went to yeh and a general typing test yielded auto corrects that were inaccurate. also, can you add for next session: notifications shouldnt appear on devices if one device is foregrounded, i.e. no iphone notifications if ipad is foregrounded"
 
 Read as: Stage 0 (autocorrect traits on the raw terminal path) fails — iOS corrects badly against the terminal's one-line shadow document, so the raw path goes back to `.terminal` and the composer is built as designed; and a new Open item for a later session: a notification should not reach the iPhone while the iPad has Kelpie foregrounded (and vice versa).
+
+Anthony (2026-09-15, round 18, while the composer review ran): "something for the next session: the hosts button in the ipad may need to move to the bottom as it blocks some tab actions"
+
+Read as: a new Open item for a later session; the floating menu button at the top right of the root screen sits over herdr's tab bar and blocks taps on tab actions there, so it may need to live at the bottom edge instead.

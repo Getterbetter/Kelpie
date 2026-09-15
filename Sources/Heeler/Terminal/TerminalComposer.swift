@@ -107,6 +107,11 @@ final class TerminalComposerControl {
         didSet {
             guard terminal !== oldValue else { return }
             mirror.reset()
+            // The field's accessory is the terminal's bar, and UIKit caches
+            // it: a field that holds the keyboard across a pipeline
+            // replacement would otherwise keep the retired terminal's dead
+            // pill until the keyboard next came up.
+            if field?.isFirstResponder == true { field?.reloadInputViews() }
         }
     }
     /// The mounted field, if the composer is on screen.
@@ -188,6 +193,26 @@ final class TerminalComposerControl {
     }
 
     var fieldHoldsKeyboard: Bool { field?.isFirstResponder == true }
+
+    /// A control key from the bar is about to go to the PTY. Esc and the
+    /// Ctrl chords change or clear the remote line in ways the field cannot
+    /// see (Ctrl-C empties Claude Code's input; Esc interrupts), so the field
+    /// is cleared and the mirror starts over: whatever is typed next is
+    /// appended to whatever the remote kept, which is right either way. Tab
+    /// and the arrows leave both alone — a completion or a cursor move keeps
+    /// the field's text on the remote line, and a later edit still applies.
+    func controlKeyWillBeSent(_ key: TerminalControlKey) {
+        guard isActive else { return }
+        switch key {
+        case .escape, .controlC, .controlD, .controlZ, .enter:
+            mirror.reset()
+            field?.text = ""
+            field?.refreshPlaceholder()
+        case .tab, .shiftTab, .home, .end, .pageUp, .pageDown, .up, .down, .left, .right,
+            .backspace:
+            break
+        }
+    }
 
     /// The key bar's symbol keys, typed into the field while it is active.
     /// Returns false when the composer is not the place for the text.
@@ -289,6 +314,19 @@ final class TerminalComposerTextView: UITextView {
 
     func refreshPlaceholder() {
         placeholder.isHidden = !text.isEmpty
+    }
+
+    /// An armed sticky Ctrl or Alt makes the next key a chord, and a chord
+    /// is the terminal's: `c` after Ctrl is an interrupt, not a letter in the
+    /// field. The terminal's own `insertText` applies and consumes it.
+    override func insertText(_ text: String) {
+        if let terminal = control?.terminal, terminal.hasActiveStickyModifiers,
+            text.count == 1, markedTextRange == nil
+        {
+            terminal.insertText(text)
+            return
+        }
+        super.insertText(text)
     }
 
     /// Backspace with nothing in the field reaches the remote line.
@@ -394,7 +432,8 @@ struct TerminalComposerView: UIViewRepresentable {
             replacementText text: String
         ) -> Bool {
             guard text == "\n" else { return true }
-            guard textView.markedTextRange == nil else { return false }
+            // Return over an inline prediction accepts it first.
+            if textView.markedTextRange != nil { textView.unmarkText() }
             submit(textView)
             return false
         }

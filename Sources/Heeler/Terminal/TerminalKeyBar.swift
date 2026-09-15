@@ -559,6 +559,7 @@ private final class TerminalKeyBarPillView: UIView {
 /// way it applies to anything else the user types.
 extension HeelerTerminalView: TerminalKeyBarHandler {
     func keyBar(_ bar: TerminalKeyBar, didPress key: TerminalControlKey) {
+        composerControl?.controlKeyWillBeSent(key)
         sendControlKey(key)
     }
 

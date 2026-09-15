@@ -106,12 +106,29 @@ struct TerminalComposerControlTests {
         #expect(control.isEnabled)
     }
 
-    @Test func keyboardClaimIsConsumedOnce() throws {
+    @Test func enablingWithoutATerminalKeyboardClaimsNothing() throws {
         let control = TerminalComposerControl(defaults: try makeDefaults())
-        // No terminal holds the keyboard, so enabling claims nothing.
         control.toggle()
         #expect(!control.consumeKeyboardClaim())
-        #expect(!control.consumeKeyboardClaim())
+    }
+
+    @Test func escapeAndControlChordsStartTheLineOver() throws {
+        let control = TerminalComposerControl(defaults: try makeDefaults())
+        control.setEnabled(true)
+        control.fieldDidChange("half a line")
+        control.controlKeyWillBeSent(.controlC)
+        #expect(control.mirror.committed == "")
+        // Tab and the arrows leave the line as the field describes it.
+        control.fieldDidChange("ls /ho")
+        control.controlKeyWillBeSent(.tab)
+        #expect(control.mirror.committed == "ls /ho")
+    }
+
+    @Test func controlKeysAreIgnoredWhileTheComposerIsOff() throws {
+        let control = TerminalComposerControl(defaults: try makeDefaults())
+        control.fieldDidChange("kept")
+        control.controlKeyWillBeSent(.escape)
+        #expect(control.mirror.committed == "kept")
     }
 
     @Test func submitStartsTheLineOver() throws {
