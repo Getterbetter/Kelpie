@@ -325,4 +325,60 @@ struct NotificationRegistrationCeremonyTests {
 
         #expect(await transport.replacedNotificationRegistrations.isEmpty)
     }
+
+    // MARK: Foreground lease (open item 36)
+
+    @Test func foregroundLeaseRoundTripsThroughTheHostsFile() async throws {
+        let transport = ScriptedTransport()
+        try await ceremony.register(
+            hostID: hostID, hostName: "mac-studio", deviceToken: token, over: transport)
+        let until = Date(timeIntervalSince1970: 1_757_923_950)
+
+        try await ceremony.setForegroundLease(
+            until: until, deviceToken: token, over: transport)
+
+        var file = try NotificationRegistrationFile.decode(
+            await transport.notificationRegistration)
+        #expect(file.foregroundUntil(token: token.hex) == until)
+        #expect(file.preferences(token: token.hex) == NotificationTriggerPreferences())
+
+        try await ceremony.setForegroundLease(until: nil, deviceToken: token, over: transport)
+
+        file = try NotificationRegistrationFile.decode(await transport.notificationRegistration)
+        #expect(file.foregroundUntil(token: token.hex) == nil)
+        #expect(file.containsDevice(token: token.hex))
+    }
+
+    /// The refresh loop runs every minute; rewriting an unchanged file each
+    /// time would be an SFTP replace for nothing.
+    @Test func anUnchangedLeaseWritesNothing() async throws {
+        let transport = ScriptedTransport()
+        try await ceremony.register(
+            hostID: hostID, hostName: "mac-studio", deviceToken: token, over: transport)
+        let until = Date(timeIntervalSince1970: 1_757_923_950)
+        try await ceremony.setForegroundLease(until: until, deviceToken: token, over: transport)
+        let writes = await transport.replacedNotificationRegistrations.count
+
+        try await ceremony.setForegroundLease(until: until, deviceToken: token, over: transport)
+        try await ceremony.setForegroundLease(until: nil, deviceToken: token, over: transport)
+        try await ceremony.setForegroundLease(until: nil, deviceToken: token, over: transport)
+
+        #expect(await transport.replacedNotificationRegistrations.count == writes + 1)
+    }
+
+    @Test func anAbsentFileOrUnregisteredDeviceIsANoOp() async throws {
+        let empty = ScriptedTransport()
+
+        try await ceremony.setForegroundLease(until: Date(), deviceToken: token, over: empty)
+
+        #expect(await empty.replacedNotificationRegistrations.isEmpty)
+
+        let foreign = ScriptedTransport()
+        await foreign.setNotificationRegistration(
+            Data(#"{"v":1,"devices":[{"token":"ffff","key":"kk","env":"production"}]}"#.utf8))
+
+        try await ceremony.setForegroundLease(until: Date(), deviceToken: token, over: foreign)
+
+        #expect(await foreign.replacedNotificationRegistrations.isEmpty)
+    }
 }

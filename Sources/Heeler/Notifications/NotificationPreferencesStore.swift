@@ -197,7 +197,17 @@ final class NotificationPreferencesStore {
     /// Removed in `deinit`; the app's store lives for the process, but a
     /// test's must not keep answering after it goes.
     @ObservationIgnored private nonisolated(unsafe) var foregroundObserver: (any NSObjectProtocol)?
+    @ObservationIgnored private nonisolated(unsafe) var backgroundObserver: (any NSObjectProtocol)?
     @ObservationIgnored private nonisolated let foregroundCenter: NotificationCenter
+    /// How long a written foreground lease stays valid on the Host, and how
+    /// often it is rewritten while the app is active. The refresh is well
+    /// inside the lease so one missed rewrite — a Host that was briefly
+    /// unreachable — still holds it; injectable so a test does not wait
+    /// minutes for the second tick.
+    @ObservationIgnored private let foregroundLease: Duration
+    @ObservationIgnored private let foregroundRefreshInterval: Duration
+    /// The rewrite loop, cancelled the moment the app leaves the foreground.
+    @ObservationIgnored private nonisolated(unsafe) var leaseRefreshTask: Task<Void, Never>?
 
     private static let log = Logger(
         subsystem: "dev.bybee.heeler", category: "notification-registration")
@@ -208,14 +218,24 @@ final class NotificationPreferencesStore {
     /// another device rewriting a flag, a Host restored from a backup.
     static let foregroundNotification = UIApplication.didBecomeActiveNotification
 
+    /// The app actually leaving the screen. Deliberately not
+    /// `willResignActive`: Control Centre, the app switcher and Split View
+    /// all resign active while the user is still looking at Kelpie, and
+    /// dropping the lease then would let the other devices buzz (item 36).
+    static let backgroundNotification = UIApplication.didEnterBackgroundNotification
+
     init(
         transports: any NotificationTransportProvider,
         deviceToken: @escaping @MainActor () -> APNSDeviceToken?,
         relayBaseURL: @escaping @MainActor () -> URL? = { nil },
         defaults: UserDefaults = .standard,
         ceremony: NotificationRegistrationCeremony = NotificationRegistrationCeremony(),
-        foregroundCenter: NotificationCenter = .default
+        foregroundCenter: NotificationCenter = .default,
+        foregroundLease: Duration = .seconds(180),
+        foregroundRefreshInterval: Duration = .seconds(60)
     ) {
+        self.foregroundLease = foregroundLease
+        self.foregroundRefreshInterval = foregroundRefreshInterval
         self.transports = transports
         self.deviceToken = deviceToken
         self.relayBaseURL = relayBaseURL
@@ -234,18 +254,98 @@ final class NotificationPreferencesStore {
             // the process and never run `deinit`.
             Task { @MainActor in await self?.appDidBecomeActive() }
         }
+        backgroundObserver = foregroundCenter.addObserver(
+            forName: Self.backgroundNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.appDidEnterBackground() }
+        }
     }
 
     deinit {
         if let foregroundObserver {
             foregroundCenter.removeObserver(foregroundObserver)
         }
+        if let backgroundObserver {
+            foregroundCenter.removeObserver(backgroundObserver)
+        }
+        leaseRefreshTask?.cancel()
     }
 
-    /// Re-read, then re-register anything the read proved stale.
+    /// Re-read, then re-register anything the read proved stale, then claim
+    /// the foreground lease so the other devices stay quiet while this one
+    /// is on screen.
     func appDidBecomeActive() async {
         await refresh()
         await reregisterChangedDevices()
+        await writeForegroundLease(Date().addingTimeInterval(foregroundLease.timeInterval))
+        startLeaseRefreshLoop()
+    }
+
+    /// The app left the screen: stop refreshing and take the lease off every
+    /// Host, so the other devices get their pushes again. The clear runs
+    /// inside a background-task assertion because the SFTP write needs a few
+    /// seconds iOS would otherwise not give a suspending app; a clear that
+    /// does not land is not fatal — the lease expires on its own inside
+    /// `foregroundLease`.
+    func appDidEnterBackground() async {
+        leaseRefreshTask?.cancel()
+        leaseRefreshTask = nil
+        let assertion = UIApplication.shared.beginBackgroundTask(withName: "foreground-lease")
+        await writeForegroundLease(nil)
+        if assertion != .invalid {
+            UIApplication.shared.endBackgroundTask(assertion)
+        }
+    }
+
+    /// Rewrites the lease every `foregroundRefreshInterval` until cancelled.
+    /// A Host registered after the app became active — the Settings toggle —
+    /// picks its lease up on the next tick; no special case.
+    private func startLeaseRefreshLoop() {
+        leaseRefreshTask?.cancel()
+        let interval = foregroundRefreshInterval
+        let lease = foregroundLease.timeInterval
+        leaseRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: interval) } catch { return }
+                guard let self else { return }
+                await self.writeForegroundLease(Date().addingTimeInterval(lease))
+            }
+        }
+    }
+
+    /// Writes (or with `nil` clears) the lease on every Host, each on its
+    /// own connection and all at once. Every Host rather than the ones whose
+    /// last read said "registered": on a cold launch the Console connects
+    /// seconds after the app became active, so that read said "unreachable"
+    /// and the lease would not have been written until the next foreground.
+    /// The ceremony reads the file first and is a no-op for a device with
+    /// no entry, so an unregistered Host costs one SFTP read a minute.
+    /// Failures are logged and otherwise ignored: nothing the user did went
+    /// wrong, the next tick tries again, and a lease nobody could write only
+    /// costs the other devices a notification they would have had anyway.
+    private func writeForegroundLease(_ date: Date?) async {
+        guard let token = deviceToken() else { return }
+        let leased = hosts.map(\.id)
+        guard !leased.isEmpty else { return }
+        let ceremony = ceremony
+        let transports = transports
+        let log = Self.log
+        await withTaskGroup(of: Void.self) { group in
+            for hostID in leased {
+                group.addTask {
+                    do {
+                        try await transports.withNotificationTransport(for: hostID) { transport in
+                            try await ceremony.setForegroundLease(
+                                until: date, deviceToken: token, over: transport)
+                        }
+                    } catch {
+                        log.info(
+                            "foreground lease write failed: \(String(describing: error), privacy: .public)"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     /// Aligns with the Host catalog; a removed Host drops its state, its
@@ -635,3 +735,12 @@ final class NotificationPreferencesStore {
 }
 
 extension NotificationPreferencesStore: RegistrationFailureRecording {}
+
+extension Duration {
+    /// Seconds as a `TimeInterval`, so a lease length expressed as a
+    /// `Duration` can be added to a `Date` without a second unit.
+    var timeInterval: TimeInterval {
+        let (seconds, attoseconds) = components
+        return TimeInterval(seconds) + TimeInterval(attoseconds) / 1e18
+    }
+}

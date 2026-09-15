@@ -520,6 +520,113 @@ suite("notify-hook: triggers and preferences", () => {
   });
 });
 
+// A device writes foreground_until while Kelpie is on screen there; no other
+// device should buzz meanwhile (open item 36).
+suite("notify-hook: foreground lease", () => {
+  const leaseAt = (msFromNow) => new Date(Date.now() + msFromNow).toISOString();
+
+  test("a live lease on one device silences the others", async () => {
+    await startFakeRelay();
+    writeConfig();
+    writeRegistration([
+      device({ foreground_until: leaseAt(120_000) }),
+      device({ token: TOKEN_B, key: KEY_B }),
+    ]);
+    writeHerdrStub({ status: "blocked" });
+
+    const result = await runHook(statusEvent("blocked"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      relay.requests.map((r) => r.body.token),
+      [TOKEN_A],
+    );
+  });
+
+  test("an expired lease is no lease: every eligible device is sent to", async () => {
+    await startFakeRelay();
+    writeConfig();
+    writeRegistration([
+      device({ foreground_until: leaseAt(-5_000) }),
+      device({ token: TOKEN_B, key: KEY_B }),
+    ]);
+    writeHerdrStub({ status: "blocked" });
+
+    const result = await runHook(statusEvent("blocked"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      relay.requests.map((r) => r.body.token).sort(),
+      [TOKEN_A, TOKEN_B],
+    );
+  });
+
+  test("a malformed or null lease is no lease", async () => {
+    for (const value of ["soon", null]) {
+      await startFakeRelay();
+      writeConfig();
+      writeRegistration([
+        device({ foreground_until: value }),
+        device({ token: TOKEN_B, key: KEY_B }),
+      ]);
+      writeHerdrStub({ status: "blocked" });
+      rmSync(join(stateDir, "notify"), { recursive: true, force: true });
+
+      const result = await runHook(statusEvent("blocked"));
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(
+        relay.requests.map((r) => r.body.token).sort(),
+        [TOKEN_A, TOKEN_B],
+        `foreground_until: ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  test("a lease held by a device that is not eligible sends nothing at all", async () => {
+    await startFakeRelay();
+    writeConfig();
+    writeRegistration([
+      device({ notify: { blocked: true, done: false }, foreground_until: leaseAt(120_000) }),
+      device({ token: TOKEN_B, key: KEY_B, notify: { blocked: true, done: true } }),
+    ]);
+    writeHerdrStub({ status: "done" });
+
+    const result = await runHook(statusEvent("done"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(relay.requests.length, 0);
+    // Nothing was delivered, so the pane's dedupe state must stay unwritten.
+    assert.equal(existsSync(join(stateDir, "notify")), false);
+  });
+
+  test("pruning on a 410 preserves another device's lease", async () => {
+    await startFakeRelay((request) =>
+      request.body.token === TOKEN_A
+        ? { status: 410, body: { reason: "Unregistered" } }
+        : { status: 200, body: { apnsId: "x" } },
+    );
+    writeConfig();
+    const lease = leaseAt(120_000);
+    writeRegistration([
+      device({ foreground_until: lease }),
+      device({ token: TOKEN_B, key: KEY_B, foreground_until: lease }),
+    ]);
+    writeHerdrStub({ status: "blocked" });
+
+    const result = await runHook(statusEvent("blocked"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(relay.requests.length, 2);
+    const file = readRegistration();
+    assert.deepEqual(
+      file.devices.map((d) => d.token),
+      [TOKEN_B],
+    );
+    assert.equal(file.devices[0].foreground_until, lease);
+  });
+});
+
 suite("notify-hook: dedupe", () => {
   test("a same-status repeat does not post again", async () => {
     await startFakeRelay();

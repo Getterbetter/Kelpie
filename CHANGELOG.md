@@ -64,6 +64,11 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ## [Unreleased]
 
+### Changed
+
+- Agent Notifications stay off a device while another device has Kelpie in
+  the foreground.
+
 ## [0.1.8] - 2026-09-13
 
 ### Added
