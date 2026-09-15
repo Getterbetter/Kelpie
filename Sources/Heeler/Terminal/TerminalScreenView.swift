@@ -2783,33 +2783,39 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// gone out. See ``isSuppressingAltEcho(forUsage:)``.
     private var claimedAltCombos: Set<TerminalHardwareKeyMapping.Key> = []
 
-    /// Escape and Cmd+`.` as key commands. As a `UITextInput` first responder
-    /// this view loses both to iPadOS's text machinery before `pressesBegan`
-    /// runs, exactly as it loses Ctrl chords — which the vendored package
+    /// Cmd+`.` as a key command. As a `UITextInput` first responder this view
+    /// loses it to iPadOS's text machinery before `pressesBegan` runs, exactly
+    /// as it loses Ctrl chords and a bare Escape — which the vendored package
     /// already claims back with priority key commands. Take `super`'s list so
-    /// those Ctrl commands survive, and add these two on the same terms.
+    /// those survive, and add ⌘`.`, which the package has no entry for, on the
+    /// same terms.
+    ///
+    /// Bare Escape is deliberately **not** added here. The package registers
+    /// it (`UITerminalView+KeyCommands`), withholds it while text is marked so
+    /// an input method can still cancel a composition with it, and dedupes it
+    /// against `pressesBegan` with its own per-runloop claim. A second command
+    /// on a second claim set would let one press send Escape twice and would
+    /// take Escape from the IME mid-composition.
     override var keyCommands: [UIKeyCommand]? {
         var commands = super.keyCommands ?? []
-        commands.append(contentsOf: Self.escapeKeyCommands)
+        commands.append(Self.commandPeriodKeyCommand)
         return commands
     }
 
-    private static let escapeKeyCommands: [UIKeyCommand] = {
-        let entries: [(input: String, modifierFlags: UIKeyModifierFlags)] = [
-            (UIKeyCommand.inputEscape, []),
-            (".", .command),
-        ]
-        return entries.map { entry in
-            let command = UIKeyCommand(
-                input: entry.input,
-                modifierFlags: entry.modifierFlags,
-                action: #selector(heelerEscapeKeyCommand(_:)))
-            command.wantsPriorityOverSystemBehavior = true
-            // Both spellings mean Escape, and this is the text the iPad's
-            // ⌘-hold shortcut HUD lists them under.
-            command.discoverabilityTitle = "Escape"
-            return command
-        }
+    /// The ⌘`.` command. Its action shares ``claimHardwareKeyDelivery(_:)``
+    /// with the press path through ``sendHardwareKey(_:)``, and that claim
+    /// folds ⌘`.` onto Escape, so whichever path iPadOS runs first sends the
+    /// byte and the other stays silent.
+    private static let commandPeriodKeyCommand: UIKeyCommand = {
+        let command = UIKeyCommand(
+            input: ".",
+            modifierFlags: .command,
+            action: #selector(heelerEscapeKeyCommand(_:)))
+        command.wantsPriorityOverSystemBehavior = true
+        // ⌘. means Escape on an iPad, and this is the text the ⌘-hold
+        // shortcut HUD lists it under.
+        command.discoverabilityTitle = "Escape"
+        return command
     }()
 
     @objc private func heelerEscapeKeyCommand(_ command: UIKeyCommand) {
@@ -2869,16 +2875,25 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 paste(nil)
                 continue
             }
+            // Kelpie: the combos TerminalHardwareKeyMapping owns (Escape,
+            // ⌘., the Option word keys and ⌘+arrow for Home/End/PageUp/
+            // PageDown) are answered here, so Ghostty never encodes them
+            // itself. This runs ahead of the scene-command route — every ⌘
+            // chord but the zoom pair goes up the responder chain there, which
+            // would leave ⌘+arrow and the ⌘. press-path backstop doing nothing
+            // — and ahead of the armed-modifier path below. `interceptHardware
+            // Key` answers only presses the mapping has bytes for, so every
+            // other ⌘ chord still takes upstream's routing; the zoom pair is
+            // excluded so ⌘+/⌘− keep stepping the font size.
+            if Self.zoomShortcutStep(for: press) == nil, interceptHardwareKey(press) {
+                continue
+            }
             if press.key.map({ Self.hardwarePressRoute(for: $0) }) == .sceneCommand {
                 pressesRoutedToSceneCommands.insert(ObjectIdentifier(press))
                 sceneCommands.insert(press)
                 continue
             }
             guard let step = Self.zoomShortcutStep(for: press) else {
-                // Kelpie: the combos TerminalHardwareKeyMapping owns (Escape,
-                // Cmd+., the Option word keys) are answered here, before the
-                // armed-modifier path, so Ghostty never encodes them itself.
-                guard !interceptHardwareKey(press) else { continue }
                 if let key = press.key,
                     let physical = Self.physicalKey(
                         keyCode: key.keyCode,
