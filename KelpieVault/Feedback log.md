@@ -287,6 +287,14 @@ Anthony (2026-09-15, after the hand-test list): "all tests passed. one other thi
 
 Read as: the sixteen hand checks on the rebased build pass on the iPad, so Open item 33 closes and items 23 and 28 stay confirmed after the rebase (item 32, hardware Shift+Tab, was expected to fail and stays open). New Open item 34: on the iPad the terminal does not inset itself for the on-screen keyboard the way the iPhone does. Session over; the next one starts from `resume.md`.
 
+Anthony (2026-09-15, opening the round-17 session): "check open items and lets select a group for this session. one other thing i want to add to the list: currently when the app is backgrounded and then returned, a full screen "connecting" appears for a moment until it connects - it's kind of annoying. what options are there?"
+
+Read as: this session starts by choosing a group of Open items together rather than taking the plan's next item unread; and a new Open item: after a background-and-return the root screen shows the full-screen Connecting state for the reconnect, which he finds jarring; he wants the options laid out before deciding.
+
+Anthony (2026-09-15, choosing round 17): "for reconnecting, 1 & 2 plus 34, 35 & 32 for this session"
+
+Read as: round 17 is Open items 34 (iPad on-screen keyboard inset), 35 (the reconnect flash: keep the last frame under the reconnect and show the Connecting card only after a short delay) and 32 (hardware Shift+Tab). The composer (30) stays its own round.
+
 Anthony (2026-09-15, a side request alongside round 17): "we have a space issue, it seems there are a number of builds for kelpie that never get deleted. can you find the ones no longer in use, delete them and then update claude.md so this doesnt keep happening"
 
 Read as: the disk is nearly full (3.2 GiB free of 228) because every session and every delegate worker builds into its own scratchpad under `/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/<session>/`, and nothing ever removes those derived-data folders (81 folders, 22 GB, across 9 sessions). Delete the ones no finished session needs, and add a standing rule to `CLAUDE.md` so builds stop piling up.
