@@ -143,7 +143,7 @@ The vault never held a device confirmation for it. Round 1's table below records
 
 The open device checks, in [[Open items]] order. Record what comes back in [[Feedback log]] before acting on it.
 
-**30, Stage 0 (round 18, installed 2026-09-15).** On the root screen with the on-screen keyboard: type `teh` then space, expecting `the` on the Host · type `hel` and tap a prediction, expecting one clean word · dictate a sentence · hold `e` and pick `é` · type `ls -la "x"` and confirm no capital and straight quotes · Esc mid-sentence, then Ctrl+C · `/` at the start of a Claude Code line opens its menu. Anything doubled, dropped or mis-capitalised is the composer's job to fix.
+**30, the composer (round 18, `dd7fc0d` installed on both devices 2026-09-15).** On the root screen in a Claude Code pane, keyboard up: the pill's leading text-box key turns the composer on and the field takes the keyboard without a double reflow · `teh` then space reads `the` in the field and in Claude's input box · a tapped prediction lands as one clean word · dictation mirrors across · hold `e`, pick `é` · `/` at the start opens Claude's menu · Return sends and clears · Esc and arrows from the pill reach herdr (Esc and Ctrl chords also clear the field); Ctrl then `c` interrupts · Backspace on an empty field deletes on the remote line · hide the keyboard from the pill, tap the field to bring it back · turn it off while the keyboard is up, the terminal takes the keyboard back and raw typing is as before · attach the Magic Keyboard, the field vanishes. Stage 0 (autocorrect on the terminal itself) failed this same day: "teh went to yeh".
 
 **1. Round 3 leftovers.** Option+Backspace deleting one word and only one word · Option+Left/Right jumping words · plain Backspace and Return unchanged. (Escape, Cmd+. and the host capsule are confirmed.) If Option+Backspace deletes a word *plus* a character, the UIKit echo arrived after the press ended; see the note in `scheduleHardwareKeyClaimReset`.
 
@@ -156,6 +156,10 @@ The open device checks, in [[Open items]] order. Record what comes back in [[Fee
 **1b. The Welcome screen at the root.** Setup Guide shows it as a sheet; the no-Host root needs the Host removed first. Try Paste Pairing Code with a fresh code from the mini, and the typed field.
 
 Anything still unverified stays in [[Open items]].
+
+## Round 18 — the composer (2026-09-15)
+
+Stage 0 (`a90ee7d`, autocorrect traits on the terminal's own text input) was installed on the iPad and the iPhone and failed Anthony's typing test: corrections were wrong ("teh went to yeh"). The composer (`dabbc0f`, fixes `dd7fc0d`) is installed on both devices; device check pending, list above. On the iPad: `TerminalComposerMirrorTests` (10) and `TerminalComposerControlTests` (6) pass, as does `TerminalInputControllerTests` (24) alongside them. Reviewed by an `opus-reviewer` (`Archive/round18/composer-review.md`); the two must-fixes and three should-fixes are in `dd7fc0d`; the responder flows (toggle with the keyboard up, dismiss from the pill, hardware keyboard attaching, a reconnect under the field) have no unit coverage and rest on the device check.
 
 ## Round 15 — the key bar (2026-09-15)
 
