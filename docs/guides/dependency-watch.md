@@ -146,7 +146,7 @@ xcodegen generate
 
 The watcher rehearses this for you in a detached worktree and aborts, so the
 finding already knows whether it conflicts and where. Anything beyond a
-`CHANGELOG.md` conflict is a `/delegate` round, not a five-minute job.
+`CHANGELOG.md` conflict is a round of its own, not a five-minute job.
 
 ### `libghostty-spm`
 

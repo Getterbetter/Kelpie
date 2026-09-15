@@ -261,6 +261,12 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
 
+## Side task — no standing push toward `/delegate` — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: drop the push toward `/delegate`** — alongside round 17, on Anthony's request. `CLAUDE.md` loses its when-to-delegate line (the build rule now says "a subagent"); the dependency watch's upstream-rebase brief (`scripts/depwatch.py`) and `docs/guides/dependency-watch.md` call a large rebase a round of its own instead of a `/delegate` round. |
+
 ## Round 14b — the Tailscale hang, taps on herdr's screen — 2026-09-13
 
 | Commit | |
