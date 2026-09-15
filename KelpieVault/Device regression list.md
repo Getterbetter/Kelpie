@@ -4,7 +4,7 @@ note: The fixed per-build device checklist; run all of it after every install, t
 
 # Device regression list
 
-Written 2026-09-12 after a trackpad right-click regression (introduced in round 6, never device-verified before it) shipped three rounds unnoticed because each round only tested its own new feature. Run every item below, in this order, on every fresh install — before handing the build to Anthony or calling a round done.
+Written 2026-09-12 after a trackpad right-click regression (introduced in round 6, never device-verified before it) shipped three rounds unnoticed because each round only tested its own new feature. Run every item below, in this order, on every fresh install — before handing the build to Anthony or calling a round done. Since round 20 the unit suite on hardware is the other half of the gate: `make test-device` runs `HeelerTests` on the iPad and the iPhone at the end of every change, and a rebase or re-vendor round runs this list on both devices as well (Open item 39, [[Decisions]] 2026-09-15).
 
 ## Magic Keyboard attached
 
@@ -22,6 +22,14 @@ Written 2026-09-12 after a trackpad right-click regression (introduced in round 
 
 - Right-click a herdr tab or any other part of the terminal with a trackpad or mouse → herdr's own context menu opens, never iPadOS's Copy/Select edit menu. (broke silently between round 1 and round 6; caught and fixed round 9 — `Feedback log.md:134-140`; ADR — `docs/adr/0016-ipad-pointer-input.md:14-33`)
 - Resize the app to Split View (half-screen) with another app → the window reshapes instead of keeping its old aspect. ("Split View works well", round 5 — `Feedback log.md:73`, `resume.md:13`)
+
+## iPhone (herdr's mobile layout, 64 columns or fewer)
+
+- Tap herdr's "switch" button in the top right → the tab switcher stays open until a row or its close button is tapped. (broke silently at the round-16 re-vendor, Ghostty's own tap click doubling Kelpie's; caught by Anthony in round 18, fixed round 19 `f6b642f` — Open item 38)
+- Tap an agent's screen text with the keyboard down → the keyboard rises; tap it again outside the input band → the keyboard drops after the 350 ms grace. (round 14 — Open item 24; the doubled click of item 38 would have shown here too)
+- One-finger drag on a Claude pane → its viewport scrolls and it draws its own "Jump to bottom" affordance. (round 1; never re-confirmed on the phone)
+- Turn the composer on from the pill → the field appears above the key bar, autocorrect and a prediction land in the field, Return sends the line and the terminal takes the keyboard back on Esc. (round 18 — Open item 30, "it works well")
+- Rotate to landscape with an Agent open → the terminal keeps the full width and the keyboard inset still reflows it. (round 11, not separately confirmed since the rebase)
 
 ## Console cover and menu
 

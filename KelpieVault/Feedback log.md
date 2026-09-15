@@ -362,3 +362,7 @@ Read as: the full `HeelerTests` suite on the iPad first (the device run, test ho
 Anthony (2026-09-15, round 19, closing): "ill test the notifications over time - from what I could tell during the last part, i didnt see dual notifications but i cant be sure. lets close this out, and ill start a new session next."
 
 Read as: item 36 stays open pending his observation over the coming days (no double notification seen so far, unconfirmed); the round closes here and the next session starts fresh from `resume.md`.
+
+Anthony (2026-09-15, round 20 opening): "i think we run the ui tests at the end of each change, ipad & iphone, ill just plug them in when its time to test. also, the last round of tests found issues, should we fix them in this session? continue"
+
+Read as: item 39's guard is the process one, and stronger than the note proposed: the full device suite runs on both devices at the end of every change, not only after a rebase or re-vendor; he plugs the devices in when the run is due. The known failures from round 19's full run are to be looked at in this session. Open the round.
