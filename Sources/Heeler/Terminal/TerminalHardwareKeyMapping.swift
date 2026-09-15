@@ -56,6 +56,7 @@ enum TerminalHardwareKeyMapping {
     /// Raw `UIKeyboardHIDUsage` values for the keys in the table.
     enum Usage {
         static let escape: UInt16 = 0x29
+        static let tab: UInt16 = 0x2B
         static let period: UInt16 = 0x37
         static let deleteOrBackspace: UInt16 = 0x2A
         static let deleteForward: UInt16 = 0x4C
@@ -100,6 +101,13 @@ enum TerminalHardwareKeyMapping {
             // arrives resolves to the same byte.
             guard key.command, !key.control, !key.option, !key.shift else { return nil }
             return Data([0x1B])
+        case Usage.tab:
+            // CSI Z, the back-tab every TUI reads as Shift+Tab. Plain Tab and
+            // every other chord stay with Ghostty's encoder; iPadOS treats
+            // Shift+Tab as its focus-backward gesture, which is why the app
+            // has to spell this one out itself (Open item 32).
+            guard key.shift, !key.control, !key.option, !key.command else { return nil }
+            return Data([0x1B, 0x5B, 0x5A])
         case Usage.deleteOrBackspace:
             // ESC DEL: delete word backward in readline, zsh, fish and
             // Claude Code.

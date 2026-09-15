@@ -27,6 +27,23 @@ struct HerdrClientView: View {
 
     @State private var keyboardInset = TerminalKeyboardInset()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
+    /// The frame on screen when the app last left the foreground, kept over
+    /// the blank surface a reconnect mounts until that surface paints; see
+    /// ``TerminalLastFrame``. Never shown while the terminal is live.
+    @State private var lastFrame: TerminalLastFrame?
+    /// Whether the Connecting card has earned its place. A reconnect that
+    /// finishes inside ``connectingCardDelay`` never shows one; the card is
+    /// for a wait the user can notice, not for every return from the
+    /// background (Open item 35).
+    @State private var showsConnectingCard = false
+    private static let connectingCardDelay = Duration.seconds(1)
+    /// Ghostty presents the new surface's first frame a beat after its first
+    /// bytes arrive; releasing the old frame on the bytes alone flashes blank.
+    private static let lastFrameReleaseDelay = Duration.milliseconds(150)
+    /// How long after a return a still-live terminal keeps its captured frame
+    /// on hand, in case the reconnect is only now beginning.
+    private static let lastFrameRetentionAfterReturn = Duration.seconds(2)
 
     private var terminalScreen: TerminalScreenView {
         var screen = TerminalScreenView(feed: store.terminalFeed)
@@ -85,9 +102,22 @@ struct HerdrClientView: View {
             presentation: keyboardPresentation)
     }
 
+    private var isTerminalLive: Bool { store.terminalStatus == .live }
+
+    private var isPresentingConnecting: Bool {
+        store.statusPresentation?.kind == .connecting
+    }
+
     var body: some View {
         terminalScreen
             .id(store.terminalID)
+            .overlay {
+                if let lastFrame, !isTerminalLive {
+                    TerminalLastFrameView(lastFrame: lastFrame)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
             .overlay { statusOverlay }
             .padding(.bottom, keyboardLayout.contentInset)
             // After the keyboard inset: an overlay applied before it aligns
@@ -96,6 +126,11 @@ struct HerdrClientView: View {
             // Keyboard avoidance is owned by `TerminalKeyboardInset`; UIKit's
             // keyboard safe area would resize Ghostty a second time.
             .ignoresSafeArea(.keyboard, edges: .bottom)
+            // Since upstream's 4b697cb the inset measures the keyboard against
+            // the window it is handed and nothing else: without this line every
+            // keyboard frame measures nil and the terminal never insets
+            // (Open item 34).
+            .terminalKeyboardInsetWindow(keyboardInset)
             // herdr's own layout wants every column: the surface runs to both
             // edges, and the theme's background paints under them.
             .ignoresSafeArea(.container, edges: .horizontal)
@@ -127,6 +162,37 @@ struct HerdrClientView: View {
                 store.didBecomeActive(
                     afterPossibleSuspension: activity.lastAbsenceMayHaveSuspended)
             }
+            // Captured on the way out, while the surface is still drawn and
+            // still the one `keyboardControl` points at. By the time the store
+            // reports the reconnect, SwiftUI has already swapped the surface.
+            .onChange(of: scenePhase) { _, phase in
+                guard phase != .active, isTerminalLive,
+                    let frame = TerminalLastFrame.capture(keyboardControl.terminal)
+                else { return }
+                lastFrame = frame
+            }
+            .task(id: isTerminalLive) {
+                guard isTerminalLive, lastFrame != nil else { return }
+                try? await Task.sleep(for: Self.lastFrameReleaseDelay)
+                guard !Task.isCancelled else { return }
+                lastFrame = nil
+            }
+            // An absence the grace period absorbed leaves the terminal live and
+            // the frame unused. It is not dropped the moment the app is active
+            // again: the store's reconnect, when there is one, starts a beat
+            // later and the surface is still reporting live at that point.
+            .task(id: activity.activationCount) {
+                try? await Task.sleep(for: Self.lastFrameRetentionAfterReturn)
+                guard !Task.isCancelled, isTerminalLive else { return }
+                lastFrame = nil
+            }
+            .task(id: isPresentingConnecting) {
+                showsConnectingCard = false
+                guard isPresentingConnecting else { return }
+                try? await Task.sleep(for: Self.connectingCardDelay)
+                guard !Task.isCancelled else { return }
+                showsConnectingCard = true
+            }
             // A recovered terminal is a fresh surface with no keyboard raised.
             .onChange(of: store.terminalID) { _, _ in
                 if hardwareKeyboard.isConnected { keyboardControl.requestKeyboard() }
@@ -144,6 +210,8 @@ struct HerdrClientView: View {
     private var statusOverlay: some View {
         if let presentation = store.statusPresentation {
             switch presentation.kind {
+            case .connecting where !showsConnectingCard:
+                EmptyView()
             case .connecting:
                 TerminalStatusDialog(
                     glyph: .progress,
