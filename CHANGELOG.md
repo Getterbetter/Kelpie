@@ -44,6 +44,14 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   wheel scrolls local scrollback, or sends wheel reports to a TUI, exactly as
   a finger drag does.
 
+- A text field for the on-screen keyboard. The key bar's leading key turns on
+  a composer above it: what you type goes into a real text field, so
+  autocorrect, predictions, dictation and hold-to-accent apply, and the field
+  mirrors itself into herdr as you type, so Claude Code's `/` and `@` menus
+  still open. Return sends. Esc, the arrows and the sticky Ctrl and Alt keys
+  still reach herdr directly. Off by default; the choice is remembered. Hidden
+  while a hardware keyboard is attached.
+
 ### Changed
 
 - Rebased onto Heeler 0.1.8 and re-vendored GhosttyTerminal at libghostty-spm 1.6.20260909. Kelpie keeps a single window (no multi-window on iPad: one herdr client per Attach channel), an open Agent fills the Console in landscape as well as portrait, and the key bar keeps its own key encoding. (refs #3)

@@ -322,3 +322,11 @@ Read as: the retained-surface build holds the last frame over a reconnect, input
 Anthony (2026-09-15, round 18 opening): "check open items, lets do 30 and tell my what the 7 pull request is?"
 
 Read as: this session is Open item 30 (the composer text field, design already in `Design/Composer text field.md`), built as its own round; and explain Open item 7 (the deferred upstream pull request for the iPad input work) rather than act on it.
+
+Anthony (2026-09-15, round 18, after the Stage 0 install): "install it on ipad & iphone"
+
+Read as: the Stage 0 build goes on both devices before he checks it; the iPad already had it, the iPhone gets the same build.
+
+Anthony (2026-09-15, round 18, Stage 0 device check): "the tests failed, the auto correct is really bad, teh went to yeh and a general typing test yielded auto corrects that were inaccurate. also, can you add for next session: notifications shouldnt appear on devices if one device is foregrounded, i.e. no iphone notifications if ipad is foregrounded"
+
+Read as: Stage 0 (autocorrect traits on the raw terminal path) fails — iOS corrects badly against the terminal's one-line shadow document, so the raw path goes back to `.terminal` and the composer is built as designed; and a new Open item for a later session: a notification should not reach the iPhone while the iPad has Kelpie foregrounded (and vice versa).

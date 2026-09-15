@@ -67,4 +67,8 @@ Risk to name: touches keyboard input on the screen Anthony uses all day, so the 
 3. Stage 0 first, same session as the build. **Taken.**
 4. Return submits, no soft newline in v1. **Agreed.**
 
+## Stage 0 result (2026-09-15, round 18)
+
+Built as a `TerminalTextInputStyle.assisted` (autocorrect, spell check and predictions on; capitalisation, smart quotes and dashes off) on the root screen's terminal, installed on the iPad and the iPhone. Anthony: "the tests failed, the auto correct is really bad, teh went to yeh and a general typing test yielded auto corrects that were inaccurate." So the cheap path is out: the terminal's `UITextInput` shadow is one line with no context, and iOS corrects against it badly; the rewrite path (`replace(_:withText:)` → DELs and a retype) was not the problem, the corrections themselves were. The `assisted` style was removed again in the same round; the raw path is `.terminal` as before. The composer is built as designed above, with one change: the field is on screen whenever the composer is on and no hardware keyboard is attached, keyboard up or down (a message bar), rather than only while the keyboard is up — the field is then the thing to tap to raise the keyboard, and no handoff from a terminal-raised keyboard is needed in the common case. A toggle while the keyboard is up still hands it across under an inset freeze.
+
 Next: its own round, from `resume.md`.

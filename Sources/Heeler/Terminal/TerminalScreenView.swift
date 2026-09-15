@@ -164,15 +164,6 @@ final class TerminalKeyboardControl {
 enum TerminalTextInputStyle: Equatable {
     case terminal
     case naturalLanguage
-    /// Kelpie's root screen (Open item 30, Stage 0): autocorrect, spell
-    /// check and predictions on, as `naturalLanguage`, but no sentence
-    /// capitalisation and no smart quotes or dashes — the line being typed
-    /// is as often a shell command or a path as a sentence, and `Ls` or a
-    /// curly quote in a command is worse than a missed capital.
-    case assisted
-
-    /// Whether UIKit may correct and predict what is typed.
-    var assistsTyping: Bool { self != .terminal }
 }
 
 enum TerminalKeyboardHandoffOutcome: Equatable {
@@ -217,6 +208,9 @@ struct TerminalScreenView: UIViewRepresentable {
     /// Handed the surface once it exists, so the message-jump chrome can
     /// drive remote scroll without holding the UIKit view itself.
     var scrollControl: TerminalScrollControl?
+    /// The root screen's composer (Open item 30). Nil on the Console, which
+    /// has upstream's own.
+    var composerControl: TerminalComposerControl?
     var isLocalInputEnabled = true
     /// Applied before the first focus claim, including Agent tools handoffs.
     var initialKeyboardMode = TerminalKeyboardMode.text
@@ -255,6 +249,8 @@ struct TerminalScreenView: UIViewRepresentable {
         view.raisesKeyboardWhenReady = claimsKeyboard?() ?? false
         keyboardControl?.terminal = view
         scrollControl?.terminal = view
+        composerControl?.terminal = view
+        view.composerControl = composerControl
         view.onKeyboardHandoffEnded = { [weak view, weak keyboardControl] id, outcome in
             guard let view else { return }
             if let keyboardControl, keyboardControl.terminal !== view { return }
@@ -313,6 +309,8 @@ struct TerminalScreenView: UIViewRepresentable {
             onPaste: onPaste)
         keyboardControl?.terminal = view
         scrollControl?.terminal = view
+        if let composerControl { composerControl.terminal = view }
+        view.composerControl = composerControl
         view.onKeyboardHandoffEnded = { [weak view, weak keyboardControl] id, outcome in
             guard let view else { return }
             if let keyboardControl, keyboardControl.terminal !== view { return }
@@ -1083,7 +1081,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override var autocorrectionType: UITextAutocorrectionType {
-        get { textInputStyle.assistsTyping ? .default : .no }
+        get { textInputStyle == .naturalLanguage ? .default : .no }
         set {}
     }
 
@@ -1093,7 +1091,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override var spellCheckingType: UITextSpellCheckingType {
-        get { textInputStyle.assistsTyping ? .default : .no }
+        get { textInputStyle == .naturalLanguage ? .default : .no }
         set {}
     }
 
@@ -1114,7 +1112,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     @available(iOS 17.0, *)
     override var inlinePredictionType: UITextInlinePredictionType {
-        get { textInputStyle.assistsTyping ? .default : .no }
+        get { textInputStyle == .naturalLanguage ? .default : .no }
         set {}
     }
 
@@ -1246,6 +1244,22 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     private var keyBar: TerminalKeyBar?
+    /// The root screen's composer, if it has one (Open item 30). While it is
+    /// active the field holds the keyboard and this view refuses it; the
+    /// key bar's text keys type into the field; the bar itself is shared.
+    weak var composerControl: TerminalComposerControl?
+
+    /// The key bar, for the composer field to ride as its own accessory —
+    /// the same instance, so the pill survives the responder swap.
+    var sharedKeyBar: UIView? { inputAccessoryView }
+
+    /// The composer's bytes: raw, no bracketed paste, straight to the PTY.
+    /// Same route as ``sendControlKey(_:)``, so the shadow of the current
+    /// line and the reliable-input hook see them.
+    func sendComposerBytes(_ data: Data) {
+        guard isLocalInputEnabled, !data.isEmpty else { return }
+        terminalSession.sendInput(data)
+    }
 
     override var inputAccessoryView: UIView? {
         guard showsKeyBar else { return nil }
@@ -1291,6 +1305,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// never approved.
     override var canBecomeFirstResponder: Bool {
         isLocalInputEnabled && responderGate.mayBecomeFirstResponder
+            && !(composerControl?.isActive ?? false)
     }
 
     /// UIKit skips the `canBecomeFirstResponder` check when the view already
@@ -1561,6 +1576,11 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     func requestKeyboard() {
         guard isLocalInputEnabled else { return }
         cancelPendingKeyboardDismiss()
+        // With the composer active the keyboard is the field's to raise.
+        if let composerControl, composerControl.isActive {
+            composerControl.focusField()
+            return
+        }
         if activeKeyboardHandoffID == nil {
             finishKeyboardTransitionLayout(handoffOutcome: .cancelled)
         }
@@ -1637,7 +1657,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         case .terminal:
             inputAssistantItem.leadingBarButtonGroups = []
             inputAssistantItem.trailingBarButtonGroups = []
-        case .naturalLanguage, .assisted:
+        case .naturalLanguage:
             inputAssistantItem.leadingBarButtonGroups = defaultLeadingAssistantGroups ?? []
             inputAssistantItem.trailingBarButtonGroups = defaultTrailingAssistantGroups ?? []
         }
