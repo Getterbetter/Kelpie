@@ -253,17 +253,21 @@ struct HerdrClientView: View {
             }
     }
 
-    /// The composer field, drawn as a message bar: a rounded field on a
-    /// strip that reads as chrome, not as part of herdr's screen.
+    /// The composer field, floating the way the key bar's pill does: the
+    /// same fill, the same side margins, a capsule corner and a soft shadow,
+    /// on the terminal's own background. A first build drew it on an
+    /// edge-to-edge strip, which read as a third, unrelated bar between a
+    /// rounded pill and a rounded keyboard (Anthony, round 18).
     private var composerBar: some View {
         TerminalComposerView(control: composer)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .background(
-                Color(uiColor: .tertiarySystemBackground),
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(uiColor: .secondarySystemBackground))
+                Color(uiColor: TerminalKeyBar.pillBackgroundColor),
+                in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+            .padding(.horizontal, TerminalKeyBar.pillMargin)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
     }
 
     private var themePalette: TerminalThemePalette {

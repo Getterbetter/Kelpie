@@ -88,8 +88,9 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     private static let minimumKeyWidth: CGFloat = 44
     private static let keySpacing: CGFloat = 6
     private static let sideInset: CGFloat = 8
-    /// The gap from the bar's edges to the floating pill.
-    private static let pillMargin: CGFloat = 12
+    /// The gap from the bar's edges to the floating pill. Shared with the
+    /// composer field so the two float in one column.
+    static let pillMargin: CGFloat = 12
     /// The pill is the key row plus a little air above and below.
     private static let pillPadding: CGFloat = 8
     /// The hairline between the scrolling keys and the dismiss button.
@@ -101,7 +102,8 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
 
     /// The pill's fill: white on light, a grey lighter than the keyboard's own
     /// background on dark, so the pill reads as floating above it either way.
-    private static let pillBackgroundColor = UIColor { trait in
+    /// Shared with the composer field, which floats the same way (round 18).
+    static let pillBackgroundColor = UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor(white: 0.30, alpha: 1)
             : .systemBackground
