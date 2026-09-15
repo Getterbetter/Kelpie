@@ -92,21 +92,22 @@ holds a Reddit token: Anthony's call. Logging the job in was out of scope.
   switched to the Atom feed, which works. State seeded by manual runs: all three
   posts recorded, including the first real comment on the r/SideProject post
   (u/Training_Mail_973, asking how a pasted photo is resized before it goes over
-  SSH). The launchd job `com.kelpie.redditwatch` is **not loaded**: the plist is
-  in `scripts/launchd/`, waiting on Anthony's yes.
+  SSH). The launchd job `com.kelpie.redditwatch` was bootstrapped from
+  `scripts/launchd/` the same day and has run hourly since (57 runs by
+  2026-09-15; the earlier wording here said it was still waiting).
 
 ## Last run
 
 <!-- redditwatch:start -->
-_Last run: 2026-09-13T23-10-18Z UTC._
+_Last run: 2026-09-15T01-36-09Z UTC._
 
 | Post | Comments | New | Score | State |
 | --- | --- | --- | --- | --- |
 | r/alphaandbetausers | 0 | 0 | n/a | ok |
 | r/SideProject | 1 | 0 | n/a | ok |
 | herdr Discussions, Show and tell | 0 | 0 | 1 | ok |
-| r/herdr | 7 | 0 | n/a | ok |
-| r/ClaudeCode | n/a | 0 | n/a | unreachable |
+| r/herdr | n/a | 0 | n/a | unreachable |
+| r/ClaudeCode | 99 | 0 | n/a | ok |
 | r/herdr | 0 | 0 | n/a | ok |
 
 Nothing new since the last run.

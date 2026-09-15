@@ -262,3 +262,19 @@ Read as: the Notion-style pill, Shift+Tab and the hide-keyboard button pass on t
 Anthony (2026-09-15, at the round-15 close): "looks good. lets close this out and ill start a new session next"
 
 Read as: round 15 is done as written up; the push question was not answered, so everything since `8506f4c` stays local and the next session asks again.
+
+Anthony (2026-09-15, session open, asked what in Open items could be grouped): "lets do B. would like to see design for D and /delegate C"
+
+Read as: this session does the two yes-gated items (16, the push; 17, the Reddit watch and the r/SideProject reply), writes the design for Open item 30 (the composing text field) for him to read before anything is built, and runs Open items 25 and 21 (the GhosttyTerminal re-vendor, then the rebase onto Heeler upstream) through `/delegate`.
+
+Anthony (2026-09-15, after reading the composer design): "1- mirror per keystroke 2- as recommended but decision must be persistent 3- as recommended 4- agreed"
+
+Read as: the four decisions in `KelpieVault/Design/Composer text field.md` are taken — the field mirrors into the PTY per keystroke; the composer is off by default and the toggle's state persists across launches (already `kelpie.composer-enabled` in `UserDefaults`); Stage 0 (flip the terminal to `.naturalLanguage` traits on the device first) runs in the same session as the build; Return submits and v1 has no soft newline. The build is Open item 30's own round, not this session.
+
+Anthony (2026-09-15, during the round-16 rebase): "add to the list for the next session: shift+tab with an attached keyboard on ipad doesnt seem to be recognised."
+
+Read as: a new Open item for a later session, not this one. Hardware Shift+Tab on the Magic Keyboard does not reach herdr (the round-15 key-bar `⇧tab` button is the on-screen path; the hardware press goes through `pressesBegan`, where Ghostty's encoder or iPadOS's focus system may be taking it). Logged as Open item 32.
+
+Anthony (2026-09-15, at the round-16 report): "my unit tests passed. yes to both, then close this out and ill start a new session next"
+
+Read as: he ran the unit tests himself on the rebased build and they passed; `kelpie` moves onto the rebased branch and is force-pushed; round 16 closes with the definition of done and the next session starts fresh from `resume.md`.

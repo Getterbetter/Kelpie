@@ -2466,9 +2466,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// nothing here waits.
     ///
     /// The core only hit-tests when the mouse mods match the link's modifier, so
-    /// the move has to carry them. That is the one sanctioned patch to the
-    /// vendored package: `TerminalSurface.sendMousePos(x:y:modifiers:)`, written
-    /// up in `Packages/GhosttyTerminal/KELPIE-PATCHES.md`. Each of
+    /// the move has to carry them, through the public
+    /// `TerminalSurface.sendMousePos(x:y:modifiers:)` (upstream since libghostty-spm
+    /// `eb4107b`; a Kelpie patch before the round-16 re-vendor). Each of
     /// ``linkProbeModifiers`` is offered until one answers.
     ///
     /// Afterwards the mouse is parked at (-1, -1) — libghostty's own "the

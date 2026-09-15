@@ -8,7 +8,7 @@ Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX,
 
 ## The root screen
 
-The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen Attach running herdr's own client for the primary Host (`kelpie.primary-host`). Heeler's native Console is a `fullScreenCover` behind the floating `ellipsis.circle` menu; its stores (`ConsoleStore`, Live Activities, notifications, the activity driver) are still created and driven in `ContentView`, above the cover. A Transport serves one Attach channel at a time, so the client leaves and rejoins as the cover comes and goes. Keyboard mode follows `HardwareKeyboardObserver`; URL taps open on the iPad, never in herdr. Details and reasons: `docs/adr/0017-herdr-client-is-the-screen.md`.
+The app opens on `HerdrClientRootView` (`Sources/Heeler/Client/`): a full-screen Attach running herdr's own client for the primary Host (`kelpie.primary-host`). Heeler's native Console is a `fullScreenCover` behind the floating `ellipsis.circle` menu; its stores (`ConsoleStore`, Live Activities, notifications, the activity driver, pairing sync) are created once by upstream's `HeelerAppModel` (the composition root since the v0.1.8 rebase) and read by `ContentView`, above the cover. The app is one window: `UIApplicationSupportsMultipleScenes` is false because a second window would be a second herdr client on the one Attach channel. A Transport serves one Attach channel at a time, so the client leaves and rejoins as the cover comes and goes. Keyboard mode follows `HardwareKeyboardObserver`; URL taps open on the iPad, never in herdr. Details and reasons: `docs/adr/0017-herdr-client-is-the-screen.md`.
 
 ## Running it: always the physical iPad, never the simulator
 

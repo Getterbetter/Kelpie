@@ -32,7 +32,9 @@ item, and a notification deep link presents that cover by itself so routing
 lands on the Agent exactly as it did before. Everything the Console needs alive
 between visits — `ConsoleStore`, `HostLiveActivityCoordinator`,
 `NotificationPreferencesStore`, `PushRegistrationStore` and the
-`ConsoleActivityDriver` task — is created and driven in `ContentView`, above the
+`ConsoleActivityDriver` task — is created once by `HeelerAppModel` (upstream's
+composition root since the Heeler v0.1.8 rebase of 2026-09-15; before that
+`ContentView` created them) and read by `ContentView`, above the
 cover, so lowering it changes nothing about push or Live Activities. An install
 with no Hosts still gets the Console's own "No Hosts" onboarding as the root.
 
