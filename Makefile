@@ -176,6 +176,14 @@ clean: ## Remove local build products
 depwatch: ## Run the dependency watch once (dry run: DRY=1)
 	@/usr/bin/python3 scripts/depwatch.py $(if $(DRY),--dry-run)
 
+# Before a GhosttyTerminal re-vendor: what the new libghostty-spm commit changes
+# in the UITerminalView members Kelpie overrides, declares or calls
+# (scripts/ghostty-override-diff.py, KelpieVault/Build and deploy.md). Exit 1
+# means read the findings before building. NEW defaults to upstream main.
+.PHONY: ghostty-override-diff
+ghostty-override-diff: ## Diff the vendored GhosttyTerminal override points against upstream (NEW=<ref>)
+	@/usr/bin/python3 scripts/ghostty-override-diff.py $(if $(NEW),--new $(NEW)) $(if $(OLD),--old $(OLD)) $(if $(VERBOSE),--verbose)
+
 # The community watch (scripts/redditwatch.py, docs/guides/reddit-watch.md).
 # Same shape as `depwatch`: options are make variables, not flags. ANALYSE=1
 # asks the drafting lane for a reply per new comment; it writes drafts under

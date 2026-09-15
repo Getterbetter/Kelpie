@@ -1217,6 +1217,9 @@ def check_libghostty_spm(ctx):
             [
                 "Never edit the vendored package under `Packages/GhosttyTerminal`; override its `open` "
                 "members from `HeelerTerminalView` instead.",
+                "First `make ghostty-override-diff NEW=<commit>`: it names every UITerminalView member "
+                "Kelpie overrides, declares or calls that the new commit removes, closes, re-signs or "
+                "collides with (Open item 40).",
                 "Re-vendor from the new tag: update `URL` and `SHA` in `scripts/fetch-ghostty-artifact.sh`, "
                 "then `make generate` to refetch and checksum-verify.",
                 "Review the package's Swift sources and the XCFramework checksum before accepting the bump.",

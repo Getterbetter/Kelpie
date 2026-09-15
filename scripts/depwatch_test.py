@@ -286,7 +286,15 @@ class PinParsingTests(unittest.TestCase):
         pins = depwatch.parse_shell_assignments(script)
         self.assertTrue(pins["URL"].startswith("https://github.com/Lakr233/libghostty-spm/"))
         self.assertEqual(len(pins["SHA"]), 64)
-        self.assertEqual(depwatch.ghostty_tag_from_url(pins["URL"]), "upstream.1.3.1")
+        # The pin moves with every re-vendor (round 16 took it from upstream.1.3.1 to
+        # upstream.82938b633ba6); assert the shape, and the exact value against a fixture.
+        self.assertRegex(depwatch.ghostty_tag_from_url(pins["URL"]), r"^upstream\.[0-9a-f.]+$")
+        self.assertEqual(
+            depwatch.ghostty_tag_from_url(
+                "https://github.com/Lakr233/libghostty-spm/releases/download/upstream.1.3.1/GhosttyKit.xcframework.zip"
+            ),
+            "upstream.1.3.1",
+        )
 
     def test_sources_lock_parses(self):
         lock = depwatch.parse_shell_assignments(
