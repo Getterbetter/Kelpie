@@ -2,6 +2,12 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
+## In progress (round 17, 2026-09-15)
+
+- **Done:** Open items 34, 35 and 32 built in `794fb65` (root screen: `.terminalKeyboardInsetWindow` on `HerdrClientView`; `TerminalLastFrame` snapshot over the reconnect plus a 1 s delay on the Connecting card; Shift+Tab as a mapping row and a priority `UIKeyCommand`). Release build installed and launched on the iPad; the key mapping and client store suites passed on the device (29 tests). Decisions written (`KelpieVault/Decisions.md`, round 17); Open item 35 logged with Anthony's pick.
+- **Waiting on:** Anthony's device check (keyboard inset with the Magic Keyboard detached; background for 30 s and return; hardware Shift+Tab in a Claude pane).
+- **Next:** take his verdicts, fix if needed, then the close-out (Changelog, Testing status, Open items 32/34/35, Kelpie.md, this file) and remove this section.
+
 ## Where things stand (2026-09-15, after round 16)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), **rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16**, 108 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915` (the round-15 key bar `88cd333` is now `b3ffd30`, the Tailscale fix `173b356` is `12fe00d`, the iPhone build `4beeecd` is `d00a6c8`).
