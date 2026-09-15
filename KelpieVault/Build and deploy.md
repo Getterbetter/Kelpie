@@ -117,12 +117,14 @@ xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
 
 Related: [[Architecture]] · [[Testing status]] · [[Pairing and setup]] · [[Archive/round1/fork-notes|the original hang diagnosis]]
 
-## TestFlight upload, the recipe that works (2026-09-13, build 3; again 2026-09-15, build 4)
+## TestFlight upload, the recipe that works (2026-09-13, build 3; 2026-09-15, builds 4 and 5)
+
+"The recipe that works" because upstream's one-step `make upload` (automatic signing through `scripts/ExportOptions.plist`) fails on this Mac with "Failed to Use Accounts"; the manual export plist and `altool` with the API key are the path that has shipped every build since 3. Anthony, 2026-09-15: "I don't understand why it's the 'recipe that works'" — this paragraph is the answer.
 
 **`make bump` after the v0.1.8 rebase (fixed 2026-09-15):** upstream added `CFBundleVersion: $(CURRENT_PROJECT_VERSION)` lines to `project.yml`, and the rule's `awk` matched one of those first (no quotes, so an empty field) and wrote `"1"`. It now matches only `CURRENT_PROJECT_VERSION: "`. Check the number it prints before archiving.
 
 
-`make bump`, then `xcodebuild archive` for `generic/platform=iOS` with the session's path flags, then unlock the Thyme keychain (`~/Developer/maple-and-salt-agent/config/asc/thyme-dist.keychain-db`, password in `keychain-pass.txt`), then `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions-manual.plist` — the repo's automatic-signing `scripts/ExportOptions.plist` fails with "Failed to Use Accounts" on this Mac, the manual one names the three App Store profiles under `~/Library/MobileDevice/Provisioning Profiles/` — then `xcrun altool --upload-app -f Kelpie.ipa -t ios --apiKey NNU3BKC99D --apiIssuer 69a6de91-4abe-47e3-e053-5b8c7c11a4d1` (the `.p8` lives in `~/.appstoreconnect/private_keys/` or next to the keychain). Build 3's delivery id `7f51e9a6-f931-4ccd-a829-ec4fd2759940`; build 4's (2026-09-15) `634bfd55-78b6-454b-b068-80ca78556bee`. The archive, export and upload all ran from the fixed build path `~/Library/Caches/kelpie-build`.
+`make bump`, then `xcodebuild archive` for `generic/platform=iOS` with the session's path flags, then unlock the Thyme keychain (`~/Developer/maple-and-salt-agent/config/asc/thyme-dist.keychain-db`, password in `keychain-pass.txt`), then `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions-manual.plist` — the repo's automatic-signing `scripts/ExportOptions.plist` fails with "Failed to Use Accounts" on this Mac, the manual one names the three App Store profiles under `~/Library/MobileDevice/Provisioning Profiles/` — then `xcrun altool --upload-app -f Kelpie.ipa -t ios --apiKey NNU3BKC99D --apiIssuer 69a6de91-4abe-47e3-e053-5b8c7c11a4d1` (the `.p8` lives in `~/.appstoreconnect/private_keys/` or next to the keychain). Build 3's delivery id `7f51e9a6-f931-4ccd-a829-ec4fd2759940`; build 4's (2026-09-15) `634bfd55-78b6-454b-b068-80ca78556bee`; build 5's (2026-09-15, after round 20, carrying the composer, the tap fix and the foreground lease) `a6aa2408-ec32-4f99-b348-d39a1e458589`. The archive, export and upload all ran from the fixed build path `~/Library/Caches/kelpie-build`.
 
 
 ### Re-vendoring the package
