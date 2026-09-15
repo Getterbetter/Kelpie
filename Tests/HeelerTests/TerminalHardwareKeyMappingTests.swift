@@ -20,6 +20,15 @@ struct TerminalHardwareKeyMappingTests {
         #expect(bytes(Key(usage: Usage.period, command: true)) == [0x1B])
     }
 
+    @Test func shiftTabSendsBackTab() {
+        #expect(bytes(Key(usage: Usage.tab, shift: true)) == [0x1B, 0x5B, 0x5A])
+        // Plain Tab, and Tab under any other modifier, stay with Ghostty.
+        #expect(bytes(Key(usage: Usage.tab)) == nil)
+        #expect(bytes(Key(usage: Usage.tab, control: true, shift: true)) == nil)
+        #expect(bytes(Key(usage: Usage.tab, option: true, shift: true)) == nil)
+        #expect(bytes(Key(usage: Usage.tab, shift: true, command: true)) == nil)
+    }
+
     @Test func optionBackspaceDeletesAWordBackward() {
         #expect(bytes(Key(usage: Usage.deleteOrBackspace, option: true)) == [0x1B, 0x7F])
         // Shift rides along harmlessly; there is no shifted spelling.

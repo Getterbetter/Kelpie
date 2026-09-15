@@ -2799,7 +2799,29 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     override var keyCommands: [UIKeyCommand]? {
         var commands = super.keyCommands ?? []
         commands.append(Self.commandPeriodKeyCommand)
+        commands.append(Self.shiftTabKeyCommand)
         return commands
+    }
+
+    /// Kelpie: Shift+Tab. iPadOS owns the chord as its focus-backward
+    /// gesture, so the press may never reach `pressesBegan`; a command with
+    /// priority over the system behaviour takes it first. Its action shares
+    /// ``claimHardwareKeyDelivery(_:)`` with the press path, so whichever
+    /// route iPadOS runs first sends CSI Z and the other stays silent.
+    private static let shiftTabKeyCommand: UIKeyCommand = {
+        let command = UIKeyCommand(
+            input: "\t",
+            modifierFlags: .shift,
+            action: #selector(heelerShiftTabKeyCommand(_:)))
+        command.wantsPriorityOverSystemBehavior = true
+        command.discoverabilityTitle = "Shift Tab"
+        return command
+    }()
+
+    @objc private func heelerShiftTabKeyCommand(_ command: UIKeyCommand) {
+        TerminalKeyTrace.log("shift tab key command mods=0x\(String(command.modifierFlags.rawValue, radix: 16))")
+        sendHardwareKey(
+            TerminalHardwareKeyMapping.Key(usage: TerminalHardwareKeyMapping.Usage.tab, shift: true))
     }
 
     /// The ⌘`.` command. Its action shares ``claimHardwareKeyDelivery(_:)``
@@ -2876,8 +2898,8 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
                 continue
             }
             // Kelpie: the combos TerminalHardwareKeyMapping owns (Escape,
-            // ⌘., the Option word keys and ⌘+arrow for Home/End/PageUp/
-            // PageDown) are answered here, so Ghostty never encodes them
+            // ⌘., Shift+Tab, the Option word keys and ⌘+arrow for Home/End/
+            // PageUp/PageDown) are answered here, so Ghostty never encodes them
             // itself. This runs ahead of the scene-command route — every ⌘
             // chord but the zoom pair goes up the responder chain there, which
             // would leave ⌘+arrow and the ⌘. press-path backstop doing nothing
