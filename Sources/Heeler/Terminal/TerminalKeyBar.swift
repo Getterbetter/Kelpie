@@ -16,6 +16,15 @@ protocol TerminalKeyBarHandler: AnyObject {
     ) -> TerminalPublicStickyActivation
     /// The trailing keyboard-dismiss button, pinned outside the scroll view.
     func keyBarDidRequestDismiss(_ bar: TerminalKeyBar)
+    /// The composer toggle at the leading edge: nil hides the key (the
+    /// Console has no composer here), otherwise whether the composer is on.
+    func keyBarComposerState(_ bar: TerminalKeyBar) -> Bool?
+    func keyBarDidToggleComposer(_ bar: TerminalKeyBar)
+}
+
+extension TerminalKeyBarHandler {
+    func keyBarComposerState(_ bar: TerminalKeyBar) -> Bool? { nil }
+    func keyBarDidToggleComposer(_ bar: TerminalKeyBar) {}
 }
 
 /// The key bar's sizes, derived from the reader's text size.
@@ -103,8 +112,16 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     private let scroll = UIScrollView()
     private let pill = TerminalKeyBarPillView()
     private let divider = UIView()
+    /// The composer toggle and its hairline, pinned at the leading edge the
+    /// way the dismiss key is pinned at the trailing one. Hidden, with the
+    /// scroll view pulled back to the pill's edge, when the handler offers no
+    /// composer (Open item 30).
+    private var composerKey: UIButton?
+    private let leadingDivider = UIView()
+    private var scrollLeadingWithComposer: NSLayoutConstraint?
+    private var scrollLeadingWithoutComposer: NSLayoutConstraint?
     private var pillHeightConstraint: NSLayoutConstraint?
-    private var dividerHeightConstraint: NSLayoutConstraint?
+    private var dividerHeightConstraints: [NSLayoutConstraint] = []
     private var stickyKeys:
         [(modifier: TerminalPublicStickyModifier, key: UIButton, caption: String)] = []
     /// Every constraint pinned to the key height, so one text-size change can
@@ -141,6 +158,7 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         configureKeys(pasteTarget: pasteTarget)
         applyTextSizeMetrics()
         refreshStickyKeys()
+        refreshComposerKey()
         // One row of chrome is all an iPhone has for Esc, Tab, Ctrl and the
         // arrows, so it follows the reader's text size — capped, because the
         // bar has to stay one row (round 12, finding 8).
@@ -156,7 +174,9 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         let keyHeight = self.keyHeight
         for constraint in keyHeightConstraints { constraint.constant = keyHeight }
         pillHeightConstraint?.constant = keyHeight + Self.pillPadding
-        dividerHeightConstraint?.constant = (keyHeight * Self.dividerHeightRatio).rounded()
+        for constraint in dividerHeightConstraints {
+            constraint.constant = (keyHeight * Self.dividerHeightRatio).rounded()
+        }
         let verticalInset = Self.pillPadding / 2
         scroll.contentInset = UIEdgeInsets(
             top: verticalInset, left: Self.sideInset,
@@ -194,6 +214,22 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
                 to: entry.key,
                 caption: entry.caption)
         }
+    }
+
+    /// Redraws the composer toggle from the handler: absent, off, or on
+    /// (tinted, as an armed sticky key is).
+    func refreshComposerKey() {
+        guard let composerKey else { return }
+        let state = handler?.keyBarComposerState(self)
+        let offered = state != nil
+        composerKey.isHidden = !offered
+        leadingDivider.isHidden = !offered
+        scrollLeadingWithComposer?.isActive = false
+        scrollLeadingWithoutComposer?.isActive = false
+        (offered ? scrollLeadingWithComposer : scrollLeadingWithoutComposer)?.isActive = true
+        composerKey.configuration?.baseForegroundColor = state == true ? .tintColor : .label
+        composerKey.accessibilityValue = state == true ? "On" : "Off"
+        composerKey.setNeedsUpdateConfiguration()
     }
 
     // MARK: - Layout
@@ -263,12 +299,26 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         let dismiss = dismissKey()
         pill.addSubview(dismiss)
 
+        let composer = composerToggleKey()
+        composerKey = composer
+        pill.addSubview(composer)
+        leadingDivider.translatesAutoresizingMaskIntoConstraints = false
+        leadingDivider.backgroundColor = .separator
+        pill.addSubview(leadingDivider)
+
         let pillHeight = pill.heightAnchor.constraint(
             equalToConstant: keyHeight + Self.pillPadding)
         pillHeightConstraint = pillHeight
         let dividerHeight = divider.heightAnchor.constraint(
             equalToConstant: (keyHeight * Self.dividerHeightRatio).rounded())
-        dividerHeightConstraint = dividerHeight
+        let leadingDividerHeight = leadingDivider.heightAnchor.constraint(
+            equalToConstant: (keyHeight * Self.dividerHeightRatio).rounded())
+        dividerHeightConstraints = [dividerHeight, leadingDividerHeight]
+        // One of the two is active at a time; `refreshComposerKey` picks.
+        scrollLeadingWithComposer = scroll.leadingAnchor.constraint(
+            equalTo: leadingDivider.trailingAnchor)
+        scrollLeadingWithoutComposer = scroll.leadingAnchor.constraint(
+            equalTo: pill.leadingAnchor)
 
         NSLayoutConstraint.activate([
             pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.pillMargin),
@@ -276,9 +326,17 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
             pill.centerYAnchor.constraint(equalTo: centerYAnchor),
             pillHeight,
 
+            composer.leadingAnchor.constraint(
+                equalTo: pill.leadingAnchor, constant: Self.sideInset),
+            composer.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
+            leadingDivider.leadingAnchor.constraint(
+                equalTo: composer.trailingAnchor, constant: Self.keySpacing),
+            leadingDivider.widthAnchor.constraint(equalToConstant: 1),
+            leadingDivider.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
+            leadingDividerHeight,
+
             scroll.topAnchor.constraint(equalTo: pill.topAnchor),
             scroll.bottomAnchor.constraint(equalTo: pill.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: pill.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: divider.leadingAnchor),
 
             divider.widthAnchor.constraint(equalToConstant: 1),
@@ -363,6 +421,22 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
                 guard let self else { return }
                 UIDevice.current.playInputClick()
                 handler?.keyBarDidRequestDismiss(self)
+            }, for: .touchUpInside)
+        return button
+    }
+
+    /// The composer toggle (Open item 30): a text-box glyph at the leading
+    /// edge, tinted while the composer is on. Pinned outside the scroll view
+    /// for the same reason the dismiss key is.
+    private func composerToggleKey() -> UIButton {
+        let button = makeKey(title: nil, symbol: "character.textbox", monospaced: false)
+        button.accessibilityLabel = "Text Field"
+        button.addAction(
+            UIAction { [weak self] _ in
+                guard let self else { return }
+                UIDevice.current.playInputClick()
+                handler?.keyBarDidToggleComposer(self)
+                refreshComposerKey()
             }, for: .touchUpInside)
         return button
     }
@@ -488,8 +562,14 @@ extension HeelerTerminalView: TerminalKeyBarHandler {
         sendControlKey(key)
     }
 
+    /// While the composer is active a symbol key types into the field, so
+    /// the field and the PTY stay one line. An armed Ctrl or Alt makes the
+    /// key a chord instead, and a chord is the terminal's.
     func keyBar(_ bar: TerminalKeyBar, didType text: String) {
         guard isLocalInputEnabled else { return }
+        if !hasActiveStickyModifiers, composerControl?.typeIntoField(text) == true {
+            return
+        }
         insertText(text)
     }
 
@@ -506,6 +586,17 @@ extension HeelerTerminalView: TerminalKeyBarHandler {
     /// The one sanctioned way down: a bare `resignFirstResponder()` is
     /// something UIKit does on its own and the terminal restores.
     func keyBarDidRequestDismiss(_ bar: TerminalKeyBar) {
+        // The field may be the one holding the keyboard; the terminal's own
+        // intent is cleared either way, so nothing raises it back.
+        composerControl?.resignField()
         _ = dismissKeyboard()
+    }
+
+    func keyBarComposerState(_ bar: TerminalKeyBar) -> Bool? {
+        composerControl?.isEnabled
+    }
+
+    func keyBarDidToggleComposer(_ bar: TerminalKeyBar) {
+        composerControl?.toggle()
     }
 }

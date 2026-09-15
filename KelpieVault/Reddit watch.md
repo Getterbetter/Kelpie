@@ -99,20 +99,20 @@ holds a Reddit token: Anthony's call. Logging the job in was out of scope.
 ## Last run
 
 <!-- redditwatch:start -->
-_Last run: 2026-09-15T02-39-12Z UTC._
+_Last run: 2026-09-15T03-50-36Z UTC._
 
 | Post | Comments | New | Score | State |
 | --- | --- | --- | --- | --- |
 | r/alphaandbetausers | 0 | 0 | n/a | ok |
 | r/SideProject | 1 | 0 | n/a | ok |
-| herdr Discussions, Show and tell | n/a | 0 | n/a | unreachable |
+| herdr Discussions, Show and tell | 0 | 0 | 1 | ok |
 | r/herdr | 10 | 1 | n/a | ok |
 | r/ClaudeCode | 99 | 0 | n/a | ok |
 | r/herdr | 0 | 0 | n/a | ok |
 
 ### Waiting on a reply
 
-- **r/herdr**, u/Pattont (8 hours ago): I’ll check it out — [comment](https://www.reddit.com/r/herdr/comments/1vxsh7w/i_built_an_ios_companion_for_herdr_because_i_kept/p9t2ln8/)
+- **r/herdr**, u/Pattont (9 hours ago): I’ll check it out — [comment](https://www.reddit.com/r/herdr/comments/1vxsh7w/i_built_an_ios_companion_for_herdr_because_i_kept/p9t2ln8/)
 
 Drafts, where the analyse lane wrote one, are in `~/.kelpie/redditwatch/drafts/`. Anthony posts every reply by hand.
 <!-- redditwatch:end -->

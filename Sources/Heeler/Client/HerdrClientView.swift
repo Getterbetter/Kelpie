@@ -26,6 +26,10 @@ struct HerdrClientView: View {
     let media: HerdrMediaStagingStore
 
     @State private var keyboardInset = TerminalKeyboardInset()
+    /// The composer (Open item 30): off by default, toggled from the key
+    /// bar, persisted. Its field mounts under the terminal while it is on
+    /// and no hardware keyboard is attached.
+    @State private var composer = TerminalComposerControl()
     @Environment(\.colorScheme) private var colorScheme
     /// One Ghostty surface the screen has mounted: the store's pipeline it
     /// belongs to and the byte feed it draws.
@@ -74,6 +78,7 @@ struct HerdrClientView: View {
         // dismisses its keyboard, as dismantling the view used to.
         screen.isLocalInputEnabled = false
         screen.keyboardControl = nil
+        screen.composerControl = nil
         screen.claimsKeyboard = nil
         screen.onSizeChanged = nil
         screen.onSend = nil
@@ -115,11 +120,11 @@ struct HerdrClientView: View {
         // an accessory at the bottom of the screen, nowhere near a keyboard
         // that has the keys already.
         screen.showsKeyBar = !hardwareKeyboard.isConnected
-        // Open item 30, Stage 0: let iOS correct and predict what the
-        // on-screen keyboard types. A correction arrives as a rewrite of the
-        // last word, which `HeelerTerminalView.replace` already turns into
-        // DELs and a retype (round 12); a prediction tap is a plain insert.
-        screen.textInputStyle = .assisted
+        screen.composerControl = composer
+        // The composer handing the keyboard back to the terminal: the inset
+        // stays frozen until the terminal's own keyboard frame settles.
+        let composer = self.composer
+        screen.onKeyboardHandoffEnded = { id, _ in composer.endKeyboardHandoff(id) }
         screen.isLocalInputEnabled = true
         // Scroll-to-dismiss asks this on every pan: a Magic Keyboard docked
         // mid-session must keep its first responder through a scroll.
@@ -154,15 +159,20 @@ struct HerdrClientView: View {
     }
 
     var body: some View {
-        ZStack {
-            ForEach(mountedSurfaces) { surface in
-                let isRetired = surface.id != store.terminalID
-                screen(for: surface)
-                    .allowsHitTesting(!isRetired)
-                    .accessibilityHidden(isRetired)
+        VStack(spacing: 0) {
+            ZStack {
+                ForEach(mountedSurfaces) { surface in
+                    let isRetired = surface.id != store.terminalID
+                    screen(for: surface)
+                        .allowsHitTesting(!isRetired)
+                        .accessibilityHidden(isRetired)
+                }
+            }
+            .overlay { statusOverlay }
+            if composer.isActive {
+                composerBar
             }
         }
-            .overlay { statusOverlay }
             .padding(.bottom, keyboardLayout.contentInset)
             // After the keyboard inset: an overlay applied before it aligns
             // to the un-inset frame and ends up behind the input row.
@@ -235,8 +245,24 @@ struct HerdrClientView: View {
                 if hardwareKeyboard.isConnected { keyboardControl.requestKeyboard() }
             }
             .onChange(of: hardwareKeyboard.isConnected, initial: true) { _, isConnected in
+                // The composer is an on-screen-keyboard feature only.
+                composer.keyboardInset = keyboardInset
+                composer.isAvailable = !isConnected
                 if isConnected { keyboardControl.requestKeyboard() }
             }
+    }
+
+    /// The composer field, drawn as a message bar: a rounded field on a
+    /// strip that reads as chrome, not as part of herdr's screen.
+    private var composerBar: some View {
+        TerminalComposerView(control: composer)
+            .padding(.horizontal, 12)
+            .background(
+                Color(uiColor: .tertiarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(uiColor: .secondarySystemBackground))
     }
 
     private var themePalette: TerminalThemePalette {
