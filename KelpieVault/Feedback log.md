@@ -278,3 +278,7 @@ Read as: a new Open item for a later session, not this one. Hardware Shift+Tab o
 Anthony (2026-09-15, at the round-16 report): "my unit tests passed. yes to both, then close this out and ill start a new session next"
 
 Read as: he ran the unit tests himself on the rebased build and they passed; `kelpie` moves onto the rebased branch and is force-pushed; round 16 closes with the definition of done and the next session starts fresh from `resume.md`.
+
+Anthony (2026-09-15, after the round-16 close): "can you run the unit tests? ipad is plugged in."
+
+Read as: run the full `HeelerTests` suite on the iPad against the rebased head here, in this session, and report the numbers; the result goes into [[Testing status]].

@@ -95,7 +95,17 @@ xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
   -clonedSourcePackagesDirPath "$S/kelpie-spm" -derivedDataPath "$S/kelpie-dd"
 ```
 
-The recipe is the build recipe with `test` and a simulator destination — *if* a simulator ever boots. The test target **cannot** compile for a device destination at all: `SidebarConsoleIntegrationTests` uses `DemoScreenshotComposition`, which sits behind `#if DEBUG && targetEnvironment(simulator)`. That is pre-existing and applies to any change.
+That is the simulator form, which never boots here. **The suite runs on the iPad** (since round 12c; 2058 tests in about 80 s plus the Debug build):
+
+```sh
+xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
+  -destination 'platform=iOS,id=09D7738D-2173-55EF-8966-A9C3EA1D0514' \
+  -only-testing:HeelerTests \
+  -clonedSourcePackagesDirPath "$S/kelpie-spm" -derivedDataPath "$S/kelpie-dd" \
+  -resultBundlePath "$S/HeelerTests.xcresult" -allowProvisioningUpdates > "$S/test.log" 2>&1
+```
+
+Read the `✘` lines and the `Test run with N tests` line from the log. A handful of tests cannot pass on hardware by design (they read source files from the Mac, or assume an iPhone destination, or need the software keyboard, which a docked Magic Keyboard hides); the current list is in [[Testing status]] under round 16. Never reuse a derived-data path from another checkout or worktree: the precompiled libghostty module is keyed to that tree's `ghostty.h` and the run fails before testing anything. And after a re-vendor, delete `Packages/GhosttyTerminal/Artifacts/GhosttyKit.xcframework` in every checkout and run the fetch script again: the binary is gitignored, so a checkout that did not build the re-vendor keeps the old one silently.
 
 **Since 2026-09-12 the suite runs in GitHub Actions on the fork** (`.github/workflows/ci.yml`, macos-26 runner) on every pull request into `kelpie`, so the way to run the tests is to open a PR. Two Kelpie-specific steps make that work: the workflow fetches the vendored libghostty artifact before building (it is gitignored), and `scripts/run-ci-ios-tests.sh` boots an iPad simulator (`HEELER_CI_SIM_MODEL`, default `iPad Air 11-inch (M4)`) because Kelpie is iPad-only. The real-SSH fixtures are flaky on hosted runners: three of the first five runs failed on a different transient connection error each time, and upstream sees the same, so re-run a red run once before reading it as a regression. Details in [[Dependency watch]] and `docs/guides/dependency-watch.md`.
 
