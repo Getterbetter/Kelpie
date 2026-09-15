@@ -151,8 +151,11 @@ finding already knows whether it conflicts and where. Anything beyond a
 ### `libghostty-spm`
 
 Never edit the vendored package under `Packages/GhosttyTerminal`; override its
-`open` members from `HeelerTerminalView`. To move the pin: update `URL` and
-`SHA` in `scripts/fetch-ghostty-artifact.sh`, run `make generate` (which fetches
+`open` members from `HeelerTerminalView`. To move the pin: first
+`make ghostty-override-diff NEW=<commit>` (`scripts/ghostty-override-diff.py`),
+which names every `UITerminalView` member Kelpie overrides, declares or calls
+that the new commit removes, closes, re-signs or collides with; then update
+`URL` and `SHA` in `scripts/fetch-ghostty-artifact.sh`, run `make generate` (which fetches
 and checksum-verifies), review the package's Swift sources and the XCFramework
 checksum, then device build and walk the pointer, long-press and trackpad-scroll
 checklist in `docs/adr/0016-ipad-pointer-input.md`.

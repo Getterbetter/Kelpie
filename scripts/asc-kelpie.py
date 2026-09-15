@@ -9,6 +9,10 @@
     python3 scripts/asc-kelpie.py --screenshots <dir>        # the 13-inch iPad set
     python3 scripts/asc-kelpie.py --iap-screenshots [<png>]  # the tip IAP review shot
 
+    # TestFlight — on its own: newest VALID build (or --build N) into the public
+    # beta group, "what to test" from --notes, beta review submitted
+    python3 scripts/asc-kelpie.py --distribute-build [--build N] [--notes "..."]
+
     # submission modes — also on their own; any of them switches the run
     python3 scripts/asc-kelpie.py --attach-build
     python3 scripts/asc-kelpie.py --review-details --contact-first A --contact-last B \
@@ -31,6 +35,12 @@ skipping any file whose fileName the set already holds.
 three tip IAPs, skipping any IAP that already has one; the path defaults to
 the uprighted tip sheet in KelpieVault/Design/Store Screenshots/iap.
 
+--distribute-build is the step `xcrun altool --upload-app` does not do: an
+uploaded build reaches nobody until it is in the external group. It adds the
+newest VALID build (or --build N) to "Kelpie public beta", writes the en-US
+"what to test" text from --notes when the build has none, and creates the
+beta App Review submission. Idempotent. Rounds 13, 17 and 20 uploaded builds
+3, 4 and 5 and skipped this, so testers stayed on build 2 (found 2026-09-15).
 --attach-build points the editable version at the newest VALID build.
 --review-details writes the App Review contact and the notes block from
 KelpieVault/App Store copy.md, with the review host's IP and password filled
@@ -142,6 +152,7 @@ SKIPPED_AGE_ATTRS = [
 
 USAGE = (f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply]\n"
          f"       [--screenshots <dir>] [--iap-screenshots [<png>]]\n"
+         f"       [--distribute-build [--build <n>] [--notes <text>]]\n"
          f"       [--attach-build] [--review-attachment [<file>]] [--submit]\n"
          f"       [--review-details --contact-first <f> --contact-last <l>\n"
          f"                         --contact-phone <p> --contact-email <e>]")
@@ -151,6 +162,9 @@ SCREENSHOTS_DIR = None
 IAP_SCREENSHOT = None
 IAP_SCREENSHOTS_MODE = False
 ATTACH_BUILD_MODE = False
+DISTRIBUTE_MODE = False
+DISTRIBUTE_BUILD = None
+DISTRIBUTE_NOTES = None
 REVIEW_DETAILS_MODE = False
 REVIEW_ATTACHMENT = None
 REVIEW_ATTACHMENT_MODE = False
@@ -176,6 +190,16 @@ while _args:
             IAP_SCREENSHOT = _args.pop(0)
     elif arg == "--attach-build":
         ATTACH_BUILD_MODE = True
+    elif arg == "--distribute-build":
+        DISTRIBUTE_MODE = True
+    elif arg == "--build":
+        if not _args:
+            sys.exit(USAGE)
+        DISTRIBUTE_BUILD = _args.pop(0)
+    elif arg == "--notes":
+        if not _args:
+            sys.exit(USAGE)
+        DISTRIBUTE_NOTES = _args.pop(0)
     elif arg == "--review-details":
         REVIEW_DETAILS_MODE = True
     elif arg in _CONTACT_FLAGS:
@@ -197,6 +221,8 @@ if REVIEW_ATTACHMENT_MODE and REVIEW_ATTACHMENT is None:
 if REVIEW_DETAILS_MODE and len(CONTACT) != 4:
     sys.exit("--review-details needs --contact-first, --contact-last, "
              "--contact-phone and --contact-email\n" + USAGE)
+if (DISTRIBUTE_BUILD or DISTRIBUTE_NOTES) and not DISTRIBUTE_MODE:
+    sys.exit("--build and --notes only mean anything with --distribute-build\n" + USAGE)
 if CONTACT and not REVIEW_DETAILS_MODE:
     sys.exit("--contact-* only mean anything with --review-details\n" + USAGE)
 ASSET_MODE = SCREENSHOTS_DIR is not None or IAP_SCREENSHOTS_MODE
@@ -746,6 +772,72 @@ def newest_valid_build():
     return valid[0]
 
 
+PUBLIC_BETA_GROUP = "Kelpie public beta"
+
+
+def step_distribute_build(version, notes):
+    """Put an uploaded build in front of the public beta testers.
+
+    Three writes, each skipped when already done: the build into the external
+    group (a build outside every group is visible to nobody), an en-US
+    betaBuildLocalization carrying the "what to test" text, and the
+    betaAppReviewSubmission an external group needs before Apple releases the
+    build to it. Export compliance is settled at upload (processingState VALID
+    with a non-null usesNonExemptEncryption), so it is not touched here."""
+    if version is None:
+        build = newest_valid_build()
+    else:
+        builds = get(f"/v1/apps/{APP_ID}/builds?limit=200")["data"]
+        build = next((b for b in builds if b["attributes"].get("version") == str(version)), None)
+    if build is None:
+        blocker(f"no {'VALID build' if version is None else 'build ' + str(version)} to distribute")
+        return
+    if build["attributes"].get("processingState") != "VALID":
+        blocker(f"build {build['attributes'].get('version')} is {build['attributes'].get('processingState')}, not VALID")
+        return
+    bid = build["id"]
+    label = f"build {build['attributes'].get('version')} {bid}"
+    groups = [g for g in get(f"/v1/betaGroups?filter[app]={APP_ID}")["data"]
+              if g["attributes"].get("name") == PUBLIC_BETA_GROUP]
+    if not groups:
+        blocker(f"no beta group named {PUBLIC_BETA_GROUP!r}")
+        return
+    group = groups[0]
+    in_group = {b["id"] for b in get(f"/v1/betaGroups/{group['id']}/builds?limit=200")["data"]}
+    if bid in in_group:
+        unchanged(f"{label} is already in {PUBLIC_BETA_GROUP!r}")
+    else:
+        plan("POST", f"/v1/betaGroups/{group['id']}/relationships/builds",
+             {"data": [{"type": "builds", "id": bid}]},
+             f"add {label} to {PUBLIC_BETA_GROUP!r} ({len(in_group)} build(s) there now)")
+    locs = get(f"/v1/builds/{bid}/betaBuildLocalizations")["data"]
+    en = next((l for l in locs if l["attributes"].get("locale") == "en-US"), None)
+    if en and (en["attributes"].get("whatsNew") or "").strip():
+        unchanged(f"{label} has en-US what-to-test text")
+    elif notes:
+        if en:
+            plan("PATCH", f"/v1/betaBuildLocalizations/{en['id']}",
+                 {"data": {"type": "betaBuildLocalizations", "id": en["id"], "attributes": {"whatsNew": notes}}},
+                 f"set what-to-test text on {label}")
+        else:
+            plan("POST", "/v1/betaBuildLocalizations",
+                 {"data": {"type": "betaBuildLocalizations", "attributes": {"locale": "en-US", "whatsNew": notes},
+                           "relationships": {"build": {"data": {"type": "builds", "id": bid}}}}},
+                 f"create en-US what-to-test text on {label}")
+    else:
+        print(f"NOTE  {label} has no what-to-test text and no --notes were given; testers see none")
+    sub = get(f"/v1/betaAppReviewSubmissions?filter[build]={bid}")["data"]
+    if sub:
+        unchanged(f"{label} beta review: {sub[0]['attributes'].get('betaReviewState')}")
+    else:
+        plan("POST", "/v1/betaAppReviewSubmissions",
+             {"data": {"type": "betaAppReviewSubmissions",
+                       "relationships": {"build": {"data": {"type": "builds", "id": bid}}}}},
+             f"submit {label} for beta App Review")
+    detail = get(f"/v1/builds/{bid}/buildBetaDetail")["data"]["attributes"]
+    print(f"      {label}: external {detail.get('externalBuildState')}, internal {detail.get('internalBuildState')}")
+
+
 def step_attach_build(version_id):
     build = newest_valid_build()
     if build is None:
@@ -1017,6 +1109,11 @@ def main():
             step_screenshots(editable_version_id(), SCREENSHOTS_DIR)
         if IAP_SCREENSHOTS_MODE:
             step_iap_screenshots(IAP_SCREENSHOT)
+        summary()
+        return
+
+    if DISTRIBUTE_MODE:
+        step_distribute_build(DISTRIBUTE_BUILD, DISTRIBUTE_NOTES)
         summary()
         return
 
