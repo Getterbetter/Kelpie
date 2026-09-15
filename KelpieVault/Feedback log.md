@@ -390,3 +390,11 @@ Read as: Show HN is held (a new account's Show HN is likely flagged; he makes th
 Anthony (2026-09-15, round 21, after the close-out): "proceed"
 
 Read as: run `make distribute APPLY=1` for build 5 with the notes shown in the report; the three writes to TestFlight (group, what-to-test text, beta review submission) are approved.
+
+Anthony (2026-09-15, round 21, after build 5 went out): "it's installed through TestFlight on both iPhone and iPad"
+
+Read as: the second half of Open item 41 is done on his side; verify the mini's `notifications.json` shows both entries as `env: production` and close the item if so.
+
+Anthony (2026-09-15, round 21): "go"
+
+Read as: Kelpie has been launched on the second device; re-read the mini's `notifications.json`.
