@@ -358,3 +358,7 @@ Read as: the iPad is launched; the switcher and capsule checks pass (items 37 an
 Anthony (2026-09-15, round 19, after the close-out): "can you re run all the tests? start with the iPad through ui automation. iPad is plugged in. once done I'll plug in the iPhone"
 
 Read as: the full `HeelerTests` suite on the iPad first (the device run, test host app and all), then the same on the iPhone once he plugs it in.
+
+Anthony (2026-09-15, round 19, closing): "ill test the notifications over time - from what I could tell during the last part, i didnt see dual notifications but i cant be sure. lets close this out, and ill start a new session next."
+
+Read as: item 36 stays open pending his observation over the coming days (no double notification seen so far, unconfirmed); the round closes here and the next session starts fresh from `resume.md`.
