@@ -366,3 +366,7 @@ Read as: item 36 stays open pending his observation over the coming days (no dou
 Anthony (2026-09-15, round 20 opening): "i think we run the ui tests at the end of each change, ipad & iphone, ill just plug them in when its time to test. also, the last round of tests found issues, should we fix them in this session? continue"
 
 Read as: item 39's guard is the process one, and stronger than the note proposed: the full device suite runs on both devices at the end of every change, not only after a rebase or re-vendor; he plugs the devices in when the run is due. The known failures from round 19's full run are to be looked at in this session. Open the round.
+
+Anthony (2026-09-15, round 20, closing): "lets close this out, ill start a new session next after pushing to TestFlight"
+
+Read as: round 20 closes here; TestFlight build 5 (plan item 6) happens between this session and the next, on his side or as the next session's first step, and the next session starts fresh from `resume.md`.
