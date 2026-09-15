@@ -342,3 +342,7 @@ Read as: the composer works on the iPad; the visual: the field's strip runs edge
 Anthony (2026-09-15, round 18, after the floating-field build): "yep that works now. except the hosts button seems the cover some of the box so it may need to float above the new text box"
 
 Read as: the floating field is confirmed; the Kelpie menu button (the `ellipsis.circle` capsule) overlaps the composer field, so it has to sit above the field when the composer is on.
+
+Anthony (2026-09-15, round 18, after the menu-button build): "A bug for the next session: when on iOS, when tapping switch in the top right hand corner to get to the other tabs, it shows the menu for a moment and then just goes straight back to the terminal view. Otherwise, the hosts box now floats above the text box"
+
+Read as: the composer round is confirmed on both devices (the field floats, the phone's menu button rides above it), so Open item 30 closes; and a new Open item for a later session: on the iPhone, herdr's own "switch" button in its mobile header opens its tab menu for a moment and it closes again at once.
