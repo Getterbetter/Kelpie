@@ -1247,7 +1247,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// The root screen's composer, if it has one (Open item 30). While it is
     /// active the field holds the keyboard and this view refuses it; the
     /// key bar's text keys type into the field; the bar itself is shared.
-    weak var composerControl: TerminalComposerControl?
+    weak var composerControl: TerminalComposerControl? {
+        didSet { keyBar?.refreshComposerKey() }
+    }
 
     /// The key bar, for the composer field to ride as its own accessory —
     /// the same instance, so the pill survives the responder swap.
@@ -1576,13 +1578,13 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     func requestKeyboard() {
         guard isLocalInputEnabled else { return }
         cancelPendingKeyboardDismiss()
+        if activeKeyboardHandoffID == nil {
+            finishKeyboardTransitionLayout(handoffOutcome: .cancelled)
+        }
         // With the composer active the keyboard is the field's to raise.
         if let composerControl, composerControl.isActive {
             composerControl.focusField()
             return
-        }
-        if activeKeyboardHandoffID == nil {
-            finishKeyboardTransitionLayout(handoffOutcome: .cancelled)
         }
         raiseKeyboard()
     }
