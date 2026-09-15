@@ -115,6 +115,11 @@ struct HerdrClientView: View {
         // an accessory at the bottom of the screen, nowhere near a keyboard
         // that has the keys already.
         screen.showsKeyBar = !hardwareKeyboard.isConnected
+        // Open item 30, Stage 0: let iOS correct and predict what the
+        // on-screen keyboard types. A correction arrives as a rewrite of the
+        // last word, which `HeelerTerminalView.replace` already turns into
+        // DELs and a retype (round 12); a prediction tap is a plain insert.
+        screen.textInputStyle = .assisted
         screen.isLocalInputEnabled = true
         // Scroll-to-dismiss asks this on every pan: a Magic Keyboard docked
         // mid-session must keep its first responder through a scroll.

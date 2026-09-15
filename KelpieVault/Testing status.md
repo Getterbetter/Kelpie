@@ -143,6 +143,8 @@ The vault never held a device confirmation for it. Round 1's table below records
 
 The open device checks, in [[Open items]] order. Record what comes back in [[Feedback log]] before acting on it.
 
+**30, Stage 0 (round 18, installed 2026-09-15).** On the root screen with the on-screen keyboard: type `teh` then space, expecting `the` on the Host · type `hel` and tap a prediction, expecting one clean word · dictate a sentence · hold `e` and pick `é` · type `ls -la "x"` and confirm no capital and straight quotes · Esc mid-sentence, then Ctrl+C · `/` at the start of a Claude Code line opens its menu. Anything doubled, dropped or mis-capitalised is the composer's job to fix.
+
 **1. Round 3 leftovers.** Option+Backspace deleting one word and only one word · Option+Left/Right jumping words · plain Backspace and Return unchanged. (Escape, Cmd+. and the host capsule are confirmed.) If Option+Backspace deletes a word *plus* a character, the UIKit echo arrived after the press ended; see the note in `scheduleHardwareKeyClaimReset`.
 
 **1f. Round 5 on the device.** Drop from Files · Cmd+←/→/↑/↓ in a shell · tapping a file path in Claude's output, then Quick Look and share · Open File on Host… · the bell haptic (`printf '\a'`) · the font stepping down as the window narrows · a desktop notification, once the `ui.toast.delivery = "terminal"` line is in the mini's config.
