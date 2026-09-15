@@ -2,10 +2,10 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
-## Where things stand (2026-09-15, after round 18)
+## Where things stand (2026-09-15, after round 19)
 
-- Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 118 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915`.
-- Round 18 (2026-09-15, main session, commits `a90ee7d` to the close-out): Open item 30, the composer, closed on both devices. Stage 0 (autocorrect traits on the terminal's own text input) was installed first and failed his typing test ("teh went to yeh"), so the composer shipped as designed: `TerminalComposer.swift` holds the pure mirror (common prefix kept, one DEL per removed character, the new tail typed, CR on Return), the persisted control (`kelpie.composer-enabled`, off by default) and a `UITextView` that rides the terminal's own key bar as its accessory; the pill gained a leading toggle; the terminal refuses first responder while the composer is active and its input-row tap focuses the field. The field is on screen whenever the composer is on and no hardware keyboard is attached (a deviation from the design, recorded), floats like the pill, and on the phone the menu button rides above it. Reviewed (`Archive/round18/composer-review.md`), 16 tests on the iPad. Anthony: "it works well". Two Open items logged for later (36, 37) and one bug (38). Round 17's write-up is in `Changelog.md` and `Decisions.md`.
+- Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 121 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915`.
+- Round 19 (2026-09-15, main session, `472665f` to the close-out): Open items 36, 37 and 38 built, installed on both devices, **none device-confirmed** (both devices were locked all session). 38 was a regression from the round-16 re-vendor: Ghostty's `touchesEnded` now sends its own click for a finger tap, doubling Kelpie's, and herdr's mobile switcher's close button shares the header's switch button's cells; direct touches now end for Ghostty as a cancel (`f6b642f`). 37: the Kelpie capsule is bottom-trailing at every width (`472665f`). 36: a `foreground_until` lease on the device's entry in the Host's `notifications.json`, written while active and cleared on background, honoured by the notify hook (`c913786`; plugin 318 tests green; 11 app tests written, unrun). Rounds 17 and 18 are in `Changelog.md` and `Decisions.md`.
 
 ## Live services, accounts and gates
 
@@ -17,19 +17,20 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 - **Guards**: `make hooks` once per checkout enables the pre-push close-out check (`scripts/check-round-closeout.sh`). Never `git filter-repo` without re-parenting onto upstream afterwards (round 11b).
 - **Vendored GhosttyTerminal** is libghostty-spm `7e45d27` (1.6.20260909) with no patches; `KELPIE-PATCHES.md` is gone and the "never edit the vendored package" rule has no exception. The re-vendor recipe is in `KelpieVault/Build and deploy.md`.
 
-## What is next: the action plan (2026-09-15, close of round 18)
+## What is next: the action plan (2026-09-15, close of round 19)
 
 Work through these in order, one round per session:
 
-1. **Open item 38, herdr's "switch" menu closing at once on the iPhone**: reproduce with the key trace and the connection trace on the phone; suspects in `Open items.md`. Pair it with **item 37** (the floating menu button covering herdr's tab actions on the iPad; move it to the bottom edge, his call on placement) — both are the phone/iPad chrome over herdr's own header.
-2. **Open item 36, no notification on one device while another is foregrounded**: needs a foreground signal per device reaching the plugin or the relay; settle **item 19** (no notification while the same device is foregrounded) first with a read of `HeelerAppModel` after the rebase.
+1. **Round 19's device checks** (Testing status, round 19): the iPhone's "switch" button holding its switcher (38), the iPad capsule in the bottom corner (37), and the lease — iPad open, iPhone silent; iPad backgrounded, iPhone buzzes (36). Run the three notification suites on an unlocked device (the command is in Testing status). If 38 still closes, pull the key trace: one `tap click` line per tap is the fix holding; two is a third click source.
+2. **Open item 19, no in-app banner on the foregrounded device**: unchanged by 36 (the foregrounded device still gets its push and `willPresent` routes it); the recipe is in the item.
 3. **Open item 22, if the Tailscale retry still stalls**: the trace again; residual holes in `KelpieVault/Archive/round14/tailscale-candidates.md`. When it holds, close 22 and 27 together.
-4. **The device checklists that never got their session** (Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28): most are believed working from later rounds; one session with the list open on the iPad would close the lot or turn them into real items.
+4. **The device checklists that never got their session** (Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28): one session with the list open on the iPad would close the lot or turn them into real items.
 5. **Community**: reply to every comment the Reddit watch surfaces within the day (drafts in `~/.kelpie/community watch/drafts/`; the r/ClaudeCode showcase watch surfaces every commenter, which needs a filter); r/ClaudeAI Showcase; r/iPad and r/iosapps his call; Show HN Tuesday US morning.
 6. **After App Store approval**: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan.
-7. **Composer follow-ups, not scheduled**: a soft newline (Claude Code wants `\` then Return; not offered in v1); the responder flows have no unit coverage (toggle with the keyboard up, dismiss from the pill, hardware keyboard attaching, a reconnect under the field) and rest on the 2026-09-15 device check; a TestFlight build 5 carrying the composer once item 38 is fixed. Older: the Connecting card's one-second delay has only been seen on the LAN; a socket-level SSH keepalive (none exists; app-level 30 s ping only); `kelpie.primary-host` is a literal in two files.
+7. **TestFlight build 5** carrying the composer, the tap fix and the lease once round 19's checks pass (the plugin on the mini needs the new `notify-hook.js` too: the lease is read there).
+8. **Composer follow-ups, not scheduled**: a soft newline (Claude Code wants `\` then Return); the responder flows have no unit coverage; older: the Connecting card's delay seen only on the LAN; a socket-level SSH keepalive; `kelpie.primary-host` is a literal in two files.
 
-**Pending on the remote:** rounds 17 and 18 are local only; `git push origin kelpie` is a plain fast-forward (the pre-push close-out check runs). CI on the fork runs the suites on the next pull request.
+**Pending on the remote:** rounds 17, 18 and 19 are local only; `git push origin kelpie` is a plain fast-forward (the pre-push close-out check runs). CI on the fork runs the suites on the next pull request.
 
 ## How to work on it
 
