@@ -271,3 +271,21 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 **A — Xcode sideload now, TestFlight later, App Store possibly.** *(Overtaken 2026-09-11 to 12: the App Store became the plan. `scripts/ExportOptions.plist` carries team `8JQWBQKEXX`; build 1 of 1.0 was uploaded 2026-09-12 and version 1.0 plus the three tips were submitted for review at 02:20 UTC that day as **Kelpie for herdr**. A TestFlight public beta went in alongside it. See [[App Store plan]].)*
 
 **Push notifications were knowingly broken in Kelpie until 2026-09-11.** Heeler's hosted relay signs for bundle `dev.bybee.heeler` with the upstream developer's APNs key, so Apple rejected any push aimed at `TME.Kelpie`. **Fixed 2026-09-11**: `relay/` is deployed on Anthony's own Cloudflare account at `kelpie-apns.getter-tilbury-0m.workers.dev`, APNs key 7RJ68B8QX8 held as a Wrangler secret, and the app and plugin defaults both point at it. Heeler's old relay is on the legacy list so an existing install migrates on its next registration. The pipeline was verified end to end with a hand-run hook; a real delivery to the iPad is still to be seen by Anthony. See [[Heeler upstream]] and [[Open items]].
+
+## 2026-09-15 — round 16: the re-vendor and the rebase onto Heeler v0.1.8
+
+**Decided: `HeelerAppModel` owns the stores, and the app stays one window.** Upstream v0.1.8 made the iPad multi-window (`WindowGroup(for: AgentRoute.self)`) with a `HeelerAppModel` composition root creating every store once. Kelpie adopts the model (less to re-resolve on every rebase; the review confirmed all 34 wirings moved intact, once each) but keeps a single plain `WindowGroup` showing `HerdrClientRootView`, and declares `UIApplicationSupportsMultipleScenes` false: a second window would build a second herdr client competing for the one Attach channel, and upstream's own gating then hides "Open in New Window" and the row drag. CLAUDE.md and ADR 0017 say so.
+
+**Decided: Kelpie's `23c4a30` gives way to upstream's `ConsoleSplitPresentation`, with landscape added.** Upstream ships a fuller version of "an open terminal fills the iPad window", but only in portrait; Kelpie's version fired in both orientations, so the policy now picks `.detailOnly` whenever an Agent is open at regular width.
+
+**Decided: no route restoration at launch.** Upstream restores the Console's Agent route from `@SceneStorage`. On Kelpie the cover is down at launch, so a restored path made the scene directory think that Agent was on screen and `willPresent` silently dropped its pushes. Removed.
+
+**Decided: the key bar writes Kelpie's own byte table; the package owns bare Escape.** The compile fix had routed `sendControlKey` through upstream's `AgentQuickKey` encoder, leaving `TerminalControlKey.bytes` shipping nowhere; the device-confirmed table (round 15) is back. The re-vendored package registers its own Escape `UIKeyCommand` and withholds it during IME composition, so Kelpie's duplicate is dropped and only Cmd+. remains Kelpie's; `interceptHardwareKey` now runs before upstream's scene-command route for the chords it maps, which is what brought Cmd+arrows back.
+
+**Decided: the vendored package carries no patch.** `sendMousePos(x:y:modifiers:)` is public upstream since `eb4107b`, so `KELPIE-PATCHES.md` is deleted and the "never edit the vendored package" rule has no exception. Three Kelpie-side edits were forced by upstream's new non-open conformances (a renamed Escape selector, a drop delegate, a gesture delegate); behaviour unchanged.
+
+**Kept: `make install` reaches the iPad.** Upstream made it iPhone-only and added `make install-ipad`; Kelpie keeps both and falls back to any physical device.
+
+**Rule: a rebase of this size is three builders and narrow reviewers.** Every Opus builder stops at 80 tool calls and every reviewer at 40; the first rebase builder replayed 65 of 105 commits and left 47 stops unlogged, and each of three reviewers finished part of its checklist. Brief builders by commit range and reviewers by area from the start. The dependency watch's "1 conflicting file" was a floor (its dry run stops at the first conflict); the real set was 14. `git merge-tree` sizes a rebase honestly.
+
+**Hashes.** Everything before round 16 resolves through `kelpie-pre-rebase-20260915`; `origin/kelpie` was force-pushed on Anthony's yes.

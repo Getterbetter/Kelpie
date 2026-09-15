@@ -10,6 +10,17 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 16 — the rebase onto Heeler v0.1.8 (2026-09-15)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Release build, `generic/platform=iOS`, and the Debug test target | Compiled | Clean at every step: after the re-vendor, after the rebase, after each review fix. |
+| Wire types against the committed schema | Unit (`--check`) | Up to date. |
+| `HeelerTests` | Unit | Anthony ran the unit tests himself on the rebased build: "my unit tests passed" (count not recorded). |
+| Conflict resolutions | Reviewed | Three fresh-context Opus reviews (`Archive/round16/review-1.md` to `review-3.md`): Console and root, taps and hardware keys, the pairing-sync port and CI. Seven findings taken and rebuilt; the 47 rebase stops the first builder did not log were not individually reviewed. |
+| Install and launch | Device | Release build installed and launched on the iPad and the iPhone twice (before and after the fixes). No feature exercised yet: Open item 33 is Anthony's checklist. |
+| CI on the fork | CI | Runs on the next pull request; the force push itself does not trigger it. |
+
 ## Rounds 3 to 11 — what the device has actually seen
 
 Anthony tests on his 11-inch iPad Pro with a Magic Keyboard — and, since round 11, on his iPhone 16 Pro Max as well — one build per round. The verbatim reports are in [[Feedback log]]; this is the ledger.

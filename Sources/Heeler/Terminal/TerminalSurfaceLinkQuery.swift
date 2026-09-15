@@ -18,9 +18,9 @@ import Foundation
 /// The core's half needs the link modifier: libghostty reports a hovered link
 /// only when the mouse mods match it, so the probe moves the core's mouse with
 /// shift+super, then super, through
-/// `TerminalSurface.sendMousePos(x:y:modifiers:)` — the one sanctioned patch to
-/// the vendored package, written up in
-/// `Packages/GhosttyTerminal/KELPIE-PATCHES.md`. Measured on the iPad: mods 0
+/// `TerminalSurface.sendMousePos(x:y:modifiers:)` — public upstream since
+/// libghostty-spm `eb4107b`; Kelpie carried it as a patch until the round-16
+/// re-vendor. Measured on the iPad: mods 0
 /// reports nothing at all, for an OSC 8 hyperlink and a bare `https://` run
 /// alike, and shift+super is what answers on a screen with mouse tracking on.
 /// See ``HeelerTerminalView/surfaceLinkURL(at:)``.

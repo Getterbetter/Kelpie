@@ -74,7 +74,7 @@ Downloads `GhosttyKit.xcframework.zip` from the pinned libghostty-spm release, v
 
 Every `xcodebuild` invocation — `build`, `-resolvePackageDependencies`, even `-showBuildSettings` — hung indefinitely at "Resolve Package Graph", with no output ever appearing. Three distinct configurations were tried (default signing; signing disabled; `-skipPackageUpdates -disableAutomaticPackageResolution` against already-checked-out packages), all identical. A stack sample showed the process parked in `mach_msg2_trap`, waiting on an internal Xcode service that never answers — **not** the network: `curl` and `git ls-remote` to GitHub returned instantly throughout.
 
-The trigger is the remote `binaryTarget` in `libghostty-spm`. The fix is to vendor the package (commit `98cb6b6`): `Packages/GhosttyTerminal` holds the pinned commit `356f730b`, its binary target points at a local `Artifacts/GhosttyKit.xcframework`, and the fetch script above gets that file with `curl`.
+The trigger is the remote `binaryTarget` in `libghostty-spm`. The fix is to vendor the package (commit `98cb6b6`): `Packages/GhosttyTerminal` holds the pinned commit (`356f730b` at first; `7e45d27`, release 1.6.20260909, since round 16 on 2026-09-15, fetching `upstream.82938b633ba6`), its binary target points at a local `Artifacts/GhosttyKit.xcframework`, and the fetch script above gets that file with `curl`.
 
 Recorded in the user's memory as *Xcode binary artifact download hangs*.
 
@@ -106,3 +106,8 @@ Related: [[Architecture]] · [[Testing status]] · [[Pairing and setup]] · [[Ar
 ## TestFlight upload, the recipe that works (2026-09-13, build 3)
 
 `make bump`, then `xcodebuild archive` for `generic/platform=iOS` with the session's path flags, then unlock the Thyme keychain (`~/Developer/maple-and-salt-agent/config/asc/thyme-dist.keychain-db`, password in `keychain-pass.txt`), then `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions-manual.plist` — the repo's automatic-signing `scripts/ExportOptions.plist` fails with "Failed to Use Accounts" on this Mac, the manual one names the three App Store profiles under `~/Library/MobileDevice/Provisioning Profiles/` — then `xcrun altool --upload-app -f Kelpie.ipa -t ios --apiKey NNU3BKC99D --apiIssuer 69a6de91-4abe-47e3-e053-5b8c7c11a4d1` (the `.p8` lives in `~/.appstoreconnect/private_keys/` or next to the keychain). Build 3's delivery id `7f51e9a6-f931-4ccd-a829-ec4fd2759940`.
+
+
+### Re-vendoring the package
+
+Clone `github.com/Lakr233/libghostty-spm` at the new commit, replace everything under `Packages/GhosttyTerminal` except `Artifacts/` (leave out `Example/`, `Patches/`, `Script/`, `build.sh`, `.github/`, `Package.local.swift`, `Package.swift.template`), point the binary target in `Package.swift` back at the local `Artifacts/GhosttyKit.xcframework` path with the upstream URL and checksum in a comment, put the new tag and checksum in `scripts/fetch-ghostty-artifact.sh`, delete the old xcframework and run the script (the checksum must verify; never edit it to match), update the comment in `project.yml`, `xcodegen generate`, then compile the app and the test target. Expect upstream's new non-open conformances or private selectors to collide with `HeelerTerminalView` overrides: round 16 hit three (an Escape selector, `UIDropInteractionDelegate`, `UIGestureRecognizerDelegate`), all fixed on Kelpie's side. Round 16's report: `KelpieVault/Archive/round16/revendor-report.md`.

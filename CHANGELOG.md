@@ -46,6 +46,7 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Changed
 
+- Rebased onto Heeler 0.1.8 and re-vendored GhosttyTerminal at libghostty-spm 1.6.20260909. Kelpie keeps a single window (no multi-window on iPad: one herdr client per Attach channel), an open Agent fills the Console in landscape as well as portrait, and the key bar keeps its own key encoding. (refs #3)
 - The terminal starts at 12 pt on iPad instead of 8 pt. Pinch-to-zoom still
   overrides it, and a size you have already chosen is kept.
 

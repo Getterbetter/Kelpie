@@ -47,6 +47,8 @@ Upstream moves fast — daily commits, a live App Store/TestFlight release train
 
 First rebase done 2026-09-11 (round 7, onto `375267c`): only `CHANGELOG.md` conflicted, twice, at the `## [Unreleased]` anchor; `Heeler.xcodeproj` and `project.yml` had not moved upstream so no regen commit was needed. Plan and summary in `Archive/round7/`. Periodic rebase stays [[Open items|an open item]], but since round 10 the [[Dependency watch]] fetches upstream every morning, counts the commits behind, dry-run rebases `kelpie` in a throwaway worktree and opens an issue naming the conflicting files, so the rebase is done when it is cheap rather than discovered when it is not. Upstream's own CI is flaky on the real-SSH suites (most of its PR runs on 2026-09-10 were red); a red run on the fork gets one re-run before it counts. A pull request upstream for the iPad work is Anthony's call and deliberately deferred.
 
+Second rebase done 2026-09-15 (round 16, onto v0.1.8 `b384847`, 131 upstream commits): fourteen files conflicted, not the one the watch reported, because upstream had made the iPad multi-window with a `HeelerAppModel` composition root, moved hardware keys into Ghostty, and re-pinned libghostty-spm at `7e45d27` (which is why the re-vendor had to come first). Kelpie adopted `HeelerAppModel` and kept one window; the rest is in [[Decisions]] and `Archive/round16/`. Upstream's `make install` is now iPhone-only with `make install-ipad` beside it; upstream's CI boots an iPhone 17 simulator, the fork keeps the iPad Air.
+
 ## Push and the relay — why notifications do not work in Kelpie
 
 The path a push takes upstream:

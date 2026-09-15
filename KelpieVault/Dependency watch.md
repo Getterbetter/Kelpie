@@ -67,13 +67,13 @@ Everything between the markers below is rewritten by the watcher on every run.
 Prose above and below them survives, so notes here are safe.
 
 <!-- depwatch:begin -->
-_Last run: 2026-09-13T19-45-05Z UTC._
+_Last run: 2026-09-14T19-45-10Z UTC._
 
 | Check | Severity | State | Headline |
 | --- | --- | --- | --- |
 | `herdr-release` | info | repeat | herdr v0.9.0, snapshot current |
 | `herdr-mini` | info | repeat | mini runs herdr 0.8.2 (snapshot v0.9.0) |
-| `heeler-upstream` | high | new | 131 commits behind upstream, 1 conflicting file |
+| `heeler-upstream` | high | repeat | 131 commits behind upstream, 1 conflicting file |
 | `libghostty-spm` | low | repeat | libghostty upstream.1.3.1 pinned, upstream.82938b633ba6 available |
 | `heeler-ssh-pins` | low | repeat | OpenSSL 3.6.3 pinned, openssl-3.6.4 in line |
 | `node` | info | repeat | npm audit: 0 vulnerabilities |
