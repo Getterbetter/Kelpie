@@ -276,6 +276,7 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | Commit | |
 | --- | --- |
 | `4daeb41` | **Tests: the device suite reads green on both devices, and one command runs it** — `TestHostConditions` (new): `readsRepository` skips the six checkout-reading tests on a device host, `presentsSoftwareKeyboard` skips the four keyboard-layout-guide tests when a hardware keyboard is attached to a physical device (the simulator is exempt, so CI keeps them); `ConsoleSplitPresentationTests.automaticReportReadsAsThePlatformsResolution` replaces upstream's iPhone-only assertion with both platform branches; `scripts/device-tests.sh` and `make test-device` / `test-device-ipad` / `test-device-iphone` wait for the device, run the suite in the fixed path, delete the `.xcresult` and print the verdict. Run at this commit: iPad 2086 tests, 0 issues; iPhone 2086 tests, 0 issues. |
+| (bump) | **build 5** — `make bump` (4 → 5), archived Release, exported with `scripts/ExportOptions-manual.plist`, uploaded with `altool` (delivery `a6aa2408-ec32-4f99-b348-d39a1e458589`); carries the composer (round 18), the single tap click (round 19) and the foreground lease (round 19). |
 | (this commit) | **docs: round 20 close-out** — the rule in CLAUDE.md's definition of done, Decisions, Testing status, Open items 39 closed and 40 opened, the [[Device regression list]]'s iPhone rows, Build and deploy's test recipe, Kelpie.md, `resume.md`. |
 
 ## Round 19 — Open items 36, 37, 38 — 2026-09-15

@@ -370,3 +370,7 @@ Read as: item 39's guard is the process one, and stronger than the note proposed
 Anthony (2026-09-15, round 20, closing): "lets close this out, ill start a new session next after pushing to TestFlight"
 
 Read as: round 20 closes here; TestFlight build 5 (plan item 6) happens between this session and the next, on his side or as the next session's first step, and the next session starts fresh from `resume.md`.
+
+Anthony (2026-09-15, after the round-20 close-out): "I don't understand why it's the "recipe that works" but yeh, push it"
+
+Read as: push TestFlight build 5 in this session, after the close-out. The phrase names the manual export-and-altool path that replaced `make upload` ("Failed to Use Accounts" on this Mac); the note should say so in its first line.
