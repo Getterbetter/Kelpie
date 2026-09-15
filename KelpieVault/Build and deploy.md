@@ -11,7 +11,7 @@ Project root `~/Developer/Kelpie`, branch `kelpie`. Everything goes through `xco
 The only path that actually works. Device id `09D7738D-2173-55EF-8966-A9C3EA1D0514` (Anthony's 11-inch iPad Pro, M4; confirm with `xcrun devicectl list devices` and look for a *physical*, *connected* row).
 
 ```sh
-S=<a scratch dir>          # never the repo
+S=~/Library/Caches/kelpie-build   # the one fixed build path; never the repo, never a session scratchpad
 D=09D7738D-2173-55EF-8966-A9C3EA1D0514
 
 xcodebuild build \
@@ -27,6 +27,7 @@ xcrun devicectl device install app --device "$D" \
 xcrun devicectl device process launch --device "$D" TME.Kelpie
 ```
 
+- **One fixed build path, reused by every session** (2026-09-15). Session scratchpads under `/private/tmp/claude-501/` are never deleted, and building in them, one folder per session and per delegate worker, left 22 GB of dead derived data (81 folders across 9 sessions) and 3.2 GB free on the disk. A build that cannot use `$S` (a worktree, a delegate worker, a second build while another session's holds the lock) builds in its scratchpad and deletes its derived data, SPM clone and `.xcresult` as soon as it has installed or reported. After a re-vendor, delete `$S/kelpie-dd` as well.
 - **Always pass both `-clonedSourcePackagesDirPath` and `-derivedDataPath`.** Two builds sharing one derived-data path lock each other out — a real failure seen during round 1, where a concurrent run deadlocked on `CompilationCache.noindex/generic/lock` and another died with "database is locked … two concurrent builds running in the same filesystem location".
 - Run `xcodebuild` in the background, tee to a log file, and read only the tail. Its output is long and mostly noise.
 - `-configuration Debug` works the same way; the product then lands in `Build/Products/Debug-iphoneos/`.
@@ -82,6 +83,8 @@ Recorded in the user's memory as *Xcode binary artifact download hangs*.
 
 Not enough RAM on this Mac. Installs and launches wedge with `Mach error -308 — (ipc/mig) server died`; a simulator has shut itself down mid-install unprompted; `xcrun simctl install` on a booted device has hung for over five minutes on its own. An authorised `simctl erase` + reboot did not help. Both rounds hit it, on both iPad and iPhone destinations.
 
+2026-09-15: every simulator was erased to free disk space (`xcrun simctl erase all`). The device definitions are kept, so recreate nothing; a destination boots empty.
+
 **So: do not spend time on the simulator.** Build and run on the physical iPad. The cost is that the XCTest suite, which needs a host app, has effectively not been runnable — see [[Testing status]].
 
 Recorded in the user's memory as *iOS simulator unusable, use the iPad*.
@@ -98,6 +101,7 @@ xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
 That is the simulator form, which never boots here. **The suite runs on the iPad** (since round 12c; 2058 tests in about 80 s plus the Debug build):
 
 ```sh
+rm -rf "$S/HeelerTests.xcresult"   # xcodebuild refuses a result bundle path that already exists
 xcodebuild test -project Heeler.xcodeproj -scheme Heeler \
   -destination 'platform=iOS,id=09D7738D-2173-55EF-8966-A9C3EA1D0514' \
   -only-testing:HeelerTests \

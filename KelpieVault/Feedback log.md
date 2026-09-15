@@ -286,3 +286,11 @@ Read as: run the full `HeelerTests` suite on the iPad against the rebased head h
 Anthony (2026-09-15, after the hand-test list): "all tests passed. one other thing to add to next time: when the onscreen keyboard appears for the ipad, it doesnt make space for it in the terminal like it does on the iphone. we'll pick that up in the next session, close this one out"
 
 Read as: the sixteen hand checks on the rebased build pass on the iPad, so Open item 33 closes and items 23 and 28 stay confirmed after the rebase (item 32, hardware Shift+Tab, was expected to fail and stays open). New Open item 34: on the iPad the terminal does not inset itself for the on-screen keyboard the way the iPhone does. Session over; the next one starts from `resume.md`.
+
+Anthony (2026-09-15, a side request alongside round 17): "we have a space issue, it seems there are a number of builds for kelpie that never get deleted. can you find the ones no longer in use, delete them and then update claude.md so this doesnt keep happening"
+
+Read as: the disk is nearly full (3.2 GiB free of 228) because every session and every delegate worker builds into its own scratchpad under `/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/<session>/`, and nothing ever removes those derived-data folders (81 folders, 22 GB, across 9 sessions). Delete the ones no finished session needs, and add a standing rule to `CLAUDE.md` so builds stop piling up.
+
+Anthony (2026-09-15, after the build cleanup): "delete simulator data then lets close this out and ill start a new session"
+
+Read as: remove the simulator data under `~/Library/Developer/CoreSimulator` (13 GB; the simulator does not run on this Mac), then close the side task out and end this session.
