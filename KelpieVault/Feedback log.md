@@ -374,3 +374,11 @@ Read as: round 20 closes here; TestFlight build 5 (plan item 6) happens between 
 Anthony (2026-09-15, after the round-20 close-out): "I don't understand why it's the "recipe that works" but yeh, push it"
 
 Read as: push TestFlight build 5 in this session, after the close-out. The phrase names the manual export-and-altool path that replaced `make upload` ("Failed to Use Accounts" on this Mac); the note should say so in its first line.
+
+Anthony (2026-09-15, round 21 opening): "do item 40 and the build 5 check"
+
+Read as: this session's round is Open item 40 (the script that diffs the vendored GhosttyTerminal UIKit override points between libghostty-spm commits, wired into the re-vendor recipe) and plan item 6 (confirm TestFlight build 5 went live and that both devices re-registered as `env: production` on the mini). Both end with `make test-device` on both devices.
+
+Anthony (2026-09-15, a second session alongside round 21): "let's do social posts"
+
+Read as: the community plan item (resume.md "What is next" 4), worked through the get-noticed skill in a session of its own while round 21 runs in the other: refresh the held drafts from 2026-09-12 against what has shipped since (the composer, the foreground lease), then the venues still open, the r/ClaudeAI Showcase post (dwell served, two nights) and Show HN (Tuesday US morning). Nothing posts without his yes on the exact text in this session. Not a round; no code.

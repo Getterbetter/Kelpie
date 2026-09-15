@@ -156,6 +156,19 @@ The open device checks, in [[Open items]] order. Record what comes back in [[Fee
 
 Anything still unverified stays in [[Open items]].
 
+## Round 21 — the override-point diff (2026-09-15)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Full `HeelerTests` on the iPad at `23d1d5c`, Magic Keyboard docked | Unit, on the iPad (`make test-device`) | **2086 tests in 191 suites, 0 issues, 135 skipped, 63 s.** No Swift changed this round; the run is the rule, not a suspicion. |
+| Full `HeelerTests` on the iPhone at `23d1d5c` | Unit, on the iPhone (`make test-device`) | **2086 tests in 191 suites, 0 issues, 131 skipped, 51 s.** |
+| `scripts/test-ghostty-override-diff.sh` | Script regression, no network | Passes: the round-16 replay (tag `kelpie-pre-rebase-20260915` vs HEAD, Kelpie's sources at the tag) names `handleEscapeKeyCommand(_:)`, `UIDropInteractionDelegate` and its three `dropInteraction` members, `gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)`, the `sendMousePos` default-argument change and six changed override bodies; `escapeKeyCommands` (a private upstream `let`) is context, not a finding; HEAD against itself exits 0. Report in `Archive/round21/override-diff-round16-replay.md`. |
+| `ghostty-override-diff` live: vendored `7e45d27` vs upstream `main` (`ba99078`) | The real question for the next re-vendor | Clean, exit 0: upstream's one commit since the pin moves the Ghostty submodule only. The vendored copy also diffs clean against `7e45d27` itself, so the worktree is the pin, unpatched. |
+| `scripts/test-depwatch.sh` | Script unit tests | 45 pass. Had been red since round 16 (`test_shell_assignments_and_ghostty_tag` expected `upstream.1.3.1`); fixed in `81022a1`. |
+| `asc-kelpie.py --distribute-build` | Dry run against App Store Connect | Plans exactly the three writes for build 5 (group, what-to-test PATCH on its empty en-US localization, beta review submission) and reports `external READY_FOR_BETA_SUBMISSION`. Not applied: Open item 41. |
+| The mini's `notifications.json` | Read over `mac-mini` | Two entries, both `env: sandbox`, both with a `foreground_until` lease from this morning. Expected: both devices ran `make test-device` (Xcode-signed) after the last TestFlight install. |
+| CI | Not re-run | Runs on the next pull request; nothing under the app paths changed. |
+
 ## Round 20 — the device suite is the gate (2026-09-15)
 
 | Check | Means | Result |

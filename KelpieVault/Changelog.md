@@ -4,7 +4,7 @@ note: Every Kelpie commit on branch `kelpie`, oldest first, grouped by round.
 
 # Changelog
 
-121 commits on branch `kelpie` on top of upstream Heeler v0.1.8 `b384847`, as of 2026-09-15 (round 16 rebased the branch; hashes quoted for earlier rounds resolve through the tag `kelpie-pre-rebase-20260915`, and before round 7 through `kelpie-pre-rebase-20260911`). Remotes are `origin` (public, `github.com/Getterbetter/Kelpie`, default branch `kelpie`) and `upstream` (Heeler). *Corrected 2026-09-12: the old count of 17 on `90e01a9`, and "nothing has ever been pushed", were both true only until round 7.* For the user-facing version of this, see the "Kelpie" section at the top of `CHANGELOG.md` in the repo.
+124 commits on branch `kelpie` on top of upstream Heeler v0.1.8 `b384847`, as of 2026-09-15 (round 16 rebased the branch; hashes quoted for earlier rounds resolve through the tag `kelpie-pre-rebase-20260915`, and before round 7 through `kelpie-pre-rebase-20260911`). Remotes are `origin` (public, `github.com/Getterbetter/Kelpie`, default branch `kelpie`) and `upstream` (Heeler). *Corrected 2026-09-12: the old count of 17 on `90e01a9`, and "nothing has ever been pushed", were both true only until round 7.* For the user-facing version of this, see the "Kelpie" section at the top of `CHANGELOG.md` in the repo.
 
 **On the hashes.** Round 7 rebased the whole branch onto upstream `375267c`, which rewrote every commit before it. The fork-and-rebrand, round 1 and round 2 rows below still carry the **pre-rebase** hashes; those objects live on tag `kelpie-pre-rebase-20260911`, not on `kelpie`. From round 3 down, each row gives the current hash from `git log kelpie` and, where other notes quote it, the pre-rebase one in brackets. Match by subject line if a hash will not resolve.
 
@@ -270,6 +270,14 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | Commit | |
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
+
+## Round 21 — the override-point diff, and build 5 to the testers (Open items 40, 41) — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| `81022a1` | **scripts: ghostty-override-diff names what a re-vendor changes under Kelpie (Open item 40)** — `scripts/ghostty-override-diff.py` (stdlib) indexes the vendored GhosttyTerminal on two sides (the checkout, a Kelpie commit, or any libghostty-spm ref from a bare clone at `~/Library/Caches/kelpie-build/libghostty-spm.git`) and reads Kelpie's `UITerminalView` subclasses to report override points removed, closed, re-signed or re-bodied, new upstream members or `@objc` selectors colliding with Kelpie's own, new upstream conformances Kelpie already declares, and moved public API; exit 1 on findings. `scripts/test-ghostty-override-diff.sh` replays round 16 from tag `kelpie-pre-rebase-20260915` and asserts its three collisions are named and HEAD-against-itself is clean. `make ghostty-override-diff [NEW=<ref>]`; the dependency watch's libghostty remediation points at it. Fixes `depwatch_test.py`, red since round 16 moved the pin. |
+| `23d1d5c` | **asc: --distribute-build puts an uploaded build in front of the TestFlight testers** — an `altool` upload stops at `READY_FOR_BETA_SUBMISSION`; builds 3, 4 and 5 were never added to the external group, so all 16 testers stayed on build 2. The new mode adds the newest VALID build (or `--build N`) to "Kelpie public beta", fills the empty en-US what-to-test text from `--notes`, creates the beta review submission; idempotent, dry run unless `--apply`. `make distribute [APPLY=1 BUILD=<n> NOTES="..."]`. CLAUDE.md and the dependency-watch guide point the re-vendor recipe at `make ghostty-override-diff`. |
+| (this commit) | **docs: round 21 close-out** — Decisions, Testing status, Open items 40 closed and 41 opened, Build and deploy (the diff first in the re-vendor recipe; uploading is not distributing), the App Store plan's TestFlight state, `Archive/round21/override-diff-round16-replay.md`, Kelpie.md, `resume.md`. |
 
 ## Round 20 — the device suite is the gate (Open item 39) — 2026-09-15
 
