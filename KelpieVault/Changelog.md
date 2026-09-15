@@ -271,6 +271,13 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
 
+## Round 20 — the device suite is the gate (Open item 39) — 2026-09-15
+
+| Commit | |
+| --- | --- |
+| `4daeb41` | **Tests: the device suite reads green on both devices, and one command runs it** — `TestHostConditions` (new): `readsRepository` skips the six checkout-reading tests on a device host, `presentsSoftwareKeyboard` skips the four keyboard-layout-guide tests when a hardware keyboard is attached to a physical device (the simulator is exempt, so CI keeps them); `ConsoleSplitPresentationTests.automaticReportReadsAsThePlatformsResolution` replaces upstream's iPhone-only assertion with both platform branches; `scripts/device-tests.sh` and `make test-device` / `test-device-ipad` / `test-device-iphone` wait for the device, run the suite in the fixed path, delete the `.xcresult` and print the verdict. Run at this commit: iPad 2086 tests, 0 issues; iPhone 2086 tests, 0 issues. |
+| (this commit) | **docs: round 20 close-out** — the rule in CLAUDE.md's definition of done, Decisions, Testing status, Open items 39 closed and 40 opened, the [[Device regression list]]'s iPhone rows, Build and deploy's test recipe, Kelpie.md, `resume.md`. |
+
 ## Round 19 — Open items 36, 37, 38 — 2026-09-15
 
 | Commit | |

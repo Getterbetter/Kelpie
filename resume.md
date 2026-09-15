@@ -2,10 +2,10 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
-## Where things stand (2026-09-15, after round 19)
+## Where things stand (2026-09-15, after round 20)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 121 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915`.
-- Round 19 (2026-09-15, main session, `472665f` to the close-out): Open items 36, 37 and 38 built, installed on both devices, 37 and 38 confirmed after the report ("its working now"); 36 has its app side seen live on the mini; Anthony is watching it over time ("i didnt see dual notifications but i cant be sure") and ticks it on his word. 38 was a regression from the round-16 re-vendor: Ghostty's `touchesEnded` now sends its own click for a finger tap, doubling Kelpie's, and herdr's mobile switcher's close button shares the header's switch button's cells; direct touches now end for Ghostty as a cancel (`f6b642f`). 37: the Kelpie capsule is bottom-trailing at every width (`472665f`). 36: a `foreground_until` lease on the device's entry in the Host's `notifications.json`, written while active and cleared on background, honoured by the notify hook (`c913786`; plugin 318 tests green; 11 app tests passed on the iPad after the report; the full suite then ran on both devices, 2086 tests, only the known issues). Rounds 17 and 18 are in `Changelog.md` and `Decisions.md`.
+- Round 20 (2026-09-15, main session, `4daeb41`): Open item 39 closed the way Anthony chose ("we run the ui tests at the end of each change, ipad & iphone"): the full `HeelerTests` suite on both devices is the gate at the end of every change, in CLAUDE.md's definition of done, run by `make test-device` (waits for the device to be plugged in, prints the verdict). The 15 known device failures carried since round 16 were fixed or declared as reasoned skips (`TestHostConditions`: six tests read the checkout, four need the software keyboard a docked Magic Keyboard hides; one upstream split-visibility test now asserts the platform's resolution of `.automatic`), so both devices read **2086 tests, 0 issues** for the first time. The iPhone's first run lost its test runner mid-suite and re-ran clean (Testing status, round 20). The Device regression list gained its iPhone rows; the vendored override-point diff is Open item 40. Item 36 is still Anthony's to watch. Rounds 17 to 19 are in `Changelog.md` and `Decisions.md`.
 
 ## Live services, accounts and gates
 
@@ -18,24 +18,24 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 - **Guards**: `make hooks` once per checkout enables the pre-push close-out check (`scripts/check-round-closeout.sh`). Never `git filter-repo` without re-parenting onto upstream afterwards (round 11b).
 - **Vendored GhosttyTerminal** is libghostty-spm `7e45d27` (1.6.20260909) with no patches; `KELPIE-PATCHES.md` is gone and the "never edit the vendored package" rule has no exception. The re-vendor recipe is in `KelpieVault/Build and deploy.md`.
 
-## What is next: the action plan (2026-09-15, close of round 19)
+## What is next: the action plan (2026-09-15, close of round 20)
 
-Work through these in order, one round per session:
+Work through these in order, one round per session. **Every change ends with `make test-device` green on the iPad and the iPhone** (Anthony plugs them in when it is time); a rebase or re-vendor round also runs `KelpieVault/Device regression list.md` on both.
 
-1. **Item 39**, the guard against upstream regressions (two cheap pieces, his call which first). Item 36 is Anthony's to watch over the coming days; ask, do not re-test.
-2. **Open item 19, no in-app banner on the foregrounded device**: unchanged by 36 (the foregrounded device still gets its push and `willPresent` routes it); the recipe is in the item.
-3. **Open item 22, if the Tailscale retry still stalls**: the trace again; residual holes in `KelpieVault/Archive/round14/tailscale-candidates.md`. When it holds, close 22 and 27 together.
-4. **The device checklists that never got their session** (Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28): one session with the list open on the iPad would close the lot or turn them into real items.
-5. **Community**: reply to every comment the Reddit watch surfaces within the day (drafts in `~/.kelpie/redditwatch/drafts/`; the r/ClaudeCode showcase watch surfaces every commenter, which needs a filter); r/ClaudeAI Showcase; r/iPad and r/iosapps his call; Show HN Tuesday US morning.
-6. **After App Store approval**: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan.
-7. **TestFlight build 5** carrying the composer, the tap fix and the lease once round 19's checks pass (the plugin on the mini needs the new `notify-hook.js` too: the lease is read there).
+1. **Open item 19, no in-app banner on the foregrounded device**: unchanged by 36 (the foregrounded device still gets its push and `willPresent` routes it); the recipe is in the item. Item 36 is Anthony's to watch over the coming days; ask, do not re-test.
+2. **Open item 22, if the Tailscale retry still stalls**: the trace again; residual holes in `KelpieVault/Archive/round14/tailscale-candidates.md`. When it holds, close 22 and 27 together.
+3. **The device checklists that never got their session** (Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28): one session with the list open on the iPad would close the lot or turn them into real items. Cheap add-on for that session: detach the Magic Keyboard and run the four keyboard tests on the iPad once (Testing status, round 20).
+4. **Community**: reply to every comment the Reddit watch surfaces within the day (drafts in `~/.kelpie/redditwatch/drafts/`; the r/ClaudeCode showcase watch surfaces every commenter, which needs a filter); r/ClaudeAI Showcase; r/iPad and r/iosapps his call; Show HN Tuesday US morning.
+5. **After App Store approval**: delete the Hetzner review host (`DELETE /v1/servers/165493403`, token in `~/Developer/hetzner-kelpie.token`) and note it in the plan.
+6. **TestFlight build 5** carrying the composer, the tap fix and the lease (the plugin on the mini already reads the lease).
+7. **Open item 40 before the next re-vendor**: the script that diffs the vendored UIKit override points between libghostty-spm commits.
 8. **Composer follow-ups, not scheduled**: a soft newline (Claude Code wants `\` then Return); the responder flows have no unit coverage; older: the Connecting card's delay seen only on the LAN; a socket-level SSH keepalive; `kelpie.primary-host` is a literal in two files.
 
-**Remote:** `origin/kelpie` is at the round-19 close-out (pushed 2026-09-15, the mini's plugin installs from it). CI on the fork runs the suites on the next pull request.
+**Remote:** `origin/kelpie` is at the round-20 close-out (pushed 2026-09-15, the mini's plugin installs from it). CI on the fork runs the suites on the next pull request.
 
 ## How to work on it
 
-- Build, install and test on the iPad or iPhone, never the simulator, with the recipe in `KelpieVault/Build and deploy.md`; the rules are in `CLAUDE.md`.
+- Build, install and test on the iPad or iPhone, never the simulator, with the recipe in `KelpieVault/Build and deploy.md`; the rules are in `CLAUDE.md`. `make test-device` is the unit gate on both devices (round 20); a red run is read before the next change, never filed under "known issues".
 - `KelpieVault/Device regression list.md` is the per-build device checklist.
 - The device diagnostics that have settled every "it doesn't work" so far: the keystroke and mouse trace (`-kelpie.key-trace YES`) and the connection trace (`-kelpie.connection-trace YES`), both pulled with `devicectl device copy from` (the connection-trace command is in `KelpieVault/Testing status.md`, round 14).
 - A rebase of this size is three Opus builders, not one: each stops at 80 tool calls, and a reviewer at 40, so brief them narrow. The dependency watch's "conflicting files" count is a floor (its dry run stops at the first conflict); read `git merge-tree` before sizing the round.
