@@ -4,9 +4,9 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 
 ## In progress (round 18, 2026-09-15): Open item 30, the composer
 
-- **Done**: Stage 0 of `KelpieVault/Design/Composer text field.md` built and installed on the iPad (Release, launched; commit `8c4b2e6`): the root screen's terminal now uses a new `TerminalTextInputStyle.assisted` (autocorrect, spell check and predictions on; capitalisation, smart quotes and dashes off). Anthony's words logged in `Feedback log.md`. Item 7 explained to him (the deferred upstream PR for the iPad input work; his call, nothing done).
-- **Waiting on Anthony's device check** of Stage 0: the list is in `KelpieVault/Testing status.md` under "What Anthony is checking right now".
-- **Next**: record the result in `Feedback log.md` and the design note. If Stage 0 covers what he wants, keep `.assisted`, close item 30 and close out. If not, build the composer per the design (mirror per keystroke, off by default, `kelpie.composer-enabled`, Return submits) with the `.assisted` raw path kept for the off state, install, second check, close out.
+- **Done**: Stage 0 (`a90ee7d`, autocorrect traits on the terminal itself) installed on both devices and failed Anthony's typing test ("teh went to yeh"); removed again. The composer built as designed (`dabbc0f`), reviewed by an `opus-reviewer` (`KelpieVault/Archive/round18/composer-review.md`), its must- and should-fixes in `dd7fc0d`; that build is installed on the iPad and the iPhone. 16 composer tests pass on the iPad. Decisions, Changelog, Testing status, the design note's Stage 0 section, `CHANGELOG.md`, and Open items 36 (no notification on one device while another is foregrounded) and 37 (the floating menu button covers herdr's tab actions) are written. Item 7 explained to Anthony, nothing done.
+- **Waiting on Anthony's device check** of the composer: the twelve-step list in `KelpieVault/Testing status.md` under "What Anthony is checking right now".
+- **Next**: record the result in `Feedback log.md`; fix what fails, reinstall; when it holds, tick item 30 in `Open items.md`, write the round bullet here, the `Kelpie.md` status row, and close out (delete this section). Uncommitted at checkpoint: only the vault edits after `dd7fc0d`, if any.
 
 ## Where things stand (2026-09-15, after round 17)
 
