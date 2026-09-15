@@ -1110,7 +1110,7 @@ def check_heeler_upstream(ctx):
         "`GIT_EDITOR=true git rebase upstream/main`; resolve `CHANGELOG.md` by keeping both "
         "`### Added` lists (the only conflict round 7 hit).",
         "`xcodegen generate`, then a device build — never merge a rebase on a compile alone.",
-        "Run it as a `/delegate` round when the conflict set is not just `CHANGELOG.md`.",
+        "Give it a round of its own when the conflict set is not just `CHANGELOG.md`.",
     ]
     if conflicts:
         actions.insert(

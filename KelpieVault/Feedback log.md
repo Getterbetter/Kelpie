@@ -302,3 +302,7 @@ Read as: the disk is nearly full (3.2 GiB free of 228) because every session and
 Anthony (2026-09-15, after the build cleanup): "delete simulator data then lets close this out and ill start a new session"
 
 Read as: remove the simulator data under `~/Library/Developer/CoreSimulator` (13 GB; the simulator does not run on this Mac), then close the side task out and end this session.
+
+Anthony (2026-09-15, a new session while round 17 waits on his device check): "lets remove the push to always use the delegate skill in this project"
+
+Read as: this project stops steering sessions toward `/delegate`. Remove the `CLAUDE.md` line that says when to use it and the dependency watch's advice to run a rebase as a `/delegate` round; he still invokes the skill himself when he wants it. The skill, its global hooks (inert without a delegation marker) and the round history that mentions it stay. Done here, not parked in Open items.

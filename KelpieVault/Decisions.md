@@ -296,6 +296,10 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Done: every simulator erased.** On Anthony's request ("delete simulator data"), `xcrun simctl shutdown all`, `delete unavailable`, `erase all`: `~/Library/Developer/CoreSimulator` went from 13 GB to 210 MB, but only about 2 GiB came back on the disk, because a simulator's files are mostly APFS clones of its runtime. The device definitions stay, so the simulator destinations in the test commands still resolve. The iPhone 17 simulator had been left booted since 2026-09-13. Free space after both cleanups: 25 GiB.
 
+## 2026-09-15 — no standing push toward `/delegate`
+
+**A — The project no longer tells sessions when to use `/delegate`.** Anthony: "lets remove the push to always use the delegate skill in this project." The 2026-09-13 line in `CLAUDE.md` ("Use `/delegate` when a round splits…; a fix, install and feedback chain stays in the main session") is gone, as is the dependency watch's "run it as a `/delegate` round" (the brief in `scripts/depwatch.py` and `docs/guides/dependency-watch.md` now say a large rebase is a round of its own). One round per session and the rest of the 2026-09-13 session rules stay. The skill runs only when he invokes it (it has `disable-model-invocation`), and its global hooks in `~/.claude/settings.json` are untouched: the guard acts only while a delegation marker exists and the loop guard only on subagents. Round history that names `/delegate` is left as written.
+
 ## 2026-09-15 — round 17: the keyboard inset, the reconnect flash, Shift+Tab
 
 **A — Round 17 is Open items 34, 35 and 32; the composer (30) waits for its own round.** Anthony at the session start: "check open items and lets select a group for this session", then "for reconnecting, 1 & 2 plus 34, 35 & 32 for this session". Three root-screen fixes small enough to check on the device in one install; kept in the main session per the `/delegate` rule that a fix, install and feedback chain stays with the manager.
