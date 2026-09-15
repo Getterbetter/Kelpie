@@ -10,6 +10,18 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 17 — the keyboard inset, the reconnect flash, Shift+Tab (2026-09-15)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Release build for the iPad | Compiled | Clean at `794fb65` and again at `9d17158`; the archive for TestFlight build 4 clean too. |
+| `TerminalHardwareKeyMappingTests`, `HerdrClientStoreTests` | Unit, on the iPad | 29 tests in 2 suites passed at `794fb65` (the Shift+Tab row and its five negative cases are new). The client store suite still asserts that a replacement is a new surface id, which the retained-surface view relies on. |
+| iPad on-screen keyboard insets the terminal (Open item 34) | Device | Anthony, Magic Keyboard detached: "working". |
+| Hardware Shift+Tab reaches herdr (Open item 32) | Device | Anthony, in a Claude pane: "working as expected". Which of the two routes (press or key command) answered it was not traced; both are wired and share one claim. |
+| The last frame holds over a reconnect (Open item 35) | Device | First build (`snapshotView`): "i see a blank screen". Second build (the retired surface kept mounted, `9d17158`): the three checks (30 s in the background, typing after the return, the Console round trip) all pass: "all tests pass". |
+| The Connecting card waits a second | Device | Not seen separately: on the LAN the reconnect finishes inside the delay, which is the point. Untested against a slow Host. |
+| Install and launch | Device | Release build installed and launched on the iPad (twice) and the iPhone; the iPhone's keyboard inset after the rebase is not separately confirmed. |
+
 ## Round 16 — the rebase onto Heeler v0.1.8 (2026-09-15)
 
 | Check | Means | Result |
