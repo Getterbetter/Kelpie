@@ -489,7 +489,8 @@ struct AgentDirectInputTests {
         await owner.leave().value
     }
 
-    @Test func toolsPreserveTheEditorAndSendShortcutsWithoutChangingTheDraft() async throws {
+    @Test(TestHostConditions.presentsSoftwareKeyboard)
+    func toolsPreserveTheEditorAndSendShortcutsWithoutChangingTheDraft() async throws {
         // Real SwiftUI actions require the hosted accessibility support in iOS 27.
         guard #available(iOS 27, *) else { return }
         let center = NotificationCenter()
@@ -807,7 +808,8 @@ struct AgentDirectInputTests {
         await owner.leave().value
     }
 
-    @Test func toolsKeyboardSurvivesAgentHandoffAndResumesSystemInset() async throws {
+    @Test(TestHostConditions.presentsSoftwareKeyboard)
+    func toolsKeyboardSurvivesAgentHandoffAndResumesSystemInset() async throws {
         let center = NotificationCenter()
         let inset = TerminalKeyboardInset(notificationCenter: center) { _ in 336 }
         let handoff = TerminalKeyboardHandoff()

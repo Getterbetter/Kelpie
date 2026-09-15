@@ -27,7 +27,7 @@ DEVICE := $(shell xcrun devicectl list devices 2>/dev/null | awk '/physical[a-z]
 endif
 DEVICE_IPAD ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/iPad.*physical[a-z]* *$$/ { for (i = 1; i <= NF; i++) if ($$i ~ /^[0-9A-Fa-f-]{36}$$/) { print $$i; exit } }')
 
-.PHONY: help generate resolve build test test-app test-ipad test-ci-app build-device install install-ipad watch-ios-device sim sim-ipad build-sim sim-id archive upload testflight bump publish clean check-device check-device-ipad ssh-artifacts verify-ssh-artifacts
+.PHONY: help generate resolve build test test-app test-ipad test-device test-device-ipad test-device-iphone test-ci-app build-device install install-ipad watch-ios-device sim sim-ipad build-sim sim-id archive upload testflight bump publish clean check-device check-device-ipad ssh-artifacts verify-ssh-artifacts
 
 help: ## Show available targets
 	@awk -F':.*## ' '/^[a-z-]+:.*## / { printf "  make %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -61,6 +61,15 @@ test: test-app ## Run the app and HeelerSSH unit test suites on a simulator
 
 test-ipad: ## Run the app and HeelerSSH unit test suites on the iPad simulator
 	$(MAKE) test SIM='$(SIM_IPAD)'
+
+test-device: ## Run HeelerTests on the physical iPad then the iPhone (waits for each; DEVICE_WAIT)
+	scripts/device-tests.sh ipad iphone
+
+test-device-ipad: ## Run HeelerTests on the physical iPad only
+	scripts/device-tests.sh ipad
+
+test-device-iphone: ## Run HeelerTests on the physical iPhone only
+	scripts/device-tests.sh iphone
 
 test-ci-app: ## Run the committed-project CI app lane (no generate)
 	HEELER_CI_LANE=app HEELER_CI_SIMULATOR_UDID='$(or $(SIMULATOR_UDID),$(HEELER_CI_SIMULATOR_UDID))' \

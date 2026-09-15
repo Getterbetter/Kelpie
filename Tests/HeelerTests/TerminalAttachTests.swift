@@ -1926,7 +1926,8 @@ struct TerminalAttachTests {
     /// settled at nothing; the window's root view tracks the keyboard. Needs
     /// a device that presents the software keyboard.
     @MainActor
-    @Test func aDroppedPresentationSettlesAgainstTheWindowsLiveKeyboardLayoutGuide()
+    @Test(TestHostConditions.presentsSoftwareKeyboard)
+    func aDroppedPresentationSettlesAgainstTheWindowsLiveKeyboardLayoutGuide()
         async throws
     {
         let controller = UIViewController()
@@ -1966,7 +1967,8 @@ struct TerminalAttachTests {
     /// waited out its fallback. Needs a device that presents the software
     /// keyboard.
     @MainActor
-    @Test func theComposerSettlesItsHandoffAgainstTheLiveKeyboardLayoutGuide()
+    @Test(TestHostConditions.presentsSoftwareKeyboard)
+    func theComposerSettlesItsHandoffAgainstTheLiveKeyboardLayoutGuide()
         async throws
     {
         let controller = UIViewController()

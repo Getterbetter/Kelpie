@@ -9,7 +9,7 @@ import Testing
 /// policy against the built artifacts. This proves it against the source that
 /// configures them, so a future edit cannot re-enable an algorithm the binaries
 /// still contain, and cannot hand libssh2 private key material.
-@Suite("HeelerSSH source policy")
+@Suite("HeelerSSH source policy", TestHostConditions.readsRepository)
 struct SSHSourcePolicyTests {
     /// Obsolete algorithms ADR 0011 keeps disabled. libssh2 and OpenSSL still
     /// implement several of these, so the only thing keeping them off the wire

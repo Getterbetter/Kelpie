@@ -52,7 +52,8 @@ struct LicenseNoticeInventoryTests {
         }
     }
 
-    @Test func nativeLibraryNoticesMatchArtifactProvenanceAndUpstreamAnchors() throws {
+    @Test(TestHostConditions.readsRepository)
+    func nativeLibraryNoticesMatchArtifactProvenanceAndUpstreamAnchors() throws {
         let notices = try LicenseNoticeCatalog.bundledNotices()
         let byID = Dictionary(uniqueKeysWithValues: notices.map { ($0.id, $0) })
 
@@ -119,7 +120,8 @@ struct LicenseNoticeInventoryTests {
         }
     }
 
-    @Test func everyDiscoveredDependencyDeclarationIsCoveredByInventory() throws {
+    @Test(TestHostConditions.readsRepository)
+    func everyDiscoveredDependencyDeclarationIsCoveredByInventory() throws {
         // Completeness is two-way and declaration-driven (#161 review finding 2):
         // discover Package.resolved pins, HeelerSSH binary targets, Heeler app
         // package links, and bundled font families from the repo, then require
@@ -508,7 +510,8 @@ struct AcknowledgementsRouteIdentityTests {
         #expect(SettingsView.AboutRow.privacyPolicy.id != SettingsView.acknowledgementsRouteID)
     }
 
-    @Test func settingsViewWiresAcknowledgementsThroughSharedDestination() throws {
+    @Test(TestHostConditions.readsRepository)
+    func settingsViewWiresAcknowledgementsThroughSharedDestination() throws {
         // Static mapping alone is still decorative if aboutRow ignores it.
         // Require the SettingsView source to push via aboutDestination and
         // destinationView, and to still name AcknowledgementsView as the
