@@ -164,6 +164,15 @@ final class TerminalKeyboardControl {
 enum TerminalTextInputStyle: Equatable {
     case terminal
     case naturalLanguage
+    /// Kelpie's root screen (Open item 30, Stage 0): autocorrect, spell
+    /// check and predictions on, as `naturalLanguage`, but no sentence
+    /// capitalisation and no smart quotes or dashes — the line being typed
+    /// is as often a shell command or a path as a sentence, and `Ls` or a
+    /// curly quote in a command is worse than a missed capital.
+    case assisted
+
+    /// Whether UIKit may correct and predict what is typed.
+    var assistsTyping: Bool { self != .terminal }
 }
 
 enum TerminalKeyboardHandoffOutcome: Equatable {
@@ -1074,7 +1083,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override var autocorrectionType: UITextAutocorrectionType {
-        get { textInputStyle == .naturalLanguage ? .default : .no }
+        get { textInputStyle.assistsTyping ? .default : .no }
         set {}
     }
 
@@ -1084,7 +1093,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override var spellCheckingType: UITextSpellCheckingType {
-        get { textInputStyle == .naturalLanguage ? .default : .no }
+        get { textInputStyle.assistsTyping ? .default : .no }
         set {}
     }
 
@@ -1105,7 +1114,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
 
     @available(iOS 17.0, *)
     override var inlinePredictionType: UITextInlinePredictionType {
-        get { textInputStyle == .naturalLanguage ? .default : .no }
+        get { textInputStyle.assistsTyping ? .default : .no }
         set {}
     }
 
@@ -1628,7 +1637,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         case .terminal:
             inputAssistantItem.leadingBarButtonGroups = []
             inputAssistantItem.trailingBarButtonGroups = []
-        case .naturalLanguage:
+        case .naturalLanguage, .assisted:
             inputAssistantItem.leadingBarButtonGroups = defaultLeadingAssistantGroups ?? []
             inputAssistantItem.trailingBarButtonGroups = defaultTrailingAssistantGroups ?? []
         }

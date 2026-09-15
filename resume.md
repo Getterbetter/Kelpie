@@ -2,6 +2,12 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
+## In progress (round 18, 2026-09-15): Open item 30, the composer
+
+- **Done**: Stage 0 of `KelpieVault/Design/Composer text field.md` built and installed on the iPad (Release, launched; commit `8c4b2e6`): the root screen's terminal now uses a new `TerminalTextInputStyle.assisted` (autocorrect, spell check and predictions on; capitalisation, smart quotes and dashes off). Anthony's words logged in `Feedback log.md`. Item 7 explained to him (the deferred upstream PR for the iPad input work; his call, nothing done).
+- **Waiting on Anthony's device check** of Stage 0: the list is in `KelpieVault/Testing status.md` under "What Anthony is checking right now".
+- **Next**: record the result in `Feedback log.md` and the design note. If Stage 0 covers what he wants, keep `.assisted`, close item 30 and close out. If not, build the composer per the design (mirror per keystroke, off by default, `kelpie.composer-enabled`, Return submits) with the `.assisted` raw path kept for the off state, install, second check, close out.
+
 ## Where things stand (2026-09-15, after round 17)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 118 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before round 16 resolves only through the tag `kelpie-pre-rebase-20260915`.

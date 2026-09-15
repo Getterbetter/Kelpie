@@ -318,3 +318,7 @@ Read as: Open item 34 (the iPad keyboard inset) and Open item 32 (hardware Shift
 Anthony (2026-09-15, after the second round-17 build): "all tests pass. lets push to my phone (if not done already) and lets also push to testflight. once done, close it out and ill start a new session next. during the close out, list any open items still outstanding."
 
 Read as: the retained-surface build holds the last frame over a reconnect, input reaches the new terminal and the Console round trip holds too, so Open items 32, 34 and 35 close; install the same build on his iPhone; bump and upload a TestFlight build (his explicit yes to the outward-facing step); then the round close-out, with the outstanding Open items listed in the report.
+
+Anthony (2026-09-15, round 18 opening): "check open items, lets do 30 and tell my what the 7 pull request is?"
+
+Read as: this session is Open item 30 (the composer text field, design already in `Design/Composer text field.md`), built as its own round; and explain Open item 7 (the deferred upstream pull request for the iPad input work) rather than act on it.
