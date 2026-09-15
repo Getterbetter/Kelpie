@@ -334,3 +334,7 @@ Read as: Stage 0 (autocorrect traits on the raw terminal path) fails — iOS cor
 Anthony (2026-09-15, round 18, while the composer review ran): "something for the next session: the hosts button in the ipad may need to move to the bottom as it blocks some tab actions"
 
 Read as: a new Open item for a later session; the floating menu button at the top right of the root screen sits over herdr's tab bar and blocks taps on tab actions there, so it may need to live at the bottom edge instead.
+
+Anthony (2026-09-15, round 18, composer device check, with a screenshot): "it works well but it looks a bit funny: [screenshot] the text bar goes end to end whilst the chip row of keys and the keyboard has rounded edges."
+
+Read as: the composer works on the iPad; the visual: the field's strip runs edge to edge while the pill and the floating keyboard are inset with rounded corners, so the field should be drawn as a floating capsule-cornered bar matching the pill's margins.
