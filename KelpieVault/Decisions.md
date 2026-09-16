@@ -416,3 +416,21 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Also: the Reddit pause went from 20 to 30 seconds.** A subtree watch spends an extra request per anchor, and the hourly run was already losing about one post an hour to a 429. Eight requests at 30 seconds is four minutes, which is nothing inside an hour.
 
+
+## 2026-09-16 — round 24: Kelpie Chat's transport and read model (Open item 43a)
+
+**A — "lets look at round 43, the tests for the new ui".** Asked which of three readings he meant (build 43a with its tests; a test strategy note for 43a–43f; both), he chose the scheduled round: build 43a with its tests. So this round is the transport and the read model with no UI, and the "tests for the new UI" are the fixture-driven unit tests that pin the transcript format before any view depends on it.
+
+**Decided: the Host file read is byte-exact and prints the file's size after the body.** `HostFileProbe` frames `tail -c +N | head -c M` between markers like `SkillProbe`, but the body is handled as `Data` end to end, never decoded or newline-normalised: the caller pages by byte offset and one normalised CRLF would shift every offset after it. The size (`wc -c <`) is printed in the *end* marker, after the body was read, so a transcript that grows during the read reports the larger size and `reachedEnd` stays false; a poller that stops on `reachedEnd` therefore never misses a tail. `tail -c +N` is 1-based, so offset 0 is `+1`, pinned by a test.
+
+**Decided: paths stay `~`-relative and the transport resolves them.** `HeelerSSHTransport.resolvedHostFilePath` already resolves `~/` against the cached remote home for `downloadFile`; `readHostFileRange` reuses it. So `ClaudeSessionLocator` is pure (`~/.claude/sessions/<pid>.json`, `~/.claude/projects/<encoded cwd>/<id>.jsonl`) and tests without a transport, and no new "home" plumbing was added.
+
+**Decided: the fixture is real transcript lines, redacted by a committed script, as a raw `.jsonl` resource.** The round-22 captures dropped every envelope field (`uuid`, `parentUuid`, `sessionId`, `cwd`, `version`, `gitBranch`), so a fixture typed from them would parse a shape that never occurs on disk. `scripts/cut-transcript-fixture.py` keeps every key and replaces bodies (one tool-using turn kept contiguous, then one line of every other shape seen: 89 lines, 27 shapes); re-running it is the maintenance path when Claude Code's unversioned format moves. Not the `plugin/test-vectors` JSON idiom: nothing in Node reads transcripts, and the chunk-splitting tests need the exact bytes.
+
+**Decided: an assistant row is one API message, grouped across its interleaved tool results.** Real files write one content block per line sharing `message.id`, and parallel tool calls land their results *between* those lines. The parser extends the last assistant row when only tool rows follow it; a user row in between starts a new turn, and a repeated id gets a suffix so rows stay unique for SwiftUI.
+
+**Decided: a pane is a Claude pane only when the executable's basename is exactly `claude`.** `argv0`, then `argv[0]`, then `name`; the shell may be first in the foreground group and is skipped. A wrapper named `claude-something` is not the CLI. Codex and grok panes fail with `foregroundIsNotClaude` and keep the terminal (ADR 0019).
+
+**Also: the format has already moved since the spike.** Between Claude Code 2.1.273 (round 22) and the 2.1.27x files on this Mac, `agent-name`, `cost-state` and `system` subtypes `local_command`, `away_summary` and `scheduled_task_fire` appeared, `user` lines gained `isMeta` (local-command echoes) and `permissionMode`. All skipped by type or by field; the parser records `version` for diagnostics. This is the lenient posture ADR 0019 asked for, and the reason the fixture script is committed.
+
+**Also: CI pins executed-test counts per lane, not only test names.** `run_suite SharedFixtureE2ETests 94 6 0` in `scripts/run-ci-ios-tests.sh` covers `HeelerSSHTransportBehaviorE2ETests`; the new E2E case took it to 95. The reviewer caught it (`Archive/round24/review-1.md`); the plan had assumed only `assert_behavior` name pins.

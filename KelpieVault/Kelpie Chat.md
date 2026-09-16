@@ -85,12 +85,21 @@ Codex and grok panes have no transcript route yet; they keep the terminal. Only 
 
 ## Build rounds (one session each, `make test-device` green on both devices at the end)
 
-- **43a — transport and read model, no UI.** `Transport.paneProcessInfo` (wire type from the schema snapshot, never hand-edited), `Transport.readHostFileRange(path, offset, maxBytes)`, `ClaudeSessionLocator` (pane → transcript path, with the `sessions` json read), `ClaudeTranscriptParser` with fixtures cut from real transcript lines (redacted), unit tests on the device.
+- **43a — transport and read model, no UI. Done 2026-09-16, round 24** (see *What exists* below).** `Transport.paneProcessInfo` (wire type from the schema snapshot, never hand-edited), `Transport.readHostFileRange(path, offset, maxBytes)`, `ClaudeSessionLocator` (pane → transcript path, with the `sessions` json read), `ClaudeTranscriptParser` with fixtures cut from real transcript lines (redacted), unit tests on the device.
 - **43b — read-only ChatView on the iPhone behind a setting.** `ChatTranscriptStore`, the message list with Markdown text and collapsed tool rows, "Open terminal", setting `kelpie.chat-on-iphone` (default on for the phone idiom), the root switch in `ContentView`/`HerdrClientRootView`.
 - **43c — composer, [+] and the permission card.** Send through `promptAgent`, attachments through the staging store, the card through `sendAgentKeys` with the mode read from the transcript, optimistic sent rows.
 - **43d — side panel and sessions.** Hosts, workspaces and agents over `ConsoleStore`; new agent through `StartAgentStore`; past sessions per workspace from the project directory with `ai-title`.
 - **43e — rich artifacts and notifications.** File paths → `downloadFile` + Quick Look, inline images, links; the plugin's `summary` field and its rendering in `AgentNotificationRenderer`; the notification deep link into the chat (`AgentNotificationRouter` already carries the pane id); the Live Activity's rows reused.
 - **43f — polish.** Dynamic Type, haptics, empty states, iPhone screenshots for the App Store 1.1, this note and [[iPhone assessment]] refreshed.
+
+## What exists (after round 24, 2026-09-16)
+
+- `Transport.paneProcessInfo` — generated from the schema snapshot (`PaneProcessInfoParams`, `PaneProcessInfo`, `PaneProcessInfoProcess`, `PaneProcessInfoResponse`); `ScriptedTransport.setPaneProcessInfo` scripts it in tests.
+- `Transport.readHostFileRange(path:offset:maxBytes:)` → `HostFileRange { offset, data, fileSize, nextOffset, reachedEnd }`, over `HostFileProbe`'s marker-framed `tail -c +N | head -c M` exec with the size printed after the body (byte-exact, `~`-relative paths resolved by the transport, 1 MiB clamp). `ScriptedTransport.setHostFile(_:atPath:)` scripts it.
+- `ClaudeSessionLocator` (`Sources/Heeler/Chat/`): `claudeProcess(in:)`, `sessionsFilePath(pid:)`, `encodedProjectDirectory(cwd:)`, `transcriptPath(cwd:sessionID:)`, `decodeSession`, and `locate(paneID:transport:)` → `ClaudeSessionLocation`; errors `noForegroundProcess`, `foregroundIsNotClaude(name:)`, `malformedSessionsFile`.
+- `ClaudeTranscriptParser`: `feed(Data)` in any chunking; `messages: [ChatMessage]`, `bytesConsumed`, `nextOffset`, `permissionMode`, `title`, `version`, `lastTurnDurationMs`, `droppedLineCount`, `pendingToolUse`. `ChatMessage { id, role user|assistant|tool, blocks text|toolUse|toolResult|image, timestamp }`; `ClaudePermissionMode.expectsHumanAnswer`.
+- Fixture `Tests/Fixtures/claude-transcript-v1.jsonl` from `scripts/cut-transcript-fixture.py`; suites `HostFileProbeTests`, `ClaudeSessionLocatorTests`, `ClaudeTranscriptParserTests`, two wire round trips, one real-sshd E2E case.
+- Learned from real files: one API message spans several lines sharing `message.id` with tool results interleaved (the parser groups them); `user` lines can be `isMeta`; new line types since the spike (`agent-name`, `cost-state`, more `system` subtypes) are skipped. Not yet: `ConsoleStore` passthroughs and `ChatTranscriptStore` (43b).
 
 ## Rejected
 

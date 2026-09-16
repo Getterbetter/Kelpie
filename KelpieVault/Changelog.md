@@ -271,6 +271,13 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
 
+## Round 24 — Kelpie Chat's transport and read model (Open item 43a) — 2026-09-16
+
+| Commit | |
+| --- | --- |
+| `bb522bb` | **chat: the transport and read model behind Kelpie Chat (Open item 43a)** — `Transport.paneProcessInfo` generated from the schema snapshot (`pane.process_info` in the generator's allowlists); `Transport.readHostFileRange` over `HostFileProbe`, a byte-exact marker-framed `tail -c +N \| head -c M` exec with the file's size printed after the body; `ClaudeSessionLocator` (pane → `~/.claude/sessions/<pid>.json` → `~/.claude/projects/<encoded cwd>/<sessionId>.jsonl`); `ClaudeTranscriptParser` (incremental NDJSON, `ChatMessage` rows, pending tool call, permission mode, title, resume offset; one API message grouped across interleaved tool results). Fixture `Tests/Fixtures/claude-transcript-v1.jsonl` cut from real lines by `scripts/cut-transcript-fixture.py` (89 lines, 27 shapes, redacted). Suites `HostFileProbeTests`, `ClaudeSessionLocatorTests`, `ClaudeTranscriptParserTests`, two wire round trips, one real-sshd E2E case (CI lane pin 94 → 95). Reviewer's three findings taken (`Archive/round24/review-1.md`). Also the two keyboard-inset tests' 70 ms sleep over a 60 ms coalesce → 250 ms after one failed on the loaded iPad. |
+| (the commit after `bb522bb`) | **docs: round 24** — this vault: Decisions, Testing status, Open items (43a ticked), Kelpie Chat *What exists*, Kelpie.md, resume, the reviewer report under `Archive/round24/`. |
+
 ## Round 23 — the community watch earns its keep — 2026-09-16
 
 | Commit | |

@@ -10,6 +10,17 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 24 — Kelpie Chat's transport and read model (2026-09-16)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| `xcodebuild build-for-testing`, generic iOS | Compiled | Clean at every step; no warnings in the new files. `scripts/generate-wire-types.py --check` up to date. |
+| `HostFileProbeTests` (11), `ClaudeSessionLocatorTests` (14 incl. 6 encoding cases), `ClaudeTranscriptParserTests` (23 incl. 7 summary cases), two new `GeneratedWireTypesTests` | Unit, on both devices | All pass on the iPad and the iPhone at `bb522bb`. The parser suite runs the fixture whole and in 1-, 7- and 4096-byte chunks and compares. |
+| `hostFileRangesPageThroughAStagedFile` (real sshd) | CI | Skips on the device (no local sshd fixture); runs in `scripts/run-ci-ios-tests.sh`'s SharedFixtureE2E lane on the next pull request, whose pinned count is now 95. Untested locally. |
+| `HeelerSSHTransport.paneProcessInfo` / `readHostFileRange` against the mini's herdr | Untested | The RPC's wire shape is the spike's capture (round trip pinned); the exec path is the E2E case above. A live read against `~/.claude/projects` on the mini is round 43b's first act. |
+| Full `HeelerTests` | Device | **iPad: 2134 tests in 194 suites, 0 issues, 136 skips (79 s). iPhone: 2134 tests, 0 issues, 132 skips (57 s).** 48 tests more than round 21's 2086. The first iPad run had 2 issues in `AgentDirectInputTests.coldDirectEntryResumesPausedHeightCapture`: a 70 ms sleep over `TerminalKeyboardInset`'s 60 ms coalesce, which the loaded device missed; read, widened to 250 ms (both tests with that sleep), the iPad re-run in full is the green above. |
+| Fixture hygiene | Reviewed | `grep -c anthonytopalides` is 0; one fixed session UUID; home rewritten to `/Users/kelpie`; prompt-derived `slug` replaced after the reviewer found it. |
+
 ## Round 23 — the community watch (2026-09-16)
 
 No Swift changed, so **no device run**: Anthony made that a standing exemption for rounds that touch no app code (round 23, [[Decisions]]), and round 22's device runs at `23d1d5c` stand.
