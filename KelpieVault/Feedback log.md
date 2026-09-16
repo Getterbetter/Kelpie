@@ -442,3 +442,7 @@ Read as: the posting lane in his private `kelpie-social` checkout is the round; 
 Anthony (2026-09-17, round 27, after the report): "1- ill do another time 2- ok 3- lets arm it 4- i want to update it but theres always an active claude session, but ill keep in mind for the next natural pause"
 
 Read as: (1) the long-lived Claude token is not stored yet, so the unattended lanes keep borrowing his terminal login; (2) the probe verdict stays open; (3) arm the send lane now, his explicit yes to the launchd change, knowing 1 and 2; (4) the herdr 0.9.1 update on the mini waits for a pause with no live Claude session, logged in Open items.
+
+Anthony (2026-09-17, after round 27): "can we include a quick daily update in the morning brief or work performed? I just need headline numbers, like total number of: posts, replies, threads read, etc."
+
+Read as: one headline line of community numbers in the 06:05 morning brief (threads watched, comments seen and new, replies and posts sent, anything held for him), fed from the private checkout's state files. Done in this session at his ask, though the round had closed.
