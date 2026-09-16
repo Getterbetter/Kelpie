@@ -47,6 +47,33 @@ import Testing
         #expect(pong.protocolVersion == 20)
     }
 
+    /// The shape the 2026-09-16 spike saw from a live herdr 0.8.2
+    /// (`KelpieVault/Kelpie Chat.md`, finding 1), values redacted.
+    @Test func paneProcessInfoResponseRoundTripsSpikeCapture() throws {
+        let line = #"{"id":"pi-1","result":{"type":"pane_process_info","process_info":{"pane_id":"wC:p1","shell_pid":86301,"tty":"/dev/ttys004","foreground_process_group_id":86367,"foreground_processes":[{"pid":86367,"name":"2.1.273","argv0":"claude","argv":["claude"],"cmdline":"claude","cwd":"/Users/kelpie/Developer/maple-and-salt"}]}}}"#
+
+        let response = try HerdrWire.decodeResult(
+            PaneProcessInfoResponse.self, fromResponseLine: Data(line.utf8), requestID: "pi-1")
+
+        #expect(response.processInfo.paneID == "wC:p1")
+        #expect(response.processInfo.shellPid == 86301)
+        let process = try #require(response.processInfo.foregroundProcesses?.first)
+        #expect(process.pid == 86367)
+        #expect(process.argv0 == "claude")
+        #expect(process.cwd == "/Users/kelpie/Developer/maple-and-salt")
+        _ = try roundTrip(
+            PaneProcessInfoResponse.self,
+            #"{"type":"pane_process_info","process_info":{"pane_id":"wC:p1","foreground_processes":[{"pid":1,"name":"claude"}]}}"#)
+    }
+
+    @Test func paneProcessInfoParamsRoundTrip() throws {
+        let params = try roundTrip(PaneProcessInfoParams.self, #"{"pane_id":"wC:p1"}"#)
+        #expect(params.paneID == "wC:p1")
+        let encoded = try JSONEncoder().encode(PaneProcessInfoParams(paneID: nil))
+        let decoded = try JSONDecoder().decode(PaneProcessInfoParams.self, from: encoded)
+        #expect(decoded.paneID == nil)
+    }
+
     // Synthetic schema fixtures, not live 0.9.0 captures. Keep admission
     // coverage ungated so it runs without disposable SSH credentials.
     @Test func protocolFloorRejectsOlderHosts() throws {

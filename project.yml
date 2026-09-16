@@ -259,6 +259,8 @@ targets:
       # Shared sidebar layout snapshot vectors, consumed by Node and Swift.
       - path: plugin/test-vectors/sidebar-layout-v1.json
         buildPhase: resources
+      - path: Tests/Fixtures/claude-transcript-v1.jsonl
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

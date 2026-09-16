@@ -645,7 +645,7 @@ struct AgentDirectInputTests {
                 UIResponder.keyboardFrameEndUserInfoKey: CGRect(
                     x: 0, y: 500, width: 402, height: 370)
             ])
-        try await Task.sleep(for: .milliseconds(70))
+        try await Task.sleep(for: .milliseconds(250))  // coalesceDelay is 60 ms; a loaded device needs margin
         #expect(inset.height == 336)
         center.post(name: UIResponder.keyboardWillHideNotification, object: nil)
         #expect(inset.height == 0)
@@ -707,7 +707,7 @@ struct AgentDirectInputTests {
                 UIResponder.keyboardFrameEndUserInfoKey: CGRect(
                     x: 0, y: 500, width: 402, height: 370)
             ])
-        try await Task.sleep(for: .milliseconds(70))
+        try await Task.sleep(for: .milliseconds(250))  // coalesceDelay is 60 ms; a loaded device needs margin
         #expect(inset.height == 336)
         center.post(name: UIResponder.keyboardWillHideNotification, object: nil)
         #expect(inset.height == 0)

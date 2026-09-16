@@ -596,6 +596,32 @@ actor HeelerSSHTransport: Transport {
         return SkillProbe.skills(fromProbeOutput: output, sources: resolved)
     }
 
+    func paneProcessInfo(_ params: PaneProcessInfoParams) async throws -> PaneProcessInfo {
+        try await request(
+            method: "pane.process_info", params: params,
+            decoding: PaneProcessInfoResponse.self
+        ).processInfo
+    }
+
+    func readHostFileRange(path: String, offset: Int, maxBytes: Int) async throws
+        -> HostFileRange
+    {
+        let resolved = try await resolvedHostFilePath(path)
+        guard let quoted = RemoteShellPath.quotedAbsolute(resolved) else {
+            throw HostFileDownloadError.pathNotAbsolute
+        }
+        let start = max(offset, 0)
+        let output = try await runHostCommand(
+            HostFileProbe.command(quotedPath: quoted, offset: start, maxBytes: maxBytes))
+        guard let framed = HostFileProbe.framedOutput(in: output) else {
+            throw HostFileDownloadError.notFound(path: resolved)
+        }
+        guard let fileSize = framed.fileSize else {
+            throw HostFileDownloadError.notReadable(path: resolved)
+        }
+        return HostFileRange(offset: start, data: framed.body, fileSize: fileSize)
+    }
+
     func readSkillFile(atPath path: String) async throws -> String {
         guard let quoted = RemoteShellPath.quotedAbsolute(path) else {
             throw TransportError.channelFailed(detail: "skill path is not quotable")

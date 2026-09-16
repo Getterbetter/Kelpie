@@ -36,6 +36,12 @@ protocol Transport: Sendable {
     /// to the visible screen.
     func readAgent(_ params: AgentReadParams) async throws -> PaneReadResult
 
+    /// The processes running in a Pane (`pane.process_info`): the shell and
+    /// its foreground process group. Kelpie Chat maps a Claude Code pane to
+    /// its transcript file through the foreground process's pid and cwd
+    /// (ADR 0019).
+    func paneProcessInfo(_ params: PaneProcessInfoParams) async throws -> PaneProcessInfo
+
     /// Delivers one complete local draft through `agent.prompt`. The request
     /// deliberately omits `wait`: the response acknowledges delivery into
     /// the Agent's pane, while Agent Status events report subsequent work.
@@ -233,6 +239,16 @@ protocol Transport: Sendable {
     /// as `listSkills`.
     func readSkillFile(atPath path: String) async throws -> String
 
+    /// Reads `maxBytes` of a Host file starting at byte `offset`, raw and
+    /// never newline-normalised, with the file's size at the time of the
+    /// read so the caller can page through an append-only file (Kelpie
+    /// Chat's transcript reads, ADR 0019). `path` is absolute or
+    /// `~`-relative, like `downloadFile`. Reads the filesystem over exec;
+    /// transports without a Host process environment throw
+    /// `HostFileDownloadError.unsupported`.
+    func readHostFileRange(path: String, offset: Int, maxBytes: Int) async throws
+        -> HostFileRange
+
     /// Whether the underlying connection to the Host is still alive. The
     /// reconnect machinery (#18) decides "re-subscribe on this connection or
     /// re-establish it" from this flag.
@@ -337,6 +353,30 @@ extension Transport {
     ) async throws -> URL {
         throw HostFileDownloadError.unsupported
     }
+
+    func paneProcessInfo(_ params: PaneProcessInfoParams) async throws -> PaneProcessInfo {
+        throw TransportError.channelFailed(
+            detail: "This transport cannot inspect pane processes.")
+    }
+
+    func readHostFileRange(path: String, offset: Int, maxBytes: Int) async throws
+        -> HostFileRange
+    {
+        throw HostFileDownloadError.unsupported
+    }
+}
+
+/// One page of a Host file: the bytes from `offset`, and the file's size
+/// when the page was read. `reachedEnd` is false whenever the file had more
+/// bytes than the page returned — including bytes appended while it was
+/// being read — so a poller that stops on `reachedEnd` never misses a tail.
+struct HostFileRange: Sendable, Equatable {
+    let offset: Int
+    let data: Data
+    let fileSize: Int
+
+    var nextOffset: Int { offset + data.count }
+    var reachedEnd: Bool { nextOffset >= fileSize }
 }
 
 /// Why viewing a Host file on the iPad failed. Deliberately its own error

@@ -1620,6 +1620,46 @@ struct HeelerSSHTransportBehaviorE2ETests {
         #expect(try await transport.readSkillFile(atPath: skill.path).contains("Fixture body."))
     }
 
+    /// Kelpie Chat pages through a transcript by byte offset (ADR 0019):
+    /// pages concatenate to the file, the size rides along, and a missing
+    /// file is `notFound`, all against a real sshd.
+    @Test("Host file ranges page through a staged file byte-exactly")
+    func hostFileRangesPageThroughAStagedFile() async throws {
+        let environment = try #require(HeelerSSHTransportBehaviorEnvironment.current)
+        let transport = try await HeelerSSHTransport.connect(settings: environment.directSettings())
+        defer { Task { try? await transport.close() } }
+
+        var bytes = Data(count: 3000)
+        for index in bytes.indices { bytes[index] = UInt8((index * 7 + index / 13) & 0xFF) }
+        let local = FileManager.default.temporaryDirectory
+            .appendingPathComponent("range-\(UUID().uuidString).bin")
+        try bytes.write(to: local)
+        defer { try? FileManager.default.removeItem(at: local) }
+        let staged = try await transport.stageFile(
+            PreparedFile(fileURL: local, fileExtension: "bin", byteCount: Int64(bytes.count)),
+            progress: { _ in })
+
+        let first = try await transport.readHostFileRange(path: staged.path, offset: 0, maxBytes: 1000)
+        let second = try await transport.readHostFileRange(path: staged.path, offset: first.nextOffset, maxBytes: 1000)
+        let third = try await transport.readHostFileRange(path: staged.path, offset: second.nextOffset, maxBytes: 5000)
+        #expect(first.data.count == 1000)
+        #expect(!first.reachedEnd)
+        #expect(second.offset == 1000)
+        #expect(!second.reachedEnd)
+        #expect(third.data.count == 1000)
+        #expect(third.reachedEnd)
+        #expect(first.data + second.data + third.data == bytes)
+        #expect([first, second, third].allSatisfy { $0.fileSize == 3000 })
+
+        let past = try await transport.readHostFileRange(path: staged.path, offset: 3000, maxBytes: 10)
+        #expect(past.data.isEmpty)
+        #expect(past.reachedEnd)
+
+        await #expect(throws: HostFileDownloadError.notFound(path: staged.path + ".missing")) {
+            _ = try await transport.readHostFileRange(path: staged.path + ".missing", offset: 0, maxBytes: 10)
+        }
+    }
+
     private static let installedPluginListCommand =
         "printf '%s' '{\"id\":\"cli:plugin\",\"result\":{\"plugins\":["
         + "{\"plugin_id\":\"heeler\",\"enabled\":true}]}}'"

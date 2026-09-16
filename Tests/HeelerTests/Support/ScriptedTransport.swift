@@ -75,6 +75,18 @@ final actor ScriptedTransport: Transport {
     private var paneTexts: [String: String] = [:]
     private var paneReadFailure: TransportError?
     private var nextPaneReadGate: ScriptedTransportCallGate?
+    /// Every `pane.process_info` received, in order; Kelpie Chat's session
+    /// locator asserts on the pane it asked about.
+    private(set) var paneProcessInfoParams: [PaneProcessInfoParams] = []
+    private var paneProcessInfos: [String: PaneProcessInfo] = [:]
+    private var paneProcessInfoFailure: (any Error)?
+    private var nextPaneProcessInfoGate: ScriptedTransportCallGate?
+    /// Every Host file range read, in order (path, offset, cap); the
+    /// transcript reader asserts on how it paged through the file.
+    private(set) var hostFileRangeReads: [(path: String, offset: Int, maxBytes: Int)] = []
+    private var hostFiles: [String: Data] = [:]
+    private var hostFileReadFailure: (any Error)?
+    private var nextHostFileReadGate: ScriptedTransportCallGate?
     private var agentPromptFailure: (any Error)?
     private var nextAgentPromptGate: ScriptedTransportCallGate?
     private var missingPaneIDs: Set<String> = []
@@ -162,6 +174,39 @@ final actor ScriptedTransport: Transport {
     /// Pauses the next pane read after capturing its response.
     func gateNextPaneRead(using gate: ScriptedTransportCallGate) {
         nextPaneReadGate = gate
+    }
+
+    /// Scripts what `paneProcessInfo` returns for `paneID`; an unscripted
+    /// pane answers `pane_not_found`, as herdr does.
+    func setPaneProcessInfo(_ info: PaneProcessInfo, paneID: String) {
+        paneProcessInfos[paneID] = info
+    }
+
+    /// Makes every subsequent `paneProcessInfo` throw `failure`.
+    func setPaneProcessInfoFailure(_ failure: (any Error)?) {
+        paneProcessInfoFailure = failure
+    }
+
+    /// Pauses the next `paneProcessInfo` after recording its params.
+    func gateNextPaneProcessInfo(using gate: ScriptedTransportCallGate) {
+        nextPaneProcessInfoGate = gate
+    }
+
+    /// Scripts the bytes of a Host file at `path` (nil removes it, so a
+    /// later read fails `notFound`). Paths are matched verbatim: script
+    /// `~/...` when the code under test asks for `~/...`.
+    func setHostFile(_ data: Data?, atPath path: String) {
+        hostFiles[path] = data
+    }
+
+    /// Makes every subsequent `readHostFileRange` throw `failure`.
+    func setHostFileReadFailure(_ failure: (any Error)?) {
+        hostFileReadFailure = failure
+    }
+
+    /// Pauses the next Host file read after recording its request.
+    func gateNextHostFileRead(using gate: ScriptedTransportCallGate) {
+        nextHostFileReadGate = gate
     }
 
     /// Makes every subsequent `promptAgent` throw `failure`.
@@ -450,6 +495,37 @@ final actor ScriptedTransport: Transport {
             format: .text, paneID: params.paneID, revision: 0,
             source: params.source, tabID: "t", text: responseText,
             truncated: false, workspaceID: "w")
+    }
+
+    func paneProcessInfo(_ params: PaneProcessInfoParams) async throws -> PaneProcessInfo {
+        paneProcessInfoParams.append(params)
+        let failure = paneProcessInfoFailure
+        let gate = nextPaneProcessInfoGate
+        nextPaneProcessInfoGate = nil
+        await gate?.waitUntilOpen()
+        if let failure { throw failure }
+        guard let paneID = params.paneID, let info = paneProcessInfos[paneID] else {
+            throw HerdrAPIError(
+                code: "pane_not_found", message: "pane \(params.paneID ?? "") not found")
+        }
+        return info
+    }
+
+    func readHostFileRange(path: String, offset: Int, maxBytes: Int) async throws
+        -> HostFileRange
+    {
+        hostFileRangeReads.append((path, offset, maxBytes))
+        let failure = hostFileReadFailure
+        let gate = nextHostFileReadGate
+        nextHostFileReadGate = nil
+        await gate?.waitUntilOpen()
+        if let failure { throw failure }
+        guard let data = hostFiles[path] else {
+            throw HostFileDownloadError.notFound(path: path)
+        }
+        let start = min(max(offset, 0), data.count)
+        let end = min(start + max(maxBytes, 0), data.count)
+        return HostFileRange(offset: start, data: data.subdata(in: start..<end), fileSize: data.count)
     }
 
     func readAgent(_ params: AgentReadParams) async throws -> PaneReadResult {
