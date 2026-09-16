@@ -458,3 +458,5 @@ entry: a session cron survives `/clear`, because the session does.
 **Decided: the send lane is built but disarmed, and arming is his hand at every step.** Anthony's 2026-09-16 instruction was not to build it before the probe verdict, due no earlier than 2026-09-19; his 2026-09-17 goal was unattended posting. Read together: build it now behind two switches (a flag and a file he creates), leave the launchd job unloaded, and let the verdict and his yes decide arming. Nothing posts this round. Why: the code is reversible; a post is not.
 
 **Also: the verdict is still open.** The one 05:40 sample died on auth, so the case the probe exists to measure has zero samples. The record says so plainly rather than counting the auth failures against the browser.
+
+**Anthony, after the report: "3- lets arm it"**, with the token deferred ("1- ill do another time") and the verdict open ("2- ok"). Armed at 09:24 from the private checkout. His call after both caveats were on screen; the record there carries the disarm recipe. Also from the same message: the herdr 0.9.1 update on the mini waits for a pause with no live Claude session (new Open item).

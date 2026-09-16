@@ -438,3 +438,7 @@ Read as: the community watch and the posting-lane probe leave the repo for a pri
 Anthony (2026-09-17, round 27, opening): "lets revist the social posting project. claude was logged out of terminal overnight so that may have broken it. lets revist, the goal is to have this unattended and posting"
 
 Read as: the posting lane in his private `kelpie-social` checkout is the round; the Claude Code terminal sign-out overnight is the suspected break. The target state is a lane that posts unattended under the round-23 grant (Reddit only). Details stay with the tooling in that checkout; this repo gets the pointer only.
+
+Anthony (2026-09-17, round 27, after the report): "1- ill do another time 2- ok 3- lets arm it 4- i want to update it but theres always an active claude session, but ill keep in mind for the next natural pause"
+
+Read as: (1) the long-lived Claude token is not stored yet, so the unattended lanes keep borrowing his terminal login; (2) the probe verdict stays open; (3) arm the send lane now, his explicit yes to the launchd change, knowing 1 and 2; (4) the herdr 0.9.1 update on the mini waits for a pause with no live Claude session, logged in Open items.

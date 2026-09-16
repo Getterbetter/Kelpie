@@ -375,3 +375,4 @@ Vault-only in this repo. The work itself is in Anthony's private `kelpie-social`
 | Commit | |
 | --- | --- |
 | (this commit) | **docs: round 27** — the community tooling's overnight failure was diagnosed and fixed in the private checkout: the two failed unattended runs died on Claude Code's own sign-in, not on the browser. The private checkout gained a long-lived-token path for its headless runs, an unattended posting lane that stays disarmed until Anthony arms it by hand, and a drafting-lane verdict that feeds it. Nothing in this repo changed but the vault. |
+| (this commit) | **docs: the lane is armed** — on Anthony's word after the report; the new Open item for the herdr 0.9.1 update on the mini. |
