@@ -131,6 +131,9 @@ jobs:
       - name: Test community watch
         run: scripts/test-community watch.sh
 
+      - name: Test community posting
+        run: scripts/test-community posting.sh
+
       # The script selects one available iPad Air 11-inch (M4) UDID (Kelpie is
       # iPad-only; HEELER_CI_SIM_MODEL overrides), boots it, injects the
       # fixture environment there, and targets that same device for every test

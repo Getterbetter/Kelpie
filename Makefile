@@ -206,6 +206,14 @@ ghostty-override-diff: ## Diff the vendored GhosttyTerminal override points agai
 community watch: ## Run the community watch once (dry run: DRY=1; draft replies: ANALYSE=1)
 	@/usr/bin/python3 scripts/community watch.py $(if $(DRY),--dry-run) $(if $(ANALYSE),--analyse)
 
+# The posting lane's probe (scripts/community posting.py, docs/guides/reddit-post.md).
+# One read-only browser check: it opens the signed-in account's own JSON, records
+# the account name and whether a modhash is reachable, and closes the tab. There
+# is no send path in that script. LOG=1 prints the history instead of probing.
+.PHONY: community posting-probe
+community posting-probe: ## Probe the browser lane once (history: LOG=1; prompt only: DRY=1)
+	@/usr/bin/python3 scripts/community posting.py $(if $(LOG),--probe-log,--probe $(if $(DRY),--dry-run))
+
 # The round close-out guard (scripts/check-round-closeout.sh). `make hooks`
 # points git at .githooks, so the pre-push hook runs the same script; it is a
 # per-checkout git config, not something a clone inherits.
