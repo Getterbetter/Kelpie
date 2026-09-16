@@ -442,3 +442,7 @@ Read as: round 25 is Open item 45, and it is a probe round before it is a build 
 Anthony (2026-09-16, round 24, opening): "lets look at round 43, the tests for the new ui"
 
 Read as: Open item 43 (Kelpie Chat); asked which reading he meant, he chose "Build 43a with its tests": the transport and read model with no UI (`pane.process_info` wire type, `readHostFileRange`, `ClaudeSessionLocator`, `ClaudeTranscriptParser`), fixtures cut from real redacted transcript lines, unit tests run on both devices. A second session works round 23 (the Community item, scripts and docs only) in the same checkout, so this is round 24 and its vault writes wait for round 23's commit.
+
+Anthony (2026-09-16, after round 24): "i think i want to pause this activity. can we document what you've discovered so far in the kelpie vault, inc. next steps if i were to pick this up in future"
+
+Read as: Kelpie Chat (Open item 43) is paused after 43a; no more build rounds on it until he says so. The vault gets a pause section in [[Kelpie Chat]] (what was found, what exists, the pick-up path), item 43 is marked paused in [[Open items]], and it leaves the top of the action plan in `resume.md`.

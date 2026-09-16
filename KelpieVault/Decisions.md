@@ -461,3 +461,9 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 **Also: for a top-level post the pre-check source is `submitted.json`, not `comments.json`.** The rule as written names `/user/the community account/comments.json`, which is right for a reply and cannot see a submission. Recorded now so the send lane does not inherit a gap in its only duplicate guard.
 
 **Also: no device suite.** No Swift was touched, which is round 23's standing exemption. The round-24 device runs stand.
+
+## 2026-09-16 — after round 24: Kelpie Chat paused
+
+**A — "i think i want to pause this activity. can we document what you've discovered so far in the kelpie vault, inc. next steps if i were to pick this up in future".** Kelpie Chat (Open item 43) stops after 43a. Why is his; the record is what it costs to resume: 43a is inert in the app (a transport method, a read model, tests), so the pause leaves no half-wired feature behind. The findings that would be expensive to rediscover, the test approach the repo affords for a chat UI, and a five-step pick-up path are the top section of [[Kelpie Chat]]; `resume.md`'s action plan carries a one-line pointer and moves on.
+
+**Decided: nothing is removed.** `Sources/Heeler/Chat/`, `HostFileProbe`, the two `Transport` methods and their tests stay; they cost nothing at runtime, they keep the fixture's format pinned by the device suite, and deleting them would make the pick-up a rebuild.
