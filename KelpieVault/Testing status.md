@@ -10,25 +10,19 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
-## Round 25 — the posting-lane probe (2026-09-16)
+## Round 26 — 2026-09-16
 
-**No Swift was touched, so the device suite did not run.** That is round 23's standing exemption ([[Decisions]], 2026-09-16), not a skip: scripts, docs and files outside the repo. The round-24 device runs stand.
+No Swift touched, no device run — round 23's standing exemption. The round-24 device runs stand.
 
-**50 unit tests**, `sh scripts/test-community posting.sh`, green on `/usr/bin/python3` 3.9 — the same python launchd gets. Wired into `ci.yml` beside the depwatch and community watch suites, so all three watcher-side suites now gate the long build. They are pure functions and canned `stream-json` transcripts: no browser, no headless run, no writes outside a temp dir.
+What was verified is the removal, not a feature: `make help` no longer lists the two social targets, `ci.yml` contains no reddit step and still runs `scripts/test-depwatch.sh`, both launchd jobs print program paths under `~/Developer/kelpie-social`, and the public tree greps clean for the account name, the email address, the marketing plan's name and the tooling's own names. The two suites that left (69 community-watch tests, 50 probe tests) pass from the private checkout.
 
-Two of them are guards rather than tests, and are the reason the probe is safe to leave loaded: one fails if any page-changing browser tool (`computer`, `form_input`, `javascript_tool`, `browser_batch`, …) ever appears in the probe's allow list, and one fails if the prompt stops forbidding every non-browser tool.
+What is **not** verified: whether the purge is complete is checked by grepping the rewritten history, which catches paths and strings but cannot prove nothing was cached elsewhere.
 
-**Measured live, three runs** (`~/.kelpie/community posting/probe.jsonl`):
+## Round 25 — 2026-09-16
 
-| When | How | Outcome | Time |
-| --- | --- | --- | --- |
-| 11:45 | by hand | timeout | 183 s, the probe's own bug (no streaming, and it asked the model to count) |
-| 11:54 | by hand | ok | 64 s, 7 turns, modhash present |
-| 13:21 | launchd | ok | 31 s, 6 turns, modhash present |
-
-What that does **not** cover: the 05:40 case, machine asleep and screen locked, which is the one the lane would depend on. The loaded job collects it; the verdict is Open item 46.
-
-Also confirmed, not by a test: `--permission-mode dontAsk` genuinely refuses. A run that reached for `Bash` and `Write` was denied both, which is what makes the read-only tool list a boundary rather than a request.
+No Swift was touched, so the device suite did not run — round 23's standing
+exemption, not a skip. The round-24 device runs stand. The round's own unit tests
+left this repo with the tooling they cover (round 26).
 
 ## Round 24 — Kelpie Chat's transport and read model (2026-09-16)
 
@@ -41,20 +35,10 @@ Also confirmed, not by a test: `--permission-mode dontAsk` genuinely refuses. A 
 | Full `HeelerTests` | Device | **iPad: 2134 tests in 194 suites, 0 issues, 136 skips (79 s). iPhone: 2134 tests, 0 issues, 132 skips (57 s).** 48 tests more than round 21's 2086. The first iPad run had 2 issues in `AgentDirectInputTests.coldDirectEntryResumesPausedHeightCapture`: a 70 ms sleep over `TerminalKeyboardInset`'s 60 ms coalesce, which the loaded device missed; read, widened to 250 ms (both tests with that sleep), the iPad re-run in full is the green above. |
 | Fixture hygiene | Reviewed | `grep -c anthonytopalides` is 0; one fixed session UUID; home rewritten to `/Users/kelpie`; prompt-derived `slug` replaced after the reviewer found it. |
 
-## Round 23 — the community watch (2026-09-16)
+## Round 23 — 2026-09-16
 
-No Swift changed, so **no device run**: Anthony made that a standing exemption for rounds that touch no app code (round 23, [[Decisions]]), and round 22's device runs at `23d1d5c` stand.
-
-| Check | Means | Result |
-| --- | --- | --- |
-| `scripts/test-community watch.sh` | Unit, on `/usr/bin/python3` 3.9.6 | **69 tests, 0 failures.** The watcher's first suite. Hermetic: canned Atom fixtures, `fetch_url`/`fetch_reddit_subtree`/`subprocess` swapped out under `addCleanup`, `REDDIT_PAUSE_SECONDS` zeroed. Covers all four match modes, anchor merging, the subtree URL builder, the own-comment split, config validation, `--reclassify`, and the alert throttles. |
-| `scripts/test-depwatch.sh` | Unit, same interpreter | 45 tests, 0 failures. Existed since round 21 and had never been wired into CI. |
-| Both suites in CI | CI | Added to `.github/workflows/ci.yml` beside the watchdog step; `scripts/**` was already in both path filters. Not yet observed green on a runner — no pull request has carried them. |
-| The fail-safe: a failed read never filters | Unit **and** live | Asserted in the suite, and hit for real twice on 2026-09-16. A rate-limited run would have emptied a 99-item backlog on no evidence; the guard skipped the watch and left it intact. |
-| Backlog migration | Live | 109 → 0 across both anchored threads on a complete read, anchors persisted (`t1_p9fl0ga`; `t1_p8x6wak`, `t1_p9fl8gi`), and **all 29 draft files still on disk** — `--reclassify` never deletes one. |
-| `asc-kelpie.py --review-state` | Live, read-only | Ran against the live API, wrote `~/.kelpie/asc/review-state.json`, and the function body was checked to contain no `plan()`, POST, PATCH or DELETE. Confirms 1.0 and all three tips `WAITING_FOR_REVIEW`. Found en route: `betaAppReviewSubmissions` has no `app` filter, so it filters by build ids. |
-| `test_briefing_kelpie.py` (outside the repo) | Unit | 30 tests, 0 failures, covering both brief consumers including the new "a yesterday-dated handoff is ignored" case. |
-| The email alert actually sending | **Untested** | Every throttle is unit-tested and a non-zero exit from `mail_send.py` is proven not to be recorded as sent, but no real alert email has been sent or received yet. The first one goes out when a genuine new comment arrives outside quiet hours. |
+No Swift touched, no device run. The tooling and its suite left this repo in
+round 26; `scripts/test-depwatch.sh` (45 tests) stayed and still runs in CI.
 
 ## Round 17 — the keyboard inset, the reconnect flash, Shift+Tab (2026-09-15)
 

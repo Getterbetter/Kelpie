@@ -122,17 +122,13 @@ jobs:
       - name: Test CI watchdog
         run: scripts/test-run-with-timeout.sh
 
-      # The two watchers' own suites: pure functions and canned fixtures, no
-      # network and no `gh`, on the same /usr/bin/python3 3.9 their launchd runs
-      # get. Seconds, so they gate the long build rather than trailing it.
+      # The dependency watch's own suite: pure functions and canned fixtures, no
+      # network and no `gh`, on the same /usr/bin/python3 3.9 its launchd run
+      # gets. Seconds, so it gates the long build rather than trailing it. (The
+      # community watch and posting lane left this repo on 2026-09-16 and carry
+      # their own suites in ~/Developer/kelpie-social.)
       - name: Test depwatch
         run: scripts/test-depwatch.sh
-
-      - name: Test community watch
-        run: scripts/test-community watch.sh
-
-      - name: Test community posting
-        run: scripts/test-community posting.sh
 
       # The script selects one available iPad Air 11-inch (M4) UDID (Kelpie is
       # iPad-only; HEELER_CI_SIM_MODEL overrides), boots it, injects the

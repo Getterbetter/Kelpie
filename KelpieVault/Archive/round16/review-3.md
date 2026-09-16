@@ -109,7 +109,7 @@ Byte-identical to the tag (`git diff kelpie-pre-rebase-20260915 f31c4a1 -- .gith
 ### Makefile
 Kelpie's own settings survived: `APP_ID := TME.Kelpie` (line 12), `SIM ?= iPad Air 11-inch (M4)` (line 13),
 `generate` runs `./scripts/fetch-ghostty-artifact.sh` before `xcodegen generate` (lines 36–38), and the fork's
-`depwatch`, `community watch`, `hooks` and `closeout-check` targets are all present at the tail. Upstream's new
+`depwatch`, `hooks` and `closeout-check` targets are all present at the tail. Upstream's new
 `build-device`, `install-ipad`, `test-ipad`, `sim-ipad`, `check-device-ipad` targets are adopted and all are in
 `.PHONY`. `install-ipad` correctly re-enters `install` with `DEVICE="$(DEVICE_IPAD)"`, which satisfies
 `check-device`.

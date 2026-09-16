@@ -392,30 +392,10 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Also: this Mac is the mini.** `ssh mac-mini` resolves to this machine (`hostname` = `Mac-mini.local`), so "over `mac-mini`" in the notes and a local read are the same thing; the spike's ssh timings are a loopback floor, not the Tailscale figure.
 
-## 2026-09-16 — round 23: the community watch earns its keep
+## 2026-09-16 — round 23: the community watch
 
-**A — Anthony asked for an hourly social check and a ping, worried about context bloat from a session left open.** "Wondering if we can set up an hourly ping to check for updates, then send updates. i can keep this claude code session open but slightly concerned about context bloat". The premise was already solved and nobody had noticed: `com.kelpie.community watch` has run hourly under launchd since 2026-09-12, so no session need stay open. What was missing was everything downstream — nothing read the brief handoff, the backlog it reported was 109 items of noise, nothing told him when something needed him, and nothing posted.
-
-**A — he granted standing autonomy for Reddit, which supersedes the rule recorded above on 2026-09-12 and 2026-09-14.** "im ok with them going out without my approval when we're gaining activity in channels (like r/ClaudeAI) or whether we're pushing posts we're pushing again since time has gone by, or where we're just replying to people's questions". Asked to scope it he chose full autonomy including new top-level posts, twice daily, as a headless launchd job, with the approved-but-unposted r/ClaudeAI Showcase text handed to that job. The earlier rule — he approves the exact text in-session — no longer holds for Reddit. It still holds everywhere else, and the `autoMode.allow` note in `~/.claude/settings.json` that cites "verbatim in the current conversation" is now out of date for this one channel. Why it is written down twice over: an unattended run has no conversation to approve anything in, so the grant has to be explicit or the lane is built on a rule it quietly breaks.
-
-**Decided: the posting lane is designed in full this round and built next, after probe data.** `claude -p --chrome` from launchd has no precedent anywhere on this machine, and the recorded top failure of every past unattended pass is the Chrome extension simply being disconnected. So round 24 starts with `--probe` run by hand at intervals for a few days, and that answer decides whether the lane is worth finishing. Anthony chose this split. Why: the expensive half of the work is the duplicate guarantee, and there is no point paying for it before knowing the browser survives an unattended run.
-
-**Decided: relevance is a per-watch `match` mode, and the anchor is Anthony's own comment.** `all` (the default, every existing watch unchanged) is right for a post he made, where every comment is addressed to him. A thread he merely commented in gets `subtree+mention`. The subtree is exact rather than heuristic: the *comment permalink* feed `…/comments/<post>/comment/<id>/.rss` serves the focused comment and its descendants, which the post feed does not — verified live against a comment with a known reply. Anchors are discovered by returning his own comments from `parse_reddit_feed` instead of dropping them, and remembered in state, because the feed carries only a recent window and an old anchor falls out of it.
-
-**Decided: never filter on evidence that could not be gathered.** `fetch_reddit_subtree` reports whether every anchor was read; if any read failed, nothing is filtered and `--reclassify` skips that watch with the backlog intact. This was not theoretical: the first migration run reported a clean 109 → 0, and the verbose trace showed the r/ClaudeCode post feed had 429'd twice, so "no replies found" actually meant "could not look". On this limiter a failed read is routine and looks identical to an empty result, and treating one as the other drops a real reply out of the backlog and calls it noise. The second run, with the guard, correctly filtered r/herdr's ten on real evidence and skipped r/ClaudeCode.
-
-**Decided: `herdr` and `heeler` are not mention terms.** The two threads being filtered are a herdr thread and a Claude Code thread, where those words are the subject of everyone's conversation. A term earns its place by being about Kelpie. Being named as `u/<own username>` counts as a mention.
-
-**Decided: email is the intra-day signal, and it is the only candidate left standing.** A plain push notification does not reliably reach his phone (tested live 2026-07-14) and macOS 26 blocks unattended iMessage from a launchd agent (tested twice; that job was removed and the note says do not retry it). `~/.memoryos/mail_send.py` is used by the work brief and the territory refresh, self-verifies over IMAP and keeps its own ledger. Rules: candidates come from the unanswered set minus ids already emailed, so a held or failed send is retried rather than lost; quiet hours 22:00–07:00; three a day at most and the third says so; a failed send is not recorded as sent; and it never raises, because a run must not lose what it found because the mail step failed.
-
-**Decided: the brief consumer honours today only, unlike its depwatch twin.** depwatch runs once at 05:45, so a yesterday-dated handoff is legitimate. community watch rewrites its file every hour, so a yesterday-dated file means the job is dead, and rendering it as fresh would hide exactly the failure worth knowing about. `~/.memoryos/kelpie-community watch-briefing.json` had been write-only since 2026-09-12; it is now a `## Kelpie community` section with an amber health probe.
-
-**Decided: App Store review state is polled adjacent to the watch, not inside it.** `community watch.py` is stdlib-only on `/usr/bin/python3` and must stay so; `asc-kelpie.py` mints its JWT through a Swift tool. So `asc-kelpie.py --review-state` writes `~/.kelpie/asc/review-state.json` with GETs only and no `plan()` call at all, and the watch reads that file with no auth and no network. Why: one alert channel and one consumer, without duplicating credentials into a job that must never need them.
-
-**Decided: a round that touches no Swift does not run the device suite.** Anthony's round-20 rule ("we run the ui tests at the end of each change, ipad & iphone") was written for app code; this round is scripts, docs and files outside the repo. He chose a standing exemption rather than a one-off skip, so it is a rule now: no Swift touched, no device run. The round-22 device runs at `23d1d5c` stand.
-
-**Also: the Reddit pause went from 20 to 30 seconds.** A subtree watch spends an extra request per anchor, and the hourly run was already losing about one post an hour to a 429. Eight requests at 30 seconds is four minutes, which is nothing inside an hour.
-
+Decisions about Anthony's local community tooling. They moved out of this repo
+with the tooling on 2026-09-16 (round 26) and are recorded alongside it.
 
 ## 2026-09-16 — round 24: Kelpie Chat's transport and read model (Open item 43a)
 
@@ -436,34 +416,35 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 **Also: CI pins executed-test counts per lane, not only test names.** `run_suite SharedFixtureE2ETests 94 6 0` in `scripts/run-ci-ios-tests.sh` covers `HeelerSSHTransportBehaviorE2ETests`; the new E2E case took it to 95. The reviewer caught it (`Archive/round24/review-1.md`); the plan had assumed only `assert_behavior` name pins.
 
 
-## 2026-09-16 — round 25: the probe that gates the autonomous poster (Open item 45)
+## 2026-09-16 — round 25: the posting lane's probe
 
-**A — Anthony ordered the probe before the lane, and a stop if it fails.** "Start with step 2 of the build order, not step 1. The open question that decides whether this lane is worth finishing is whether `claude -p --chrome` works unattended from launchd… If the extension does not survive unattended, say so and stop; the lane is not viable and that is a real finding, not a failure." So round 25 built `scripts/community posting.py --probe` and nothing else. Why it is worth a round on its own: the expensive half of the lane is the duplicate guarantee, and there is no point paying for it before knowing the browser answers at 05:40.
-
-**Decided: the probe spawns the real headless run, not an HTTP request.** Reading `/api/me.json` with `urllib` would have been ten lines and would have proved nothing: the question is not whether Reddit answers, it is whether a headless `claude -p --chrome` reaches the extension in Anthony's signed-in Chrome. So the probe pays for a model turn and drives the same path the send lane would, with the same permission mode.
-
-**Answered: it does.** Three runs on 2026-09-16 — a 183-second timeout that was the probe's own bug, then **ok in 64 s by hand** (7 turns) and **ok in 31 s from launchd** (6 turns), signed in as u/the community account with a 50-character modhash reachable. `claude-in-chrome` reports `connected` to a run spawned from a plain shell. What is still unmeasured is the 05:40 case, asleep and locked, which is why the job is loaded and the verdict is Open item 46 rather than a conclusion drawn this afternoon from an afternoon.
-
-**Decided: the probe has no send path at all, and cannot grow one by accident.** `--allowedTools` is an allow list of read-only browser tools; `--permission-mode dontAsk` refuses everything else, which was verified live when a run reached for `Bash` and `Write` and was denied both. Two unit tests are guards rather than tests: one fails if any page-changing tool (`computer`, `form_input`, `javascript_tool`, `browser_batch`, …) ever appears in the list, one fails if the prompt stops forbidding non-browser tools. Why: a probe that could post is not a probe, and this one is loaded under launchd where nobody is watching it.
-
-**Decided: the run must stream.** `--output-format text` prints nothing until the end, so the first version's 183-second stall left an empty file and no idea which call hung. With `stream-json` the last tool call is recorded as `stalled_at`, so a killed run still says whether it died reaching for the extension or three calls later. This is the difference between "unattended posting did not work" — which is what the 2026-09-11 record says, twice — and knowing why.
-
-**Decided: never ask the model to count.** The first prompt asked for the page's length, and the run went to `Bash` and `Write` to measure it, was refused, and spent the rest of its budget retrying refusals. The prompt now asks only for what is read off the page. A prompt that invites a tool the run does not have is a prompt that burns its budget on denials.
-
-**Learned: the tab-group call order is not optional.** `tabs_create_mcp` refuses with "No tab group exists for this session yet"; the group is made by `tabs_context_mcp` with `createIfEmpty: true`. That call doubles as proof the extension is answering, so it is also the probe's extension check, and the prompt names the order rather than leaving the model to discover it each run.
-
-**Decided: tool names get their own redaction path.** `scrub` blanks anything token-shaped, and `mcp__claude-in-chrome__navigate` is a long run of word characters, so the redactor ate the one diagnosis streaming exists to produce. `tool_label` strips the prefix, allows a plain name and refuses anything else. Why it is written down: the fix had to be in the code, not the test — a ledger that redacts its own findings is worse than no ledger.
-
-**A — Anthony's call on tonight's Showcase post: leave the armed cron.** The round's reconciliation found one-shot cron `9f4554b7` still armed in this session, set for 22:03 on 2026-09-16. `~/.claude/skills/get-noticed/runs.log` records it as having "died with the session"; it had not, because the session was `/clear`ed rather than closed. Anthony chose to leave it armed and keep the text out of any lane queue, so there is exactly one route to that post. The caveat stands: a session cron does die when its session does.
-
-**The lesson the lane inherits: a local ledger is not the truth about what has been posted, and neither is a note written by a previous session.** Only Reddit is. This is the same principle as the idempotency rule Anthony set for the send lane (the key is the intended target, never the POST response; the pre-check against `/user/<name>/comments.json` always runs), arriving from a different direction on the first day.
-
-**Also: for a top-level post the pre-check source is `submitted.json`, not `comments.json`.** The rule as written names `/user/the community account/comments.json`, which is right for a reply and cannot see a submission. Recorded now so the send lane does not inherit a gap in its only duplicate guard.
-
-**Also: no device suite.** No Swift was touched, which is round 23's standing exemption. The round-24 device runs stand.
+Decisions about Anthony's local community tooling, recorded with that tooling
+rather than here (round 26). One belongs in this repo and is kept in the round-26
+entry: a session cron survives `/clear`, because the session does.
 
 ## 2026-09-16 — after round 24: Kelpie Chat paused
 
 **A — "i think i want to pause this activity. can we document what you've discovered so far in the kelpie vault, inc. next steps if i were to pick this up in future".** Kelpie Chat (Open item 43) stops after 43a. Why is his; the record is what it costs to resume: 43a is inert in the app (a transport method, a read model, tests), so the pause leaves no half-wired feature behind. The findings that would be expensive to rediscover, the test approach the repo affords for a chat UI, and a five-step pick-up path are the top section of [[Kelpie Chat]]; `resume.md`'s action plan carries a one-line pointer and moves on.
 
 **Decided: nothing is removed.** `Sources/Heeler/Chat/`, `HostFileProbe`, the two `Transport` methods and their tests stay; they cost nothing at runtime, they keep the fixture's format pinned by the device suite, and deleting them would make the pick-up a rebuild.
+
+
+## 2026-09-16 — round 26: the social tooling leaves the public repo
+
+**A — Anthony, on what the posting lane actually is.** "what we've built here is a small tool for me to run locally to help with social management, not something i want to put on a public github account (no one will want this nor should they see it)." Asked how far to take it he chose the social tooling only (not the whole vault), a `git filter-repo` purge rather than deleting going forward, and cleaning up *before* the r/ClaudeAI Showcase post rather than after.
+
+**Decided: a separate private checkout, not untracked files.** `~/Developer/kelpie-social`, its own git repo, no remote. Untracked files in `~/.kelpie` would have lost the tests and the history; a private submodule would still name itself in the public tree. Nothing in the app depends on any of it, which is what made the cut clean: twenty paths, no Swift, no build change.
+
+**Decided: the write-ups travel with the tooling.** An extraction that leaves the documentation behind is cosmetic — the vault described the machinery in detail and named the account twice. So rounds 23 and 25 in Changelog, Decisions and Testing status, Open items 44 to 46, two Kelpie.md bullets and the notes-table rows, five Feedback log entries and resume.md's community line were carried out verbatim to `notes/history-from-kelpie-vault.md` in the private repo, and neutral pointers left in their place. Why pointers rather than silent deletion: the round numbering has to stay honest, and a reader who finds a gap should know there is nothing missing about the app.
+
+**Decided: purge, and say what a purge cannot do.** The account name had been public in one script and one guide since round 12 (`769ba2b`, 2026-09-12) — fifteen commits. `git filter-repo` removes the paths from every commit and replaces the name and email in retained blobs and in the four commit messages that named the tooling, but it does not unpublish: GitHub had indexed the repo, and a clone or a cache keeps what it took. Recorded rather than glossed, because the difference matters if the account ever needs to be treated as compromised rather than merely exposed.
+
+**Decided: re-parent onto upstream immediately after the purge.** CLAUDE.md's rule since round 11b: the rewrite touches the shared history too, so the branch is left with no common commit with upstream and every later rebase would replay upstream's own commits. `git rebase --onto b384847 <rewritten twin> kelpie`, and the pre-push ancestry check exists precisely to catch a round that forgets.
+
+**Decided: the app's own subreddit link stays public.** `PRIVACY.md`, `Sources/Heeler/Client/KelpieLinks.swift` and `scripts/asc-kelpie.py` carry r/KelpieConsole, which is the App Store support URL. That is the app's support venue, published deliberately, and unrelated to Anthony's operational tooling. `KelpieVault/Archive/research/reddit-findings.md` stays too: product research on a public thread about Heeler, naming no account.
+
+**Decided: the backup tag is local forever.** `kelpie-pre-social-purge-20260916` holds the pre-purge tip and therefore exactly what the purge removed. It is never pushed. Same shape as `kelpie-pre-rebase-20260915`, with the opposite rule about publication.
+
+**Also: tonight's Showcase cron was cancelled.** It was the single route to an approved post, and it pointed at a repo mid-cleanup, so `9f4554b7` was deleted. The post is Anthony's to make by hand once the branch is clean — and the r/ClaudeAI audience is exactly the one that would have found the watch scripts naming the account that posted it.
+
+**Also: the standing autonomy grant is unchanged in substance.** It covers Reddit and nowhere else. It now lives with the tooling it governs rather than in this vault.
