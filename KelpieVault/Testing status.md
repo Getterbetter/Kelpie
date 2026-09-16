@@ -10,6 +10,26 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 25 — the posting-lane probe (2026-09-16)
+
+**No Swift was touched, so the device suite did not run.** That is round 23's standing exemption ([[Decisions]], 2026-09-16), not a skip: scripts, docs and files outside the repo. The round-24 device runs stand.
+
+**50 unit tests**, `sh scripts/test-community posting.sh`, green on `/usr/bin/python3` 3.9 — the same python launchd gets. Wired into `ci.yml` beside the depwatch and community watch suites, so all three watcher-side suites now gate the long build. They are pure functions and canned `stream-json` transcripts: no browser, no headless run, no writes outside a temp dir.
+
+Two of them are guards rather than tests, and are the reason the probe is safe to leave loaded: one fails if any page-changing browser tool (`computer`, `form_input`, `javascript_tool`, `browser_batch`, …) ever appears in the probe's allow list, and one fails if the prompt stops forbidding every non-browser tool.
+
+**Measured live, three runs** (`~/.kelpie/community posting/probe.jsonl`):
+
+| When | How | Outcome | Time |
+| --- | --- | --- | --- |
+| 11:45 | by hand | timeout | 183 s, the probe's own bug (no streaming, and it asked the model to count) |
+| 11:54 | by hand | ok | 64 s, 7 turns, modhash present |
+| 13:21 | launchd | ok | 31 s, 6 turns, modhash present |
+
+What that does **not** cover: the 05:40 case, machine asleep and screen locked, which is the one the lane would depend on. The loaded job collects it; the verdict is Open item 46.
+
+Also confirmed, not by a test: `--permission-mode dontAsk` genuinely refuses. A run that reached for `Bash` and `Write` was denied both, which is what makes the read-only tool list a boundary rather than a request.
+
 ## Round 24 — Kelpie Chat's transport and read model (2026-09-16)
 
 | Check | Means | Result |
