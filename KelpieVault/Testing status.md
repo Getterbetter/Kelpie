@@ -10,6 +10,21 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 23 — the community watch (2026-09-16)
+
+No Swift changed, so **no device run**: Anthony made that a standing exemption for rounds that touch no app code (round 23, [[Decisions]]), and round 22's device runs at `23d1d5c` stand.
+
+| Check | Means | Result |
+| --- | --- | --- |
+| `scripts/test-community watch.sh` | Unit, on `/usr/bin/python3` 3.9.6 | **69 tests, 0 failures.** The watcher's first suite. Hermetic: canned Atom fixtures, `fetch_url`/`fetch_reddit_subtree`/`subprocess` swapped out under `addCleanup`, `REDDIT_PAUSE_SECONDS` zeroed. Covers all four match modes, anchor merging, the subtree URL builder, the own-comment split, config validation, `--reclassify`, and the alert throttles. |
+| `scripts/test-depwatch.sh` | Unit, same interpreter | 45 tests, 0 failures. Existed since round 21 and had never been wired into CI. |
+| Both suites in CI | CI | Added to `.github/workflows/ci.yml` beside the watchdog step; `scripts/**` was already in both path filters. Not yet observed green on a runner — no pull request has carried them. |
+| The fail-safe: a failed read never filters | Unit **and** live | Asserted in the suite, and hit for real twice on 2026-09-16. A rate-limited run would have emptied a 99-item backlog on no evidence; the guard skipped the watch and left it intact. |
+| Backlog migration | Live | 109 → 0 across both anchored threads on a complete read, anchors persisted (`t1_p9fl0ga`; `t1_p8x6wak`, `t1_p9fl8gi`), and **all 29 draft files still on disk** — `--reclassify` never deletes one. |
+| `asc-kelpie.py --review-state` | Live, read-only | Ran against the live API, wrote `~/.kelpie/asc/review-state.json`, and the function body was checked to contain no `plan()`, POST, PATCH or DELETE. Confirms 1.0 and all three tips `WAITING_FOR_REVIEW`. Found en route: `betaAppReviewSubmissions` has no `app` filter, so it filters by build ids. |
+| `test_briefing_kelpie.py` (outside the repo) | Unit | 30 tests, 0 failures, covering both brief consumers including the new "a yesterday-dated handoff is ignored" case. |
+| The email alert actually sending | **Untested** | Every throttle is unit-tested and a non-zero exit from `mail_send.py` is proven not to be recorded as sent, but no real alert email has been sent or received yet. The first one goes out when a genuine new comment arrives outside quiet hours. |
+
 ## Round 17 — the keyboard inset, the reconnect flash, Shift+Tab (2026-09-15)
 
 | Check | Means | Result |

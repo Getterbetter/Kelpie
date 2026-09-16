@@ -418,3 +418,23 @@ Read as: the chat is the iPhone's root screen with a setting to turn it off (the
 Anthony (2026-09-16, round 22, on the plan): "yes and switch to auto mode for this session"
 
 Read as: the plan is approved as written; permission mode is his to switch on the terminal, the session proceeds without asking before routine edits.
+
+Anthony (2026-09-16, community session, opening): "we have some work to do on the socials, like with Show HN needing some posts and monitoring of reddit posts, claudeAI etc. Wondering if we can set up an hourly ping to check for updates, then send updates. i can keep this claude code session open but slightly concerned about context bloat from a perpetually open session. what are the options?"
+
+Read as: the community item (`resume.md` "What is next" 6), worked in a session of its own alongside the Kelpie Chat rounds. His concern is the right one but the premise is already solved: `com.kelpie.community watch` has been doing the hourly check under launchd since 2026-09-12, so no session need stay open. What is missing is everything downstream of the check — nothing reads the brief handoff, the backlog it reports is 109 items of noise, nothing tells him when something needs an answer, and nothing posts.
+
+Anthony (2026-09-16, community session, on what the job should do when it finds something): "it drafts a reply in my voice or checks the vault for marketing copy / drafts pre written. the autonomous reddit posts have worked well so far so im ok with them going out without my approval when we're gaining activity in channels (like r/ClaudeAI) or whether we're pushing posts we're pushing again since time has gone by, or where we're just replying to people's questions about something"
+
+Read as: a standing grant of autonomy for Reddit, superseding the rule recorded twice in [[Decisions]] (2026-09-12 and 2026-09-14) that he approves the exact text in-session before anything posts. It covers three cases by name: replies to people's questions, re-pushing posts whose text has already been approved once, and posting into a channel that is gaining activity. Drafting reads the BrandScript and the held drafts under `Areas/Marketing/Kelpie/`. It does **not** license posting where a subreddit's own rules forbid it (r/commandline bans AI-generated post text, r/iosapps rule 6 bans AI-wrapped apps, r/vibecoding needs mod pre-approval), and Show HN stays blocked by HN itself.
+
+Anthony (2026-09-16, community session, to the four scoping questions): "Yes — headless job on the Mac", "Full autonomy incl. new posts", "Twice daily", "Hand it to the new job"
+
+Read as: a launchd job, not an open session and not a cloud routine; new top-level posts are in scope, not just replies; the posting lane runs twice a day rather than hourly (an hourly comment cadence from one account reads as a bot); and the approved r/ClaudeAI Showcase text that has been waiting since 2026-09-15 is queued for the new job rather than posted by hand.
+
+Anthony (2026-09-16, community session, to the two staging questions): "Split: watch now, poster next (Recommended)" and "Skip for scripts-only rounds"
+
+Read as: this round is the watch side only — the noise filter, r/KelpieConsole and Hacker News, the missing brief consumer, the email alert. The posting lane is designed and written up now but built next session, after a few days of probe data on whether the Chrome extension survives an unattended run at all. And the device suite becomes a standing exemption for rounds that touch no Swift, recorded in [[Decisions]] rather than treated as a one-off skip.
+
+Anthony (2026-09-16, round 24, opening): "lets look at round 43, the tests for the new ui"
+
+Read as: Open item 43 (Kelpie Chat); asked which reading he meant, he chose "Build 43a with its tests": the transport and read model with no UI (`pane.process_info` wire type, `readHostFileRange`, `ClaudeSessionLocator`, `ClaudeTranscriptParser`), fixtures cut from real redacted transcript lines, unit tests run on both devices. A second session works round 23 (the Community item, scripts and docs only) in the same checkout, so this is round 24 and its vault writes wait for round 23's commit.
