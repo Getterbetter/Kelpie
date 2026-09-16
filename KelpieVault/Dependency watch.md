@@ -67,14 +67,14 @@ Everything between the markers below is rewritten by the watcher on every run.
 Prose above and below them survives, so notes here are safe.
 
 <!-- depwatch:begin -->
-_Last run: 2026-09-14T19-45-10Z UTC._
+_Last run: 2026-09-16T19-45-02Z UTC._
 
 | Check | Severity | State | Headline |
 | --- | --- | --- | --- |
-| `herdr-release` | info | repeat | herdr v0.9.0, snapshot current |
+| `herdr-release` | medium | new | herdr v0.9.1 available (snapshot v0.9.0) |
 | `herdr-mini` | info | repeat | mini runs herdr 0.8.2 (snapshot v0.9.0) |
-| `heeler-upstream` | high | repeat | 131 commits behind upstream, 1 conflicting file |
-| `libghostty-spm` | low | repeat | libghostty upstream.1.3.1 pinned, upstream.82938b633ba6 available |
+| `heeler-upstream` | medium | repeat | 17 commits behind upstream, 1 conflicting file |
+| `libghostty-spm` | info | repeat | libghostty upstream.82938b633ba6 is current |
 | `heeler-ssh-pins` | low | repeat | OpenSSL 3.6.3 pinned, openssl-3.6.4 in line |
 | `node` | info | repeat | npm audit: 0 vulnerabilities |
 | `toolchain` | info | repeat | Xcode 26.4.1, 26.4.1 |
@@ -84,5 +84,6 @@ _Last run: 2026-09-14T19-45-10Z UTC._
 
 ### Needs attention
 
-- **131 commits behind upstream, 1 conflicting file** — Tag first: `git tag kelpie-pre-rebase-$(date +%Y%m%d)`.
+- **herdr v0.9.1 available (snapshot v0.9.0)** — Mechanical: copy the `v0.9.1` schema over `scripts/herdr-schema.json`, run `python3 scripts/generate-wire-types.py --schema scripts/herdr-schema.json`, then `--check` to prove there is no drift, compile for `generic/platform=iOS`, and open the branch as a PR into `kelpie` so CI runs.
+- **17 commits behind upstream, 1 conflicting file** — Tag first: `git tag kelpie-pre-rebase-$(date +%Y%m%d)`.
 <!-- depwatch:end -->

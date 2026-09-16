@@ -448,3 +448,13 @@ entry: a session cron survives `/clear`, because the session does.
 **Also: tonight's Showcase cron was cancelled.** It was the single route to an approved post, and it pointed at a repo mid-cleanup, so `9f4554b7` was deleted. The post is Anthony's to make by hand once the branch is clean — and the r/ClaudeAI audience is exactly the one that would have found the watch scripts naming the account that posted it.
 
 **Also: the standing autonomy grant is unchanged in substance.** It covers Reddit and nowhere else. It now lives with the tooling it governs rather than in this vault.
+
+## 2026-09-17 — round 27: the posting lane's overnight break
+
+**Q — Anthony: "claude was logged out of terminal overnight so that may have broken it … the goal is to have this unattended and posting."**
+
+**A — It did break it, and the break was the sign-in, not the browser.** Both unattended runs after his sign-out failed before reaching Chrome, on Claude Code's expired OAuth session. The record in the private checkout had filed them as generic errors; that hid the cause. Fixed there with a distinct outcome, a one-second pre-flight, and a long-lived token path (`claude setup-token`) that Anthony has still to store. Why here at all: the pattern generalises to every headless `claude -p` job on this Mac, including the app's dependency watch if it ever grows a model step.
+
+**Decided: the send lane is built but disarmed, and arming is his hand at every step.** Anthony's 2026-09-16 instruction was not to build it before the probe verdict, due no earlier than 2026-09-19; his 2026-09-17 goal was unattended posting. Read together: build it now behind two switches (a flag and a file he creates), leave the launchd job unloaded, and let the verdict and his yes decide arming. Nothing posts this round. Why: the code is reversible; a post is not.
+
+**Also: the verdict is still open.** The one 05:40 sample died on auth, so the case the probe exists to measure has zero samples. The record says so plainly rather than counting the auth failures against the browser.
