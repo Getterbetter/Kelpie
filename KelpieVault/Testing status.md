@@ -264,3 +264,7 @@ Older results, kept for the record:
 - `TerminalLinkDetector`'s suite was run natively with `swiftc` in round 2 when nothing else could be: 20/20.
 
 Source: [[Archive/round1/notes|round 1 notes]] · [[Archive/round1/verify-notes|the verification attempt]] · [[Archive/round2/notes|round 2 notes]] · [[Archive/round1/review|round 1 review]] · [[Archive/round2/review|round 2 review]]
+
+## Round 27 (2026-09-17)
+
+No app code changed; the device suite was not run and nothing needs it. In the private `kelpie-social` checkout, all suites pass on `/usr/bin/python3` 3.9: 67 probe, 91 watch (69 + 22 intake), 67 send + 6 summary. The MemoryOS brief builder's Kelpie suite passes at 36. Not device- or live-verified: no headless send has run yet (the queue is empty), and the long-lived Claude token path has no run behind it because the token is not stored.

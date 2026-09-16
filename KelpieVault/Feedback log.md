@@ -446,3 +446,7 @@ Read as: (1) the long-lived Claude token is not stored yet, so the unattended la
 Anthony (2026-09-17, after round 27): "can we include a quick daily update in the morning brief or work performed? I just need headline numbers, like total number of: posts, replies, threads read, etc."
 
 Read as: one headline line of community numbers in the 06:05 morning brief (threads watched, comments seen and new, replies and posts sent, anything held for him), fed from the private checkout's state files. Done in this session at his ask, though the round had closed.
+
+Anthony (2026-09-17, closing): "lets close this out and ill start a new session next"
+
+Read as: close round 27 with the definition of done; the next session starts fresh from `resume.md`.
