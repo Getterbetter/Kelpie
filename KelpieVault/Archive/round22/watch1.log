@@ -1,0 +1,5 @@
+  0.0s bytes=0 sessions=idle herdr=idle new=[]
+  3.0s bytes=170039 sessions=busy herdr=working new=['mode', 'permission-mode', 'atis-latch', 'file-history-snapshot', 'user:str', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'attachment', 'last-prompt', 'mode', 'permission-mode', 'atis-latch']
+  4.0s bytes=170136 sessions=busy herdr=working new=['ai-title']
+  5.0s bytes=281262 sessions=idle herdr=done new=['assistant:text', 'attachment', 'system', 'last-prompt', 'ai-title', 'mode', 'permission-mode', 'atis-latch']
+  8.1s bytes=281262 sessions=idle herdr=idle new=[]

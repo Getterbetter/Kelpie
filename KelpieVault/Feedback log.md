@@ -387,6 +387,14 @@ Anthony (2026-09-15, social posts session, on the drafts): "no HN account. sched
 
 Read as: Show HN is held (a new account's Show HN is likely flagged; he makes the account himself and uses it before posting); the r/ClaudeAI Showcase post is scheduled in this session, which he keeps open, and posted through Chrome at the chosen time once he has said yes to the exact final text, including whether the "how Claude fits in" paragraph is true.
 
+Anthony (2026-09-15, social posts session, on the HN account): "I think just try on Show HN without the history unless it's mandatory. the rest proceed on your recommendation"
+
+Read as: try the Show HN from the new account unless a rule forbids it, and take the rest (timing, the Claude paragraph) on the skill's recommendation. Outcome: HN itself refused it at 22:58, redirecting to `/showlim` ("temporarily restricting Show HNs because of a massive influx, mostly by users who aren't yet familiar with the site"), so nothing was submitted and HN is held until the account has a comment history. Neither `showhn.html` nor the FAQ mentions the limit, so the pre-check could not have caught it.
+
+Anthony (2026-09-16, social posts session, closing): "close this out. ill start a new session"
+
+Read as: the session ends here, which kills the in-session cron that was to post the r/ClaudeAI Showcase tonight at 22:03 AEST. The next session re-arms it or posts by hand from the approved text in `Areas/Marketing/Kelpie/Drafts - Showcase and Show HN - 2026-09-15.md`.
+
 Anthony (2026-09-15, round 21, after the close-out): "proceed"
 
 Read as: run `make distribute APPLY=1` for build 5 with the notes shown in the report; the three writes to TestFlight (group, what-to-test text, beta review submission) are approved.
@@ -398,3 +406,15 @@ Read as: the second half of Open item 41 is done on his side; verify the mini's 
 Anthony (2026-09-15, round 21): "go"
 
 Read as: Kelpie has been launched on the second device; re-read the mini's `notifications.json`.
+
+Anthony (2026-09-16, round 22, opening): "when im using kelpie on my phone, the herdr ui is ok but its not really designed for a phone despite it working. im wondering how much of the ui we could absract from herdr so it becomes what feels like a polished iphone app. my thinking: text that appears like a chat, similar to how the claude app works, artifacts that are shared like images, or links, etc. are rich and the user can tap into them, a side panel that has the workspaces & active agents like herdr, rich notifications that perhaps explain more about the status update, ability to add attachemnts with a [+] button, etc. Herdr is so powerful because it means i can get to claude code from anywhere. currently, the claude app is ok for little things but claude code is like god mode - having that in my pocket would be next level"
+
+Read as: a new programme, Kelpie Chat (Open item 43): a native iPhone surface with a chat transcript, tappable artifacts, a workspaces-and-agents panel, richer notifications and a [+] attachment button. This is the first time the record asks for an abstraction over herdr; the 2026-09-12 "the direct UI rather than the absracted version" feedback stands for the iPad. The chat read model has to come from Claude Code's transcript files on the host, because herdr's API has no conversation concept (ADR 0012).
+
+Anthony (2026-09-16, round 22, to the two planning questions): "1 iphone first but with the option to turn off the feature" and "Roadmap + live spike, no app code (Recommended)"
+
+Read as: the chat is the iPhone's root screen with a setting to turn it off (the herdr TUI comes back as the root); the iPad keeps ADR 0017 with Chat reachable from the menu. Round 22 verifies the design live on the mini and writes the roadmap; the build starts next session.
+
+Anthony (2026-09-16, round 22, on the plan): "yes and switch to auto mode for this session"
+
+Read as: the plan is approved as written; permission mode is his to switch on the terminal, the session proceeds without asking before routine edits.

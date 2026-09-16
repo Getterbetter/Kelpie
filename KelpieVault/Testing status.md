@@ -156,6 +156,22 @@ The open device checks, in [[Open items]] order. Record what comes back in [[Fee
 
 Anything still unverified stays in [[Open items]].
 
+## Round 22 — the Kelpie Chat spike (2026-09-16)
+
+No Swift, plugin or project file changed this round, so the device suite was not run; the round-21 runs at `23d1d5c` stand. Everything below was observed live on the mini (herdr 0.8.2, protocol 20; Claude Code 2.1.273) against a throwaway `claude` agent in a throwaway workspace, since closed; captures in `Archive/round22/`.
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Pane → Claude Code transcript | `pane.process_info` on the socket, then `~/.claude/sessions/<pid>.json`, then the project directory | Exact on Anthony's live pane `wC:p1` (pid 86367 → session `91233534-…` → a 1.2 MB, 261-line `.jsonl`) and on the spike agent. `agent_session` is absent on 0.8.2. |
+| Transcript creation | `ls` after `agent.start`, again after the first `agent.prompt` | The `.jsonl` appears with the first prompt, not at launch; `sessions/<pid>.json` appears at launch and goes when the agent exits. |
+| Cadence | `watch.py` at 1 Hz (`watch1.log`, `watch2.log`) | User line at 3 s, tool_use at 5 s, tool_result at 6 s, reply text with herdr `done` at 7 s; first turn writes 170 KB of `attachment` lines. |
+| Permission prompt | `perm.py enter`, `perm.py esc` (`watch3.log`) | Manual mode: `blocked` and `waiting` at 4.1 s with a dangling tool_use; the option list readable with `pane.read visible`; `enter` → `done` in 1.5 s; `esc` on a plan approval → "The user doesn't want to proceed" tool_result, `done` in 0.5 s. Auto mode passes through `blocked` for ~5 s and resolves itself. |
+| Mode cycling | `agent.send_keys ["shift+tab"]` four times | plan → auto → manual → accept edits → plan; the transcript's `permission-mode` line is the source of truth. |
+| Image in the transcript | A prompt naming a 178-byte PNG | `Read` tool_result carries the image as inline base64. |
+| Read cost | `ssh mac-mini 'tail -c +N …'` (loopback) | `stat` 0.18 s, last 20 KB 0.36 s, whole 810 KB 0.19 s. A floor, not the Tailscale figure. |
+| Left behind on the mini | `workspace.list`, `ls ~/.claude/sessions`, `/tmp` | Workspace closed, session entry gone, the four `/tmp/kelpie-spike-*` files, the spike transcript and its plan file removed. |
+| CI | Not re-run | Nothing under the app paths changed. |
+
 ## Round 21 — the override-point diff (2026-09-15)
 
 | Check | Means | Result |

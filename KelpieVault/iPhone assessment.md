@@ -6,6 +6,8 @@ note: Whether Kelpie's concept (herdr's own TUI as the screen) carries to the iP
 
 Anthony's ask (2026-09-12, [[Feedback log]]): keep herdr's UI on the phone too, sidebar collapsed, the agent pane filling the screen, the Kelpie menu as the fallback.
 
+**2026-09-16:** superseded for the phone by [[Kelpie Chat]] (Open item 43, ADR 0019): a native chat becomes the iPhone's root screen, with a setting that brings this layout back. What is measured below still describes the terminal behind the chat.
+
 ## What herdr does at phone widths (measured live on the review host, herdr 0.9.0)
 
 - `[ui] mobile_width_threshold = 64`: at 64 columns or fewer herdr switches itself to a **single-column mobile layout** — a two-line header (workspace · tab, agent status), no sidebar, one pane full width. No "terminal too small" message at 47×38, 60×30 or 100×20. Captures: `Archive/round9/phone-captures/`.

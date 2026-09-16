@@ -271,6 +271,12 @@ Related: [[Kelpie]] · [[Decisions]] · [[Architecture]] · [[Testing status]]
 | --- | --- |
 | (this commit) | **docs: builds go to one fixed path** — This was done alongside round 17, and no code changed. The disk had 3.2 GiB free. Deleted 81 stale derived-data, SPM and result-bundle folders across 9 finished sessions' scratchpads (19 GiB), plus the repo's `build/HeelerSSHDerivedData` and Xcode's `DerivedData/Heeler-*`, and erased every simulator (about 2 GiB more), leaving 25 GiB free. `CLAUDE.md` and `Build and deploy.md` now give every session one fixed build path, `~/Library/Caches/kelpie-build`. Scratchpad builds (worktrees, workers, concurrent builds) delete their own output, and the round definition of done checks that none is left. |
 
+## Round 22 — Kelpie Chat: the roadmap and the spike (Open item 43) — 2026-09-16
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: round 22 — Kelpie Chat, the roadmap and the spike (Open item 43)** — no code changed. Anthony's ask for a native iPhone surface (a chat like the Claude app, tappable artifacts, a workspaces-and-agents panel, richer notifications, a [+] for attachments), scoped iPhone-first with an off switch. The live spike on the mini (`Archive/round22/`: `rpc.py`, `watch.py`, `perm.py`, three logs, the transcript shape) proved that a herdr pane maps exactly to Claude Code's transcript file through `pane.process_info` and `~/.claude/sessions/<pid>.json`, that tool calls land in the file within a second and the reply within a second of herdr's `done`, that a permission prompt is `blocked` plus a dangling tool_use and `agent.send_keys` answers it, and that images the agent reads are inline in the transcript. New [[Kelpie Chat]] (findings, architecture, six build rounds 43a–43f, rejected routes), ADR 0019, Open item 43, Decisions, Testing status, `herdr.md` (`pane.process_info` on 0.8.2), [[iPhone assessment]] pointer, Kelpie.md, `resume.md`, the Feedback log. |
+
 ## Round 21 — the override-point diff, and build 5 to the testers (Open items 40, 41) — 2026-09-15
 
 | Commit | |

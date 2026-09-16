@@ -378,3 +378,17 @@ This round is the response to [[Feedback log|Anthony's round-1 feedback]] — ab
 
 **Also fixed: `depwatch_test.py` had been red since round 16** (it asserted the old libghostty tag). It now asserts the pinned tag's shape and the exact parse against a fixture URL, so the next re-vendor does not turn it red again.
 
+## 2026-09-16 — round 22: Kelpie Chat, the roadmap and the spike (Open item 43)
+
+**A — Anthony opened a new direction.** "im wondering how much of the ui we could absract from herdr so it becomes what feels like a polished iphone app" — a chat like the Claude app, tappable artifacts, a workspaces-and-agents panel, richer notifications, a [+] for attachments. Asked, he chose **iPhone-first with a setting to turn the feature off**, and **a roadmap plus a live spike with no app code** for this round. The 2026-09-12 "the direct UI rather than the absracted version" stands for the iPad: ADR 0017 is unchanged there.
+
+**Decided: the chat's read model is Claude Code's transcript file on the host, and herdr keeps control (ADR 0019).** herdr's API has no conversation concept (102 methods on protocol 22; `agent.read` is a flat, capped, idle-only blob), which is why ADR 0012 rejected a chat view. Claude Code's `~/.claude/projects/<cwd>/<session>.jsonl` has every user turn, assistant text, tool call, tool result and inline image, and `pane.process_info` plus `~/.claude/sessions/<pid>.json` map a pane to it exactly. Prompts, permission answers, staging, download and the status push all stay on herdr and the existing `Transport`. Why: it is the only structured source that exists, and it keeps the agent under herdr's supervision, which is the reason Kelpie exists.
+
+**Decided: the spike ran before any code, on the mini, with a throwaway agent.** Six questions (mapping, first-prompt creation, cadence, permission shape, images, cost) were answered live in one session (`Archive/round22/`), the workspace closed and every file removed. Why: the whole programme rests on a file format the app does not own; a build on assumptions would have found out in round 43b what a script found in an hour.
+
+**Decided: the permission card reads the mode before offering buttons.** Auto mode passes through `blocked` for about 5 s while the classifier decides, then answers itself; manual mode waits. The transcript's `permission-mode` line says which. Why: a card that answers itself teaches the user to ignore it.
+
+**Rejected:** headless `claude -p … --output-format stream-json` over exec (loses herdr's supervision and the TUI's permission flow); the `cc-socks` session socket (private); parsing the TUI repaint (ADR 0012). Written up in [[Kelpie Chat]].
+
+**Also: this Mac is the mini.** `ssh mac-mini` resolves to this machine (`hostname` = `Mac-mini.local`), so "over `mac-mini`" in the notes and a local read are the same thing; the spike's ssh timings are a loopback floor, not the Tailscale figure.
+

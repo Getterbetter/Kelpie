@@ -1,0 +1,5 @@
+  0.0s bytes=289943 sessions=idle herdr=done new=[]
+  3.0s bytes=292703 sessions=busy herdr=working new=['file-history-snapshot', 'user:str', 'attachment', 'attachment', 'attachment']
+  5.1s bytes=294409 sessions=waiting herdr=blocked new=['assistant:tool_use']
+ 10.1s bytes=297230 sessions=busy herdr=working new=['user:tool_result', 'attachment', 'attachment', 'attachment']
+ 12.1s bytes=299058 sessions=idle herdr=idle new=['assistant:text', 'system']

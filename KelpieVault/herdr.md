@@ -36,6 +36,13 @@ There is no socket-path flag on the bare command; the socket comes from the envi
 - Sidebar toggle: `prefix + b`.
 - An alternate-screen agent (Claude Code, codex, grok) leaves **no herdr-side scrollback** — history belongs to the agent CLI, and the only way back through it is to scroll that CLI itself.
 
+## The pane's process, and Claude Code's own files (round 22, live on 0.8.2)
+
+- `pane.process_info {pane_id}` exists on the mini's 0.8.2 (not only in the 0.9.0 snapshot) and returns `shell_pid`, `foreground_process_group_id` and `foreground_processes[] {pid, name, argv0, argv, cmdline, cwd}`; for a Claude pane `argv0` is `claude` and `name` is the CLI version. `AgentInfo.agent_session` (0.9.0 schema) is absent on 0.8.2.
+- Claude Code registers each running session in `~/.claude/sessions/<pid>.json` (`sessionId`, `cwd`, `status` `idle|busy|waiting`, `name`, `version`) and appends its transcript to `~/.claude/projects/<cwd with every non-alphanumeric as '-'>/<sessionId>.jsonl`, created with the first prompt. That chain is how [[Kelpie Chat]] maps a pane to a conversation; herdr itself never reads the transcript.
+- `agent.send_keys` accepts `enter`, `esc`, `shift+tab` and digits; a permission prompt shows in herdr as `agent_status: blocked` while Claude's own status reads `waiting`.
+- `agent.start` on 0.8.2 requires `name`, `kind` and `pane_id` (`missing field name` otherwise, answered with `id: ""`); `workspace.close {workspace_id}`.
+
 ## Config keys Kelpie cares about
 
 | Key | Default | Why it matters |
