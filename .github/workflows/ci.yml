@@ -122,6 +122,15 @@ jobs:
       - name: Test CI watchdog
         run: scripts/test-run-with-timeout.sh
 
+      # The two watchers' own suites: pure functions and canned fixtures, no
+      # network and no `gh`, on the same /usr/bin/python3 3.9 their launchd runs
+      # get. Seconds, so they gate the long build rather than trailing it.
+      - name: Test depwatch
+        run: scripts/test-depwatch.sh
+
+      - name: Test community watch
+        run: scripts/test-community watch.sh
+
       # The script selects one available iPad Air 11-inch (M4) UDID (Kelpie is
       # iPad-only; HEELER_CI_SIM_MODEL overrides), boots it, injects the
       # fixture environment there, and targets that same device for every test

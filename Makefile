@@ -158,6 +158,12 @@ testflight: archive upload ## Archive and upload in one go
 distribute: ## Put the newest VALID build in front of the TestFlight public beta (APPLY=1 BUILD=<n> NOTES="...")
 	@python3 scripts/asc-kelpie.py --distribute-build $(if $(BUILD),--build $(BUILD)) $(if $(NOTES),--notes "$(NOTES)") $(if $(APPLY),--apply)
 
+# Read-only: no plan(), no mutation. Writes ~/.kelpie/asc/review-state.json
+# for a downstream poller with no ASC auth of its own.
+.PHONY: review-state
+review-state: ## Snapshot App Store + beta review state to ~/.kelpie/asc/review-state.json
+	@python3 scripts/asc-kelpie.py --review-state
+
 bump: ## Increment CURRENT_PROJECT_VERSION in project.yml (app + extension stay in lockstep)
 	@CUR=$$(awk -F'"' '/CURRENT_PROJECT_VERSION: "/ { print $$2; exit }' project.yml); \
 	NEW=$$((CUR + 1)); \

@@ -13,6 +13,9 @@
     # beta group, "what to test" from --notes, beta review submitted
     python3 scripts/asc-kelpie.py --distribute-build [--build N] [--notes "..."]
 
+    # read-only snapshot — on its own; no plan(), no mutation, writes outside the repo
+    python3 scripts/asc-kelpie.py --review-state
+
     # submission modes — also on their own; any of them switches the run
     python3 scripts/asc-kelpie.py --attach-build
     python3 scripts/asc-kelpie.py --review-details --contact-first A --contact-last B \
@@ -35,6 +38,10 @@ skipping any file whose fileName the set already holds.
 three tip IAPs, skipping any IAP that already has one; the path defaults to
 the uprighted tip sheet in KelpieVault/Design/Store Screenshots/iap.
 
+--review-state GETs the app's App Store versions and beta App Review
+submissions and writes a small flat snapshot to
+~/.kelpie/asc/review-state.json for a downstream poller that has no ASC auth
+of its own. Pure read: no plan() call, no mutation of any kind.
 --distribute-build is the step `xcrun altool --upload-app` does not do: an
 uploaded build reaches nobody until it is in the external group. It adds the
 newest VALID build (or --build N) to "Kelpie public beta", writes the en-US
@@ -122,6 +129,11 @@ STORE_SHOTS = os.path.join(REPO_ROOT, "KelpieVault", "Design", "Store Screenshot
 DEFAULT_IAP_SCREENSHOT = os.path.join(STORE_SHOTS, "iap", "tip-sheet.png")
 DEFAULT_REVIEW_ATTACHMENT = os.path.join(STORE_SHOTS, "review", "app-review.mp4")
 
+# --review-state output: a small flat snapshot for a downstream poller with no
+# ASC auth of its own (outside the repo, so it is never committed).
+REVIEW_STATE_DIR = os.path.expanduser("~/.kelpie/asc")
+REVIEW_STATE_FILE = os.path.join(REVIEW_STATE_DIR, "review-state.json")
+
 # The reviewer demo host from docs/guides/app-review-host.md. The password is
 # not in the repo: it is read from this file at run time and never printed.
 REVIEW_HOST_IP = "5.78.158.22"
@@ -153,6 +165,7 @@ SKIPPED_AGE_ATTRS = [
 USAGE = (f"usage: {os.path.basename(sys.argv[0])} [--dry-run | --apply]\n"
          f"       [--screenshots <dir>] [--iap-screenshots [<png>]]\n"
          f"       [--distribute-build [--build <n>] [--notes <text>]]\n"
+         f"       [--review-state]\n"
          f"       [--attach-build] [--review-attachment [<file>]] [--submit]\n"
          f"       [--review-details --contact-first <f> --contact-last <l>\n"
          f"                         --contact-phone <p> --contact-email <e>]")
@@ -165,6 +178,7 @@ ATTACH_BUILD_MODE = False
 DISTRIBUTE_MODE = False
 DISTRIBUTE_BUILD = None
 DISTRIBUTE_NOTES = None
+REVIEW_STATE_MODE = False
 REVIEW_DETAILS_MODE = False
 REVIEW_ATTACHMENT = None
 REVIEW_ATTACHMENT_MODE = False
@@ -200,6 +214,8 @@ while _args:
         if not _args:
             sys.exit(USAGE)
         DISTRIBUTE_NOTES = _args.pop(0)
+    elif arg == "--review-state":
+        REVIEW_STATE_MODE = True
     elif arg == "--review-details":
         REVIEW_DETAILS_MODE = True
     elif arg in _CONTACT_FLAGS:
@@ -752,6 +768,57 @@ def step_iap_screenshots(path):
                      f"{product_id} ({iap_id}) review screenshot {os.path.basename(path)}")
 
 
+# --- Read-only snapshot ---------------------------------------------------
+#
+# No plan() call anywhere below: GETs only, plus a file write outside the
+# repo. A downstream poller with no ASC auth of its own reads the file to
+# detect a review-state transition; it is diffed and rendered, not archived,
+# so the shape stays small and flat.
+
+def step_review_state():
+    versions = get(f"/v1/apps/{APP_ID}/appStoreVersions?limit=50").get("data") or []
+    out_versions = []
+    for v in versions:
+        attrs = v.get("attributes") or {}
+        out_versions.append({
+            "version": attrs.get("versionString"),
+            "state": attrs.get("appStoreState"),
+            "platform": attrs.get("platform"),
+            "id": v.get("id"),
+        })
+
+    # betaAppReviewSubmissions has no app filter (verified live 2026-09-16:
+    # PARAMETER_ERROR.INVALID 'app' is not a valid filter type); filter[build]
+    # is required instead, so every one of the app's builds is passed.
+    build_ids = [b["id"] for b in get(f"/v1/apps/{APP_ID}/builds?limit=200").get("data") or []]
+    beta = []
+    if build_ids:
+        beta = get("/v1/betaAppReviewSubmissions?filter%5Bbuild%5D="
+                   f"{','.join(build_ids)}&limit=200").get("data") or []
+    out_beta = []
+    for b in beta:
+        attrs = b.get("attributes") or {}
+        out_beta.append({"id": b.get("id"), "state": attrs.get("betaReviewState")})
+
+    snapshot = {
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "app_id": APP_ID,
+        "versions": out_versions,
+        "beta_review": out_beta,
+    }
+    os.makedirs(REVIEW_STATE_DIR, exist_ok=True)
+    with open(REVIEW_STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, indent=2)
+        f.write("\n")
+
+    for v in out_versions:
+        print(f"      version {v.get('version')} ({v.get('platform')}): {v.get('state')}")
+    for b in out_beta:
+        print(f"      beta review {b.get('id')}: {b.get('state')}")
+    print(f"STATE {len(out_versions)} version(s), {len(out_beta)} beta review "
+          f"submission(s) -> {REVIEW_STATE_FILE}")
+
+
 # --- Submission ----------------------------------------------------------
 #
 # The four steps that turn a prepared version into a review submission. Each
@@ -1115,6 +1182,10 @@ def main():
     if DISTRIBUTE_MODE:
         step_distribute_build(DISTRIBUTE_BUILD, DISTRIBUTE_NOTES)
         summary()
+        return
+
+    if REVIEW_STATE_MODE:
+        step_review_state()
         return
 
     if SUBMISSION_MODE:
