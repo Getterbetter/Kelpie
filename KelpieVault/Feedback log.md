@@ -474,3 +474,7 @@ Read as: list the open items, agree a batch with him, then run it through the de
 Anthony (2026-09-17, new session, opening): "lets resume check open items and once a batch is picked /delegate the work" then, offered the batches: "19 + composer follow-ups"
 
 Read as: round 30. The batch is Open item 19 (why the in-app banner never shows while Kelpie is foregrounded, then the fix) and the code-only composer follow-ups from `resume.md` step 8: a soft newline (`\` then Return), unit coverage for the responder flows, a socket-level SSH keepalive, and the two `kelpie.primary-host` literals. Delegated; the device suite on both devices ends the round.
+
+Anthony (2026-09-17, round 30, at the gate): "lets close this out, push to git and ill start a new session next"
+
+Read as: push `kelpie` to `origin` with the round's four commits and round 28's docs commit; the next round starts fresh from `resume.md`.
