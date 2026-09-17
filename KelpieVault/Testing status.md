@@ -276,6 +276,18 @@ Older results, kept for the record:
 
 Source: [[Archive/round1/notes|round 1 notes]] · [[Archive/round1/verify-notes|the verification attempt]] · [[Archive/round2/notes|round 2 notes]] · [[Archive/round1/review|round 1 review]] · [[Archive/round2/review|round 2 review]]
 
+## Round 28 — r/KelpieConsole (2026-09-17)
+
+No Swift, script or plugin change: the round touched the vault, `Design/Subreddit/` and Reddit itself, so the device suite is exempt under the round-23 decision (scripts-and-docs rounds). What was checked instead:
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Rules, flairs, posts, sticky state | Signed-in reads of `about/rules.json`, `api/link_flair_v2.json`, `new.json` after each write (apply-api log) | 6 rules in order; 7 post flairs and 2 user flairs; `t3_1wiesm9` sticky 1, `t3_1wietg2` sticky 2. |
+| Icon, banner, mobile banner | `about.json` after Save | `community_icon`, `banner_background_image` and `mobile_banner_image` all point at new `styles.redditmedia.com` assets. |
+| Require post flair | `posts-and-comments` page read back | On (it would not stick before the flairs existed). |
+| Signed-out view | `curl` of `/r/KelpieConsole/.rss` (Reddit answers anonymous JSON with 403) | Feed title *Kelpie for herdr*; both pinned posts listed. |
+| Not verified | — | How the desktop header crops the 5:1 banner on other widths (the icon's ears clip at 1386 px); the widgets and Community Guide are not set (Open item 48). |
+
 ## Round 27 (2026-09-17)
 
 No app code changed; the device suite was not run and nothing needs it. In the private `kelpie-social` checkout, all suites pass on `/usr/bin/python3` 3.9: 67 probe, 91 watch (69 + 22 intake), 67 send + 6 summary. The MemoryOS brief builder's Kelpie suite passes at 36. Not device- or live-verified: no headless send has run yet (the queue is empty), and the long-lived Claude token path has no run behind it because the token is not stored.

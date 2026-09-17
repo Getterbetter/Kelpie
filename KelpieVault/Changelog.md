@@ -377,6 +377,14 @@ Delegated (two Opus builders, one Sonnet runner, one Opus reviewer); specs, retu
 | `dfe80220` | **notifications: replace this device's old push entry on re-register; plugin prunes on 400 BadDeviceToken** — Open item 42. `NotificationRegistrationFile.upserting(_:replacing:)` drops the entry of the token this install last registered on the Host (the `RegisteredDeviceTokenLog` pair the launch sweep already keeps) as it upserts the new one; `NotificationRegistrationCeremony.register` carries `replacing:`, and both `reregisterIfPairChanged` and the Settings enable path pass it. Both plugin hooks treat a relay `400` whose APNs reason is `BadDeviceToken` like a `410` (the relay's own `400 {error}` refusals carry no reason and stay final). Five Swift test cases, three plugin tests (321 pass); README, ADR 0008 and CHANGELOG follow. |
 | `920b4dd5` | **schema: refresh the herdr snapshot to v0.9.1** — Open item 47's mechanical half. Protocol stays 22; 0.9.1 adds `pane.link.resolve` and `PaneLinkRegion`, neither in the generator's curated `METHODS`, so `HerdrAPITypes.swift` is byte-identical and `--check` is clean. The dependency watch's `SNAPSHOT_TAG_SEED` and the CLAUDE.md fact (103 methods, 26 kinds) follow. |
 
+## Round 28 — r/KelpieConsole looks like a real subreddit — 2026-09-17
+
+Delegated (one Opus builder for the images, four Sonnet runners for the audit and the applies); the copy stayed in the session. Anthony's yes to the exact text came before anything changed on Reddit. The audit and apply logs name the mod account and live in the private checkout's `archive/round28/`; the copy is in `Archive/round28/subreddit-copy.md`.
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: round 28** — r/KelpieConsole: display name *Kelpie for herdr*, description, six rules (the two defaults removed), seven post flairs with post flair required, Developer and Beta tester user flairs, the circular icon and the navy banner and mobile banner built from the app icon (`Design/Subreddit/`, with `build.py`), and two pinned posts. Rules, flairs and posts went through old.reddit.com's JSON endpoints from the signed-in session (www.reddit.com 404s every legacy write); the images went through the appearance dialog's own file inputs, which the Chrome extension cannot see until the input is moved out of its shadow root and back. Left by hand as Open item 48: sidebar widgets (403 on the API, no editor in the mod UI) and the welcome text, which Reddit moved into the Community Guide. |
+
 ## Round 27 — the posting lane's overnight break — 2026-09-17
 
 Vault-only in this repo. The work itself is in Anthony's private `kelpie-social` checkout (its commit is named in its own notes).
