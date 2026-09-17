@@ -461,6 +461,16 @@ entry: a session cron survives `/clear`, because the session does.
 
 **Anthony, after the report: "3- lets arm it"**, with the token deferred ("1- ill do another time") and the verdict open ("2- ok"). Armed at 09:24 from the private checkout. His call after both caveats were on screen; the record there carries the disarm recipe. Also from the same message: the herdr 0.9.1 update on the mini waits for a pause with no live Claude session (new Open item).
 
+## 2026-09-17 — round 31: triage, the device checklists close
+
+**A — The device checklists close on his word.** Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20 and 28 had waited since rounds 2 to 14 for a sitting with the list open on the iPad. Anthony: "the device checklist was done previously, you can close it out" — those features have been used daily on both devices through thirty rounds, and every fault they turned up became its own item. Anything found from here is a new item, not a reopened checklist.
+
+**A — Item 50 is the phone in use, not the tests.** Round 30's six red iPhone runs failed on a rotating set of timing waits that all pass in isolation, and the red runs were the slow ones. Anthony: "i think this is me because im sometimes using the phone." Closed on that reading rather than serializing suites or widening budgets, which would slow every run to hide a condition the gate already names (phone unlocked, plugged in, idle). Reopens only if a run goes red with the phone untouched throughout.
+
+**A — He upgrades herdr on the mini himself (item 47).** The restart kills every live Claude session, this one included, so it is done between sessions, at his pause, not by a delegated worker. The next session re-verifies the 0.9.0 facts live (item 14) and checks `notifications.json` holds one entry per device.
+
+**Decided: a triage round is a round.** No code, no device suite (the round-23 exemption for docs-only rounds), but it is written up like any other so the numbering and the close-out check stay honest.
+
 ## 2026-09-17 — round 30: the foreground banner, and the composer follow-ups
 
 **Decided: the in-app banner is gated on the user's choice, not on a push entry.** The banner is drawn by the app on its own screen from the Console feed; whether the Host's `notifications.json` names this device's current token is an APNs addressing fact and has nothing to do with it. A registered device keeps its confirmed flags; an unregistered one falls back to both triggers on only when its Notification Key survives on this device, because `ceremony.remove` deletes that key on an explicit off (the reviewer's must-fix: without the discriminator, a Host the user silenced would banner). "Fail closed like the plugin" was a misreading of the plugin, which skips an entry-less device because it has no key to encrypt to, not as a preference. Item 42 (round 29) fixes the token drift at its source; this fix stands on its own for a device that never registered but was set up.

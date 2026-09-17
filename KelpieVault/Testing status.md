@@ -10,6 +10,10 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 31 — triage (2026-09-17)
+
+No code changed; the device suite was not run (docs-only exemption, round 23). Two things changed in what this note claims: the device checklists in Open items 1 to 28 are closed on Anthony's word as exercised in earlier sessions, not by a recorded sitting, so their features stay **Device** by daily use rather than by a ticked list; and the iPhone suite's timing reds from round 30 are read as the phone being in use during the run (item 50 closed). The gate's condition for the phone is now explicit: unlocked, plugged in, idle and untouched for the run.
+
 ## Round 30 — the foreground banner, and the composer follow-ups (2026-09-17)
 
 | Check | Means | Result |

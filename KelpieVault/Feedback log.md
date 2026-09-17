@@ -478,3 +478,15 @@ Read as: round 30. The batch is Open item 19 (why the in-app banner never shows 
 Anthony (2026-09-17, round 30, at the gate): "lets close this out, push to git and ill start a new session next"
 
 Read as: push `kelpie` to `origin` with the round's four commits and round 28's docs commit; the next round starts fresh from `resume.md`.
+
+Anthony (2026-09-17, new session, opening): "lets review the open items, decide on a batch then /delegate the work"
+
+Read as: round 31. List the unticked open items, agree a batch with him, then run it through the delegate skill. Found at start: the tree is clean and round 30 is closed out (`0597394c`), so nothing to reconstruct.
+
+Anthony (2026-09-17, round 31, offered the batches): "can you list these in the chat with a lamens explanation of what theyre for"
+
+Read as: before choosing, he wants each open item explained in plain words in the chat, what the problem is and why it matters to him as the person using the app, not the vault's shorthand.
+
+Anthony (2026-09-17, round 31, choosing): "50- i think this is me because im sometimes using the phone. the device checklist was done previously, you can close it out. i think ill go for upgrading herdr so lets close this out and ill exit this session next"
+
+Read as: Open item 50's red iPhone runs are most likely him using the phone during the run, not the tests; close it on that reading, keep the rule "a red phone run is re-run with the phone idle", and reopen only if a run goes red with the phone untouched. The device checklists (1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28) were exercised in earlier sessions and close on his word. He will upgrade herdr on the mini himself (item 47) after this session ends, since the restart kills live sessions including this one. Round 31 is a triage round with no code change: close it out, commit, and he exits.

@@ -368,6 +368,14 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 31 — triage: the device checklists and item 50 close — 2026-09-17
+
+Vault only, no code. Anthony read the open items in plain words and closed thirteen on his word; the herdr upgrade on the mini (item 47) is his, after this session ends.
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: round 31 close-out** — Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20 and 28 (the device checklists from rounds 2 to 14) closed as exercised in earlier sessions; item 50 (the iPhone suite's timing flake) closed as the phone being in use during the run, with the re-run rule kept. Vault reconciled. |
+
 ## Round 30 — the foreground banner, and the composer follow-ups — 2026-09-17
 
 Delegated (three Opus builders in parallel, one Opus reviewer; the device suite run from the main session); briefs, reports, the item-19 diagnosis and the review are in `Archive/round30/`.
