@@ -52,7 +52,7 @@ VAULT_END = "<!-- depwatch:end -->"
 # `protocol` but no version, so the tag is seeded here and then tracked in
 # state once a snapshot is refreshed. docs/research/herdr-0.9.0-compatibility.md
 # documents the v0.9.0 export.
-SNAPSHOT_TAG_SEED = "v0.9.0"
+SNAPSHOT_TAG_SEED = "v0.9.1"
 
 KELPIE_IPAD_UDID = "09D7738D-2173-55EF-8966-A9C3EA1D0514"  # Anthony's 11-inch iPad Pro
 HERDR_REPO = "herdrdev/herdr"
