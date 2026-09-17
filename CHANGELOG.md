@@ -64,6 +64,12 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ## [Unreleased]
 
+### Added
+
+- A soft-newline key beside the composer toggle, on while the composer is:
+  it breaks the line in Claude Code's prompt (`\` then Return) instead of
+  sending it.
+
 ### Changed
 
 - Agent Notifications stay off a device while another device has Kelpie in

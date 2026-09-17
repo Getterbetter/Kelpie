@@ -20,11 +20,16 @@ protocol TerminalKeyBarHandler: AnyObject {
     /// Console has no composer here), otherwise whether the composer is on.
     func keyBarComposerState(_ bar: TerminalKeyBar) -> Bool?
     func keyBarDidToggleComposer(_ bar: TerminalKeyBar)
+    /// The soft-newline key beside the toggle, shown only while the composer
+    /// is on: it commits the field's line with a trailing `\` so Claude Code
+    /// breaks the line instead of sending the prompt.
+    func keyBarDidPressSoftNewline(_ bar: TerminalKeyBar)
 }
 
 extension TerminalKeyBarHandler {
     func keyBarComposerState(_ bar: TerminalKeyBar) -> Bool? { nil }
     func keyBarDidToggleComposer(_ bar: TerminalKeyBar) {}
+    func keyBarDidPressSoftNewline(_ bar: TerminalKeyBar) {}
 }
 
 /// The key bar's sizes, derived from the reader's text size.
@@ -119,9 +124,14 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
     /// scroll view pulled back to the pill's edge, when the handler offers no
     /// composer (Open item 30).
     private var composerKey: UIButton?
+    /// The soft-newline key, pinned beside the toggle and shown only while
+    /// the composer is on.
+    private var softNewlineKey: UIButton?
     private let leadingDivider = UIView()
     private var scrollLeadingWithComposer: NSLayoutConstraint?
     private var scrollLeadingWithoutComposer: NSLayoutConstraint?
+    private var leadingDividerAfterSoftNewline: NSLayoutConstraint?
+    private var leadingDividerAfterComposer: NSLayoutConstraint?
     private var pillHeightConstraint: NSLayoutConstraint?
     private var dividerHeightConstraints: [NSLayoutConstraint] = []
     private var stickyKeys:
@@ -226,6 +236,12 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         let offered = state != nil
         composerKey.isHidden = !offered
         leadingDivider.isHidden = !offered
+        // The soft newline only means anything while the field is there.
+        softNewlineKey?.isHidden = state != true
+        leadingDividerAfterSoftNewline?.isActive = false
+        leadingDividerAfterComposer?.isActive = false
+        (state == true ? leadingDividerAfterSoftNewline : leadingDividerAfterComposer)?
+            .isActive = true
         scrollLeadingWithComposer?.isActive = false
         scrollLeadingWithoutComposer?.isActive = false
         (offered ? scrollLeadingWithComposer : scrollLeadingWithoutComposer)?.isActive = true
@@ -304,6 +320,9 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
         let composer = composerToggleKey()
         composerKey = composer
         pill.addSubview(composer)
+        let softNewline = softNewlineToggleKey()
+        softNewlineKey = softNewline
+        pill.addSubview(softNewline)
         leadingDivider.translatesAutoresizingMaskIntoConstraints = false
         leadingDivider.backgroundColor = .separator
         pill.addSubview(leadingDivider)
@@ -321,6 +340,13 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
             equalTo: leadingDivider.trailingAnchor)
         scrollLeadingWithoutComposer = scroll.leadingAnchor.constraint(
             equalTo: pill.leadingAnchor)
+        // The soft-newline key sits between the toggle and the hairline while
+        // the composer is on; with it hidden the hairline closes up against
+        // the toggle. One of the two is active at a time.
+        leadingDividerAfterSoftNewline = leadingDivider.leadingAnchor.constraint(
+            equalTo: softNewline.trailingAnchor, constant: Self.keySpacing)
+        leadingDividerAfterComposer = leadingDivider.leadingAnchor.constraint(
+            equalTo: composer.trailingAnchor, constant: Self.keySpacing)
 
         NSLayoutConstraint.activate([
             pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.pillMargin),
@@ -331,8 +357,9 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
             composer.leadingAnchor.constraint(
                 equalTo: pill.leadingAnchor, constant: Self.sideInset),
             composer.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
-            leadingDivider.leadingAnchor.constraint(
+            softNewline.leadingAnchor.constraint(
                 equalTo: composer.trailingAnchor, constant: Self.keySpacing),
+            softNewline.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
             leadingDivider.widthAnchor.constraint(equalToConstant: 1),
             leadingDivider.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
             leadingDividerHeight,
@@ -439,6 +466,23 @@ final class TerminalKeyBar: UIInputView, UIInputViewAudioFeedback {
                 UIDevice.current.playInputClick()
                 handler?.keyBarDidToggleComposer(self)
                 refreshComposerKey()
+            }, for: .touchUpInside)
+        return button
+    }
+
+    /// The soft-newline key: `\` then Return, so Claude Code breaks the line
+    /// in its prompt instead of sending it. Pinned beside the composer
+    /// toggle, outside the scroll view, and only on while the composer is.
+    /// A sticky Ctrl or Alt does not apply — this is not typed text.
+    private func softNewlineToggleKey() -> UIButton {
+        let button = makeKey(title: nil, symbol: "return.left", monospaced: false)
+        button.accessibilityLabel = "Soft newline"
+        button.accessibilityHint = "Starts a new line in the prompt without sending"
+        button.addAction(
+            UIAction { [weak self] _ in
+                guard let self else { return }
+                UIDevice.current.playInputClick()
+                handler?.keyBarDidPressSoftNewline(self)
             }, for: .touchUpInside)
         return button
     }
@@ -601,5 +645,10 @@ extension HeelerTerminalView: TerminalKeyBarHandler {
 
     func keyBarDidToggleComposer(_ bar: TerminalKeyBar) {
         composerControl?.toggle()
+    }
+
+    func keyBarDidPressSoftNewline(_ bar: TerminalKeyBar) {
+        guard isLocalInputEnabled else { return }
+        composerControl?.softNewlineFromKeyBar()
     }
 }

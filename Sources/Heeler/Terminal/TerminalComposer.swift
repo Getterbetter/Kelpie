@@ -36,6 +36,9 @@ import UIKit
 struct TerminalComposerMirror: Equatable {
     static let deleteByte: UInt8 = 0x7F
     static let submitByte: UInt8 = 0x0D
+    /// The escape Claude Code reads as "newline, do not send": a backslash
+    /// immediately before the Return.
+    static let softNewlineByte: UInt8 = 0x5C
 
     private(set) var committed = ""
 
@@ -58,6 +61,16 @@ struct TerminalComposerMirror: Equatable {
     mutating func submit() -> Data {
         committed = ""
         return Data([Self.submitByte])
+    }
+
+    /// A soft newline: `\` then Return, which Claude Code takes as a line
+    /// break inside the prompt rather than a submission. Like ``submit()``
+    /// the field's line is finished as far as this mirror is concerned — the
+    /// remote line keeps growing, but the field starts empty again, so the
+    /// next diff is typed in full.
+    mutating func softNewline() -> Data {
+        committed = ""
+        return Data([Self.softNewlineByte, Self.submitByte])
     }
 
     /// The PTY's line is no longer the one this mirror described (a new
@@ -233,6 +246,26 @@ final class TerminalComposerControl {
     func submit(_ text: String) {
         send(mirror.update(to: text))
         send(mirror.submit())
+    }
+
+    /// A soft newline: the PTY's line is brought up to date exactly as for
+    /// ``submit(_:)``, then `\` and Return go out, which Claude Code reads as
+    /// a line break in its prompt instead of a send.
+    func softNewline(_ text: String) {
+        send(mirror.update(to: text))
+        send(mirror.softNewline())
+    }
+
+    /// The key bar's soft-newline key. Sends what the field holds as a
+    /// committed line and clears the field, the way Return does.
+    @discardableResult
+    func softNewlineFromKeyBar() -> Bool {
+        guard isActive, let field else { return false }
+        softNewline(field.text)
+        field.text = ""
+        field.refreshPlaceholder()
+        field.invalidateIntrinsicContentSize()
+        return true
     }
 
     /// Backspace on an empty field takes a character off the remote line —
@@ -426,7 +459,8 @@ struct TerminalComposerView: UIViewRepresentable {
         }
 
         /// Return submits. A newline inside a paste becomes a space through
-        /// the mirror; a soft newline is not offered in v1 (design, 6).
+        /// the mirror; a soft newline is the key bar's own key, never a
+        /// newline in the field itself (the field stays one line).
         func textView(
             _ textView: UITextView, shouldChangeTextIn range: NSRange,
             replacementText text: String
