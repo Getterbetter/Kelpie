@@ -10,7 +10,9 @@ import Observation
 @MainActor
 @Observable
 final class PrimaryHostStore {
-    private static let defaultsKey = "kelpie.primary-host"
+    /// The single definition of the persisted-selection key; `PairingSync`
+    /// reads and writes the same one.
+    static let defaultsKey = "kelpie.primary-host"
 
     private(set) var selectedID: Host.ID?
     @ObservationIgnored private nonisolated(unsafe) let defaults: UserDefaults

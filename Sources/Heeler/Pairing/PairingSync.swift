@@ -108,8 +108,8 @@ struct PairingSyncHostEdits {
 /// on every call.
 @MainActor
 final class UserDefaultsPrimaryHostSelection: PairingSyncPrimarySelecting {
-    /// Mirrors `PrimaryHostStore`'s own (private) key.
-    static let defaultsKey = "kelpie.primary-host"
+    /// The key `PrimaryHostStore` owns; there is only one definition.
+    static let defaultsKey = PrimaryHostStore.defaultsKey
 
     private let defaults: UserDefaults
 

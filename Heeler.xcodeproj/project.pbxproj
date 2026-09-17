@@ -196,6 +196,7 @@
 		63ADBED637BEA84B045BE9FC /* DeviceKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D24E7FB55E1DF14C8353ABDE /* DeviceKeyStore.swift */; };
 		6459EF8DD811E7400F2E1A99 /* ConnectionTraceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807101ACAD8F5BE04BFC4536 /* ConnectionTraceTests.swift */; };
 		667C662B025D0CC6B3A99B62 /* NetworkPathObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 455B0422FEEF6371C743C0DA /* NetworkPathObserver.swift */; };
+		677D9B6AE380ABCA04888418 /* SSHSocketOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D6AC59C343EF08B835827EA /* SSHSocketOptionsTests.swift */; };
 		67D10ACCFB418C6351F34010 /* AgentRowLayoutResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16EE4454BBBF8D354C1360DF /* AgentRowLayoutResolver.swift */; };
 		68425C9847310965EF452E3B /* SSHPairingConnector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88062AE11DDF93EB77A63D6B /* SSHPairingConnector.swift */; };
 		693D650A778BAC6F2189F32A /* AcknowledgementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2782D0CCB8DD0CC97AF6932C /* AcknowledgementsView.swift */; };
@@ -727,6 +728,7 @@
 		7C3C7B94577B96CE8B76F3BB /* HostLiveActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostLiveActivityCoordinator.swift; sourceTree = "<group>"; };
 		7CCE32D8F2A1A12B183B3DA5 /* TerminalKeysKeyboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalKeysKeyboardTests.swift; sourceTree = "<group>"; };
 		7CF0F9F0EDF8757DC1D275D2 /* TerminalKeyboardInset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalKeyboardInset.swift; sourceTree = "<group>"; };
+		7D6AC59C343EF08B835827EA /* SSHSocketOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSocketOptionsTests.swift; sourceTree = "<group>"; };
 		7D8C7ED93EA20FF003EB8ACE /* InputShortcutStripPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputShortcutStripPresentationTests.swift; sourceTree = "<group>"; };
 		7E303FCB86A19CCBBF79E15A /* AgentActivityLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActivityLink.swift; sourceTree = "<group>"; };
 		7EA83366C03C1D15B1DE8D1E /* TerminalOrphanSurfaceLayers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalOrphanSurfaceLayers.swift; sourceTree = "<group>"; };
@@ -1116,6 +1118,7 @@
 				CC67B000BBBD99D10CB7A30E /* SnippetTests.swift */,
 				9F979754410821940D0C4DEC /* SolvingOrbRendererTests.swift */,
 				A579E1DA3F59AFBC3ECAD69C /* SSHChannelAdmissionTests.swift */,
+				7D6AC59C343EF08B835827EA /* SSHSocketOptionsTests.swift */,
 				65CFDDFD7A676ECD4EF29BDE /* SSHSourcePolicyTests.swift */,
 				37A3D919A216A921D420F00D /* StagingPhaseBarrierTests.swift */,
 				84DA8573DB6A7EBC95A57F2F /* StartAgentStoreTests.swift */,
@@ -2304,6 +2307,7 @@
 				C9241B10F450B97F215FB28E /* RenameStoreTests.swift in Sources */,
 				4F112D78DCF2B9F86BB7C966 /* RequestFailurePresentationTests.swift in Sources */,
 				BA5D3FE58111F8918A50DE2A /* SSHChannelAdmissionTests.swift in Sources */,
+				677D9B6AE380ABCA04888418 /* SSHSocketOptionsTests.swift in Sources */,
 				2E612B94231EF97A285C83D5 /* SSHSourcePolicyTests.swift in Sources */,
 				A00CAAAC1E79D699A3AF3346 /* ScriptedTransport.swift in Sources */,
 				600145C630EB5F0AC8F11CC2 /* SettingsViewTests.swift in Sources */,

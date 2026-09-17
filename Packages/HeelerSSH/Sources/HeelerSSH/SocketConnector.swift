@@ -158,6 +158,14 @@ enum SocketConnector {
             throw SSHError.connectionFailed
         }
 
+        // Best effort, after the connection is up: a silently dead path
+        // (Wi-Fi to cellular, a Tailscale route change) is otherwise noticed
+        // only by the app-level herdr ping, up to 30 seconds later.
+        if address.type == SOCK_STREAM,
+            address.family == AF_INET || address.family == AF_INET6 {
+            SSHSocketOptions.applyKeepaliveIgnoringFailure(.default, to: descriptor)
+        }
+
         ownsDescriptor = false
         return descriptor
     }
