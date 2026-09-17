@@ -396,24 +396,100 @@ struct NotificationPreferencesStoreTests {
                 == NotificationTriggerPreferences(blocked: true, done: false))
     }
 
-    @Test func confirmedTriggersOfAnUnregisteredHostAreNil() async throws {
+    /// A Host this device never set up has no Notification Key, so the
+    /// fallback does not apply and the banner stays closed.
+    @Test func confirmedTriggersOfANeverRegisteredHostAreNil() async throws {
         let store = makeStore(transport: ScriptedTransport())
         await store.refresh()
 
         #expect(store.confirmedTriggers(for: host.id) == nil)
     }
 
-    /// Fail closed: before any refresh, and while the Host is unreachable,
-    /// there is no confirmed truth to banner from.
-    @Test func confirmedTriggersAreNilWhileTheHostsTruthIsUnknown() async throws {
-        let provider = ScriptedTransportProvider(transports: [:])
-        let store = makeStore(provider: provider, deviceToken: token)
+    /// Open item 19, exactly as it was found on the mini: the Host's file
+    /// holds an entry written by an earlier install (a development build, a
+    /// previous TestFlight token), and this device's current token matches
+    /// nothing. That is an APNs addressing fact, not a preference — the
+    /// Notification Key the user's "on" wrote is still in the Keychain — so
+    /// the local banner is unaffected.
+    @Test func aStaleEntryForAnotherTokenStillBanners() async throws {
+        let transport = ScriptedTransport()
+        await transport.setNotificationRegistration(
+            Data(
+                (#"{"v":1,"devices":[{"token":"deadbeef","key":"kk","env":"sandbox","#
+                    + #""notify":{"blocked":true,"done":true}}]}"#).utf8))
+        let store = makeStore(transport: transport)
+        try seedNotificationKey()
+        await store.refresh()
+
+        #expect(store.confirmedTriggers(for: host.id) == NotificationTriggerPreferences())
+    }
+
+    /// Turning the Host's Notifications toggle off deletes its Notification
+    /// Key (`ceremony.remove`), and that is the signal the banner must honour:
+    /// a Host the user explicitly silenced stays silent even though its entry
+    /// is now gone and the state reads `.idle(isRegistered: false)`.
+    @Test func notificationsTurnedOffOnThisHostSilencesTheBanner() async throws {
+        let transport = ScriptedTransport()
+        let store = makeStore(transport: transport)
+        await store.refresh()
+        await store.setNotificationsEnabled(true, for: host)
+        #expect(store.confirmedTriggers(for: host.id) == NotificationTriggerPreferences())
+
+        await store.setNotificationsEnabled(false, for: host)
 
         #expect(store.confirmedTriggers(for: host.id) == nil)
+    }
+
+    /// Before any refresh and while the Host is unreachable, a Host this
+    /// device did register with still banners: the Console's Agent list is
+    /// what feeds the banner, and neither the file read nor APNs is part of
+    /// that path.
+    @Test func triggersAreBothOnWhileARegisteredHostsTruthIsUnknown() async throws {
+        let provider = ScriptedTransportProvider(transports: [:])
+        let store = makeStore(provider: provider, deviceToken: token)
+        try seedNotificationKey()
+
+        #expect(store.confirmedTriggers(for: host.id) == NotificationTriggerPreferences())
 
         await store.refresh()
 
-        #expect(store.confirmedTriggers(for: host.id) == nil)
+        #expect(store.confirmedTriggers(for: host.id) == NotificationTriggerPreferences())
+    }
+
+    /// No APNs token on this device — notification permission revoked, or the
+    /// bootstrap still in flight — leaves every Host `.unavailable`. The
+    /// banner still works: it never needed a token.
+    @Test func triggersAreBothOnWithNoDeviceToken() async throws {
+        let store = makeStore(transport: ScriptedTransport(), deviceToken: nil)
+        try seedNotificationKey()
+        await store.refresh()
+
+        #expect(store.confirmedTriggers(for: host.id) == NotificationTriggerPreferences())
+    }
+
+    /// The Keychain half of an "on" this device once chose, without the
+    /// registration ceremony a scripted Transport cannot always complete.
+    private func seedNotificationKey() throws {
+        try keys.save(
+            NotificationKeyRecord(
+                hostID: host.id, hostName: host.displayName,
+                key: NotificationKeyStore.generateKey()))
+    }
+
+    /// The one thing that still silences it: an off flag in this device's own
+    /// entry. Unchanged, and the reason the fallback is not simply "always on".
+    @Test func anOffFlagInThisDevicesEntryStillSilencesItsTrigger() async throws {
+        let transport = ScriptedTransport()
+        await transport.setNotificationRegistration(
+            Data(
+                (#"{"v":1,"devices":[{"token":"\#(token.hex)","key":"kk","env":"sandbox","#
+                    + #""notify":{"blocked":false,"done":false}}]}"#).utf8))
+        let store = makeStore(transport: transport)
+        await store.refresh()
+
+        #expect(
+            store.confirmedTriggers(for: host.id)
+                == NotificationTriggerPreferences(blocked: false, done: false))
     }
 
     /// A failed write leaves the last confirmed truth in place, and that
@@ -584,7 +660,10 @@ struct NotificationPreferencesStoreTests {
         let store = makeStore(
             transport: transport, deviceToken: reinstalled, defaults: reinstallDefaults)
         await store.refresh()
-        #expect(store.confirmedTriggers(for: host.id) == nil, "the new token has no entry yet")
+        #expect(
+            store.states[host.id]
+                == .idle(.init(isRegistered: false, notify: NotificationTriggerPreferences())),
+            "the new token has no entry yet")
 
         await store.reregisterChangedDevices()
 

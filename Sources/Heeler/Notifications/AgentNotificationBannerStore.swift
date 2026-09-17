@@ -40,8 +40,13 @@ enum AgentNotificationBannerPresenter {
 /// `holdDuration` before announcing (herdr's status detection flaps), an
 /// unchanged status never repeats, the presented Agent stays silent (spec
 /// #68, story 8, decided at fire time like the push path), and a Host whose
-/// confirmed notify flags are unknown fails closed — exactly like the
-/// plugin's missing-flag semantics.
+/// notify flags say so stays quiet.
+///
+/// The flag gate below still fails closed on a nil, but its production
+/// source — `NotificationPreferencesStore.confirmedTriggers(for:)` — no
+/// longer returns one: this banner is local and needs no push registration,
+/// and gating it on one is what made it silent (Open item 19). See that
+/// method for the reasoning.
 @MainActor
 @Observable
 final class AgentNotificationBannerStore {
@@ -59,6 +64,7 @@ final class AgentNotificationBannerStore {
     /// was followed by the Console's own banner a hold later.
     @ObservationIgnored private var announced: [ConsoleAgent.ID: Announcement] = [:]
     @ObservationIgnored private let holdDuration: Duration
+    @ObservationIgnored private let adoptsPresenter: Bool
     @ObservationIgnored private let dismissDelay: Duration
     @ObservationIgnored private let duplicateWindow: Duration
     @ObservationIgnored private let presentedAgent: @MainActor () -> ConsoleAgent.ID?
@@ -78,10 +84,16 @@ final class AgentNotificationBannerStore {
     ///   - duplicateWindow: how long an announced transition suppresses the
     ///     matching push, which travels the plugin → relay → APNs path for
     ///     the same status change and lands within seconds of it.
+    ///   - adoptsPresenter: whether the Console feed makes this store the
+    ///     one `AgentNotificationBannerPresenter` hands foreground pushes
+    ///     to. The app's store adopts; a test's must not, or a real push
+    ///     arriving on the device mid-run lands in it (seen on the iPad,
+    ///     round 30).
     init(
         holdDuration: Duration = .seconds(3),
         dismissDelay: Duration = .seconds(5),
         duplicateWindow: Duration = .seconds(30),
+        adoptsPresenter: Bool = true,
         presentedAgent: @escaping @MainActor () -> ConsoleAgent.ID?,
         triggers: @escaping @MainActor (Host.ID) -> NotificationTriggerPreferences?,
         playSound: @escaping @MainActor () -> Void = { AudioServicesPlayAlertSound(1007) }
@@ -89,6 +101,7 @@ final class AgentNotificationBannerStore {
         self.holdDuration = holdDuration
         self.dismissDelay = dismissDelay
         self.duplicateWindow = duplicateWindow
+        self.adoptsPresenter = adoptsPresenter
         self.presentedAgent = presentedAgent
         self.triggers = triggers
         self.playSound = playSound
@@ -99,7 +112,7 @@ final class AgentNotificationBannerStore {
     /// transition — a killed-state launch must not banner every Agent that
     /// was already Blocked when it synced.
     func agentsDidChange(_ agents: [ConsoleAgent]) {
-        AgentNotificationBannerPresenter.adopt(self)
+        if adoptsPresenter { AgentNotificationBannerPresenter.adopt(self) }
         let current = Dictionary(agents.map { ($0.id, $0) }) { _, last in last }
         // A Host still listing agents is a Host whose snapshot is live, so a
         // pane missing from it really exited and its baseline goes.

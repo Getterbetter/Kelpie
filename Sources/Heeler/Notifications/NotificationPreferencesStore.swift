@@ -212,6 +212,12 @@ final class NotificationPreferencesStore {
     private static let log = Logger(
         subsystem: "dev.bybee.heeler", category: "notification-registration")
 
+    /// Hosts whose banner-trigger fallback has already been logged. The gate
+    /// is read on every held transition; the line is worth one per Host per
+    /// state change, not one per evaluation. Cleared when the Host's state is
+    /// re-read.
+    @ObservationIgnored private var bannerFallbacksLogged: Set<Host.ID> = []
+
     /// The app foregrounding: the one moment worth re-reading every Host's
     /// file on, because everything that invalidates it happens while the app
     /// is away — the plugin pruning this device's token on an APNs `410`,
@@ -515,6 +521,7 @@ final class NotificationPreferencesStore {
 
     private func load(_ host: Host) async {
         if case .updating = states[host.id] { return }
+        bannerFallbacksLogged.remove(host.id)
         guard let token = deviceToken() else {
             states[host.id] = .unavailable(
                 message: "Waiting for push registration on this device.")
@@ -681,10 +688,6 @@ final class NotificationPreferencesStore {
             })
     }
 
-    /// The gate the in-app banner reads (#77): the Host's confirmed notify
-    /// flags, or nil when this device is not registered or the Host's truth
-    /// is unknown (unreachable, still loading, never refreshed) — in which
-    /// case the banner fails closed, matching the plugin's semantics.
     /// When this device last wrote its (token, environment) pair into the
     /// Host's file. Nil when it never did, or when the record predates this
     /// bookkeeping — an old record is itself worth showing as "unknown"
@@ -693,10 +696,49 @@ final class NotificationPreferencesStore {
         registeredTokens.lastRegistration(for: hostID)?.date
     }
 
+    /// The trigger flags the in-app foreground banner (#77) should honour for
+    /// a Host. Its only caller is the banner store's gate.
+    ///
+    /// The banner is a local surface: it draws from the Console's own live
+    /// Agent list while the app is on screen, and needs no APNs token, no
+    /// Notification Key and no entry in the Host's registration file. Gating
+    /// it on a *confirmed registration for this device's current token* is
+    /// what made it silent (Open item 19): a TestFlight build changes the
+    /// token, the Host's `notifications.json` still names the old one,
+    /// `NotificationRegistrationFile.preferences(token:)` finds nothing,
+    /// `isRegistered` goes false, and every Blocked/Done is dropped at the
+    /// gate — on the root screen and behind the Console cover alike.
+    ///
+    /// The plugin's semantics this used to claim to mirror are a *per-flag*
+    /// check inside an entry the file already holds (`notify-hook.js`:
+    /// `entry.notify?.[flag] !== true`). A device with no entry gets no push
+    /// because the plugin has no key to encrypt to — an addressing limit, not
+    /// a preference. So only an explicit off flag in this device's own entry
+    /// silences the banner; a missing entry, an unreadable file, a read still
+    /// in flight or no push registration at all leaves both triggers on —
+    /// *provided* the user has not turned this Host's notifications off.
+    ///
+    /// The discriminator is the surviving Notification Key, the same one
+    /// `flagsToCarry` uses: `ceremony.remove` deletes it on an explicit off,
+    /// so a key present means the user last chose "on" and a stale entry is
+    /// only a token rotation. No key means either an explicit off or a Host
+    /// never set up on this device, and both stay silent.
     func confirmedTriggers(for hostID: Host.ID) -> NotificationTriggerPreferences? {
-        guard let settings = confirmedSettings(for: hostID), settings.isRegistered
-        else { return nil }
-        return settings.notify
+        if let settings = confirmedSettings(for: hostID), settings.isRegistered {
+            return settings.notify
+        }
+        guard ((try? ceremony.keys.record(forHost: hostID)) ?? nil) != nil else { return nil }
+        // Logged once per Host per state change, so a device trace says which
+        // Host fell back without a line per banner evaluation.
+        if bannerFallbacksLogged.insert(hostID).inserted {
+            Self.log.info(
+                """
+                banner triggers: no confirmed entry for this device on host \
+                \(hostID.uuidString, privacy: .public), but its Notification Key \
+                survives; defaulting both triggers on
+                """)
+        }
+        return NotificationTriggerPreferences()
     }
 
     private func confirmedSettings(for hostID: Host.ID) -> HostSettings? {

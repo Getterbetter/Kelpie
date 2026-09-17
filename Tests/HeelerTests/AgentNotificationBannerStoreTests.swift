@@ -35,6 +35,7 @@ struct AgentNotificationBannerStoreTests {
         return AgentNotificationBannerStore(
             holdDuration: holdDuration,
             dismissDelay: dismissDelay,
+            adoptsPresenter: false,
             presentedAgent: { world.presentedAgent },
             triggers: { world.triggers[$0] },
             playSound: { world.soundCount += 1 })
