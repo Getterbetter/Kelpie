@@ -10,6 +10,17 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 29 — dead push entries, and the 0.9.1 snapshot (2026-09-17)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| `xcodebuild build` and `build-for-testing`, generic iOS | Compiled | Clean for the app change at the fixed path, and for the schema bump in a scratch path (deleted after). `generate-wire-types.py --check` up to date: the generated file is byte-identical. |
+| `plugin/` `npm test` | Unit, Node | 321 tests pass (three new: `400 BadDeviceToken` prunes in the notify hook and the activity hook; a relay `400 {error}` does not). |
+| `NotificationRegistrationFileTests` (+4), `NotificationRegistrationCeremonyTests` (+1) | Unit, on both devices | Pass inside the full runs below. |
+| Full `HeelerTests` at `920b4dd5` | Device (`make test-device`) | **iPad: 2139 tests in 194 suites, 0 issues, 136 skips (61 s). iPhone: 2139 tests, 0 issues, 132 skips (56 s).** Five tests more than round 24. That is the second run. The first run was red on both: iPad 8 issues, iPhone 2, all in `AgentDirectInputTests` and `TerminalAttachTests`' software-keyboard tests (nothing this round touched). On the iPad they ran at all only because the device reported no hardware keyboard for that run (134 skips instead of 136), which is the first time they have run on iPad hardware — round 20's open question — and they failed under the loaded device; the targeted rerun of the two suites then passed on both devices (135 tests each), and the second full run skipped them again on the iPad. So the iPad-detached reading is still one red data point under load and one green targeted run, not an answer. |
+| The mini's plugin | Installed | `herdr plugin install Getterbetter/Kelpie/plugin --ref kelpie --yes` after the push; the installed `notify-hook.js` carries `isBadDeviceToken`. Not yet exercised by a real `400`: the two dead `sandbox` entries are still in `notifications.json` until a push reaches them. |
+| A live token change replacing its old entry | Untested | Needs a TestFlight install over an Xcode one (or the reverse) and a read of the mini's file after launch. The next `make install` or TestFlight round is the natural check. |
+
 ## Round 26 — 2026-09-16
 
 No Swift touched, no device run — round 23's standing exemption. The round-24 device runs stand.

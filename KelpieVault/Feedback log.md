@@ -450,3 +450,23 @@ Read as: one headline line of community numbers in the 06:05 morning brief (thre
 Anthony (2026-09-17, closing): "lets close this out and ill start a new session next"
 
 Read as: close round 27 with the definition of done; the next session starts fresh from `resume.md`.
+
+Anthony (2026-09-17, round 28, opening): "r/KelpieConsole has been getting some views. /delegate lets get it looking like a real subreddit"
+
+Read as: the subreddit is the app's public support venue and it is still an empty room; make it look established (icon, banner, description, sidebar, rules, flairs, a pinned welcome post) before more people land on it. Delegated: the audit and the assets go to workers, the copy stays in this session, and nothing changes on Reddit until he has seen the exact text.
+
+Anthony (2026-09-17, round 28, at the gate): "happy with all of the above, proceed"
+
+Read as: his yes to the whole r/KelpieConsole package as shown — the display name, description, welcome message, six rules replacing the two defaults, seven post flairs and two user flairs, three sidebar widgets, the circular icon and the navy banner, and the two pinned posts — applied by a runner from the signed-in mod account, then checked signed out.
+
+Anthony (2026-09-17, new session, opening): "what's in open items to do? once we decide on the batch, /delegate the work"
+
+Read as: list the open items, agree a batch with him, then run it through the delegate skill. Found at start: round 28 (the subreddit) was never closed out; the Feedback log holds its two entries uncommitted and the apply logs stop part-way.
+
+Anthony (2026-09-17, round 29, choosing the batch): "the subreddit work is happening in another session. can you outline the batches in the chat?" then "lets do a & c"
+
+Read as: round 28 (r/KelpieConsole) is another session's; this session is round 29 and leaves round 28's log lines and close-out to that session. The batch is A, Open item 42 (the plugin replaces a push entry by device key on register and prunes on `400 BadDeviceToken`), and C, the herdr 0.9.1 schema-snapshot bump from item 47 (the mini upgrade itself still waits for his pause). Delegated; the device suite on both devices ends the round.
+
+Anthony (2026-09-17, round 29, at the gate): "yes to both"
+
+Read as: push `dfe80220` and `920b4dd5` to `origin/kelpie`, then reinstall the plugin on the mini from the pushed branch.

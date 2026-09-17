@@ -368,6 +368,15 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 29 — dead push entries, and the 0.9.1 snapshot — 2026-09-17
+
+Delegated (two Opus builders, one Sonnet runner, one Opus reviewer); specs, returns and the review are in `Archive/round29/`. Round 28 (r/KelpieConsole) ran in a parallel session and is written up by it.
+
+| Commit | |
+| --- | --- |
+| `dfe80220` | **notifications: replace this device's old push entry on re-register; plugin prunes on 400 BadDeviceToken** — Open item 42. `NotificationRegistrationFile.upserting(_:replacing:)` drops the entry of the token this install last registered on the Host (the `RegisteredDeviceTokenLog` pair the launch sweep already keeps) as it upserts the new one; `NotificationRegistrationCeremony.register` carries `replacing:`, and both `reregisterIfPairChanged` and the Settings enable path pass it. Both plugin hooks treat a relay `400` whose APNs reason is `BadDeviceToken` like a `410` (the relay's own `400 {error}` refusals carry no reason and stay final). Five Swift test cases, three plugin tests (321 pass); README, ADR 0008 and CHANGELOG follow. |
+| `920b4dd5` | **schema: refresh the herdr snapshot to v0.9.1** — Open item 47's mechanical half. Protocol stays 22; 0.9.1 adds `pane.link.resolve` and `PaneLinkRegion`, neither in the generator's curated `METHODS`, so `HerdrAPITypes.swift` is byte-identical and `--check` is clean. The dependency watch's `SNAPSHOT_TAG_SEED` and the CLAUDE.md fact (103 methods, 26 kinds) follow. |
+
 ## Round 27 — the posting lane's overnight break — 2026-09-17
 
 Vault-only in this repo. The work itself is in Anthony's private `kelpie-social` checkout (its commit is named in its own notes).
