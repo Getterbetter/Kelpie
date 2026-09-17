@@ -10,6 +10,19 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 30 — the foreground banner, and the composer follow-ups (2026-09-17)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| `xcodebuild build-for-testing`, iPad | Compiled | Clean for each builder in its own scratch path (deleted after) and at the fixed path for the suite. The first fixed-path run failed on a stale `SwiftExplicitPrecompiledModules` pcm after the new HeelerSSH file; clearing that folder fixed it. |
+| `NotificationPreferencesStoreTests` (+3, 3 updated), `TerminalComposerTests` (+18, new `Composer field` suite), `SSHSocketOptionsTests` (+2) | Unit, on the devices | Pass inside the full runs below. 2163 tests in 196 suites, 24 more than round 29. |
+| Full `HeelerTests` at `90fc39a3`, iPad | Device (`make test-device`) | **Green: 2163 tests, 0 issues, 136 skips (64 s)**, three runs on the final code. One earlier iPad run had `aVanishedPaneCancelsItsPendingBanner` red once: a real foreground push landed in the test's store through the process-wide presenter; fixed by `adoptsPresenter: false` in the test factory (`39eaf554`). |
+| Full `HeelerTests` at `90fc39a3`, iPhone | Device (`make test-device-iphone`) | **Green on the ninth run: 2163 tests, 0 issues, 132 skips (58 s).** Nine full runs this round, three green; every red run was a different one to five timing-bound tests (item 50), the run that waited an hour was the phone locked ("Unlock iPhone to Continue"), and the red runs were the slow ones (64–72 s of tests against 56–58 s when green). |
+| Isolation runs, iPhone | `-only-testing` | `TerminalAttachTests` alone: 107 tests green. With `TerminalComposerFieldTests` and `TerminalComposerControlTests`: 129 tests green. Logs `round30-iso-*.log` in `~/Library/Caches/kelpie-build/`. |
+| Item 19 on a device | Anthony | Not yet: foreground Kelpie on the root screen, let an agent finish a turn or ask for input, expect the top banner after 3 s. |
+| The soft-newline key | Anthony | Not yet: composer on, type a line, tap the key, type more, Return; Claude Code should show two lines in one prompt. |
+| Keepalive off Wi-Fi | Anthony | Not yet; rides item 22's retry. |
+
 ## Round 29 — dead push entries, and the 0.9.1 snapshot (2026-09-17)
 
 | Check | Means | Result |

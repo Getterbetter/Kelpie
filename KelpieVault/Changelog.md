@@ -368,6 +368,16 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 30 — the foreground banner, and the composer follow-ups — 2026-09-17
+
+Delegated (three Opus builders in parallel, one Opus reviewer; the device suite run from the main session); briefs, reports, the item-19 diagnosis and the review are in `Archive/round30/`.
+
+| Commit | |
+| --- | --- |
+| `39eaf554` | **notifications: the in-app banner no longer needs this device's push entry on the Host** — Open item 19. `NotificationPreferencesStore.confirmedTriggers(for:)` returned nil unless this device's current APNs token had a live entry in the Host's `notifications.json`, so after the token changed every held Blocked/Done was dropped at the gate. Now: a registered device keeps its flags; unregistered with a surviving Notification Key (a stale or rotated token) means both triggers on; no key (the toggle turned off, or never set up here) stays nil. The fallback is logged once per Host per state change. `AgentNotificationBannerStore` takes `adoptsPresenter` so a test store never receives a real foreground push (one did, on the iPad, mid-run). Tests: three updated, three added in `NotificationPreferencesStoreTests`. |
+| `8b1a66f0` | **composer: a soft-newline key, and unit coverage for the responder flows** — a pinned `return.left` key beside the composer toggle, on while the composer is: the PTY's line is brought up to date, `\` then Return go out (Claude Code breaks the line inside the prompt), the field starts over. `TerminalComposerMirror.softNewline()`, `TerminalComposerControl.softNewline(_:)`/`softNewlineFromKeyBar()`, `keyBarDidPressSoftNewline` on the handler. 18 new tests (mirror, control, and the `Composer field` suite over a mounted field in a key window, torn down per test). CHANGELOG entry. |
+| `90fc39a3` | **transport: TCP keepalive on the SSH socket; one kelpie.primary-host constant** — `SSHSocketOptions.applyKeepalive` (SO_KEEPALIVE, TCP_KEEPALIVE 15 s, TCP_KEEPINTVL 5 s, TCP_KEEPCNT 3) from `SocketConnector.connect` on the connected AF_INET/AF_INET6 stream socket, best effort and logged on failure; read back in `SSHSocketOptionsTests`. `PrimaryHostStore.defaultsKey` is the one definition. `Heeler.xcodeproj` regenerated for the two new files. |
+
 ## Round 29 — dead push entries, and the 0.9.1 snapshot — 2026-09-17
 
 Delegated (two Opus builders, one Sonnet runner, one Opus reviewer); specs, returns and the review are in `Archive/round29/`. Round 28 (r/KelpieConsole) ran in a parallel session and is written up by it.

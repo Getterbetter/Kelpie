@@ -470,3 +470,7 @@ Read as: push `dfe80220` and `920b4dd5` to `origin/kelpie`, then reinstall the p
 Anthony (2026-09-17, new session, opening): "what's in open items to do? once we decide on the batch, /delegate the work"
 
 Read as: list the open items, agree a batch with him, then run it through the delegate skill. Found at start: round 28 (the subreddit) was never closed out; the Feedback log holds its two entries uncommitted and the apply logs stop part-way.
+
+Anthony (2026-09-17, new session, opening): "lets resume check open items and once a batch is picked /delegate the work" then, offered the batches: "19 + composer follow-ups"
+
+Read as: round 30. The batch is Open item 19 (why the in-app banner never shows while Kelpie is foregrounded, then the fix) and the code-only composer follow-ups from `resume.md` step 8: a soft newline (`\` then Return), unit coverage for the responder flows, a socket-level SSH keepalive, and the two `kelpie.primary-host` literals. Delegated; the device suite on both devices ends the round.
