@@ -490,3 +490,11 @@ Read as: Open item 50's red iPhone runs are most likely him using the phone duri
 Anthony (2026-09-17, round 28, after the report, from his phone): "how do we do what you said is left?" → "put 1 in chat." → "1- done 2- i cant see widgets, but im on the phone 3- the welcome post just says undefined 4- i dont know how to change the size, on my phone it says 10:1 can you just give me the pic and ill sort it out"
 
 Read as: the Community Guide welcome text is done by his hand; widgets wait until he is at the Mac; both pinned posts had the body "undefined" (the API runner's submit sent an undefined variable and its read-back checked only that the posts existed), fixed from the session with `editusertext` on both; a 10:1 banner (3840×384) rendered with the build script and sent to his phone for him to upload.
+
+Anthony (2026-09-17, new session, opening): "lets resume check open items and once a batch is picked /delegate the work" then, offered the batches: "19 + composer follow-ups"
+
+Read as: round 30. The batch is Open item 19 (why the in-app banner never shows while Kelpie is foregrounded, then the fix) and the code-only composer follow-ups from `resume.md` step 8: a soft newline (`\` then Return), unit coverage for the responder flows, a socket-level SSH keepalive, and the two `kelpie.primary-host` literals. Delegated; the device suite on both devices ends the round.
+
+Anthony (2026-09-17, round 28, later): "banner is up. whats the value of the widgets?" then, closing: "lets clsoe this out, ill start a new session next."
+
+Read as: the 10:1 banner is uploaded by his hand. On the widgets he asked what they are worth and was told: little, now that the Community Guide and the pinned Welcome post carry the links; the recommendation was to drop them from Open item 48. He did not answer either way, so the item keeps them marked as low value and his call. Close the round; the next session starts fresh from `resume.md`.
