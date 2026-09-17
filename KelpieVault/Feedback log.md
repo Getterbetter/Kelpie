@@ -471,10 +471,6 @@ Anthony (2026-09-17, new session, opening): "what's in open items to do? once we
 
 Read as: list the open items, agree a batch with him, then run it through the delegate skill. Found at start: round 28 (the subreddit) was never closed out; the Feedback log holds its two entries uncommitted and the apply logs stop part-way.
 
-Anthony (2026-09-17, new session, opening): "lets resume check open items and once a batch is picked /delegate the work" then, offered the batches: "19 + composer follow-ups"
-
-Read as: round 30. The batch is Open item 19 (why the in-app banner never shows while Kelpie is foregrounded, then the fix) and the code-only composer follow-ups from `resume.md` step 8: a soft newline (`\` then Return), unit coverage for the responder flows, a socket-level SSH keepalive, and the two `kelpie.primary-host` literals. Delegated; the device suite on both devices ends the round.
-
 Anthony (2026-09-17, round 30, at the gate): "lets close this out, push to git and ill start a new session next"
 
 Read as: push `kelpie` to `origin` with the round's four commits and round 28's docs commit; the next round starts fresh from `resume.md`.
@@ -490,3 +486,7 @@ Read as: before choosing, he wants each open item explained in plain words in th
 Anthony (2026-09-17, round 31, choosing): "50- i think this is me because im sometimes using the phone. the device checklist was done previously, you can close it out. i think ill go for upgrading herdr so lets close this out and ill exit this session next"
 
 Read as: Open item 50's red iPhone runs are most likely him using the phone during the run, not the tests; close it on that reading, keep the rule "a red phone run is re-run with the phone idle", and reopen only if a run goes red with the phone untouched. The device checklists (1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20, 28) were exercised in earlier sessions and close on his word. He will upgrade herdr on the mini himself (item 47) after this session ends, since the restart kills live sessions including this one. Round 31 is a triage round with no code change: close it out, commit, and he exits.
+
+Anthony (2026-09-17, round 28, after the report, from his phone): "how do we do what you said is left?" → "put 1 in chat." → "1- done 2- i cant see widgets, but im on the phone 3- the welcome post just says undefined 4- i dont know how to change the size, on my phone it says 10:1 can you just give me the pic and ill sort it out"
+
+Read as: the Community Guide welcome text is done by his hand; widgets wait until he is at the Mac; both pinned posts had the body "undefined" (the API runner's submit sent an undefined variable and its read-back checked only that the posts existed), fixed from the session with `editusertext` on both; a 10:1 banner (3840×384) rendered with the build script and sent to his phone for him to upload.

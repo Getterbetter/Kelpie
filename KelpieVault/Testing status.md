@@ -299,7 +299,7 @@ No Swift, script or plugin change: the round touched the vault, `Design/Subreddi
 
 | Check | Means | Result |
 | --- | --- | --- |
-| Rules, flairs, posts, sticky state | Signed-in reads of `about/rules.json`, `api/link_flair_v2.json`, `new.json` after each write (apply-api log) | 6 rules in order; 7 post flairs and 2 user flairs; `t3_1wiesm9` sticky 1, `t3_1wietg2` sticky 2. |
+| Rules, flairs, posts, sticky state | Signed-in reads of `about/rules.json`, `api/link_flair_v2.json`, `new.json` after each write (apply-api log) | 6 rules in order; 7 post flairs and 2 user flairs; `t3_1wiesm9` sticky 1, `t3_1wietg2` sticky 2. **Both post bodies were the string `undefined`** (the runner's read-back checked existence, not `selftext`); Anthony saw it on his phone and both were re-edited from the session, read back at 1457 and 629 characters. |
 | Icon, banner, mobile banner | `about.json` after Save | `community_icon`, `banner_background_image` and `mobile_banner_image` all point at new `styles.redditmedia.com` assets. |
 | Require post flair | `posts-and-comments` page read back | On (it would not stick before the flairs existed). |
 | Signed-out view | `curl` of `/r/KelpieConsole/.rss` (Reddit answers anonymous JSON with 403) | Feed title *Kelpie for herdr*; both pinned posts listed. |
