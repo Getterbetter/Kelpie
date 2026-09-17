@@ -21,7 +21,10 @@ struct NotificationRegistrationCeremony: Sendable {
     /// that fails after that leaves a key the retry reuses, whereas the
     /// reverse order could put a key on the Host that this device can no
     /// longer decrypt with. Re-registration with the same token is
-    /// idempotent — the file keeps one entry per device token.
+    /// idempotent — the file keeps one entry per device, not one per token
+    /// this install ever held: pass `replacing` with the token last
+    /// registered on this Host and its entry is dropped as the new one is
+    /// written (open item 42).
     @discardableResult
     func register(
         hostID: UUID,
@@ -29,6 +32,7 @@ struct NotificationRegistrationCeremony: Sendable {
         deviceToken: APNSDeviceToken,
         notify: NotificationTriggerPreferences = NotificationTriggerPreferences(),
         relayBaseURL: URL? = nil,
+        replacing previousToken: APNSDeviceToken? = nil,
         over transport: any Transport
     ) async throws -> NotificationKeyRecord {
         let record = try hostRecord(hostID: hostID, hostName: hostName)
@@ -38,7 +42,7 @@ struct NotificationRegistrationCeremony: Sendable {
         let entry = NotificationDeviceEntry(
             token: deviceToken, key: record.key, notify: notify)
         try await transport.replaceNotificationRegistration(
-            try file.upserting(entry).encoded())
+            try file.upserting(entry, replacing: previousToken?.hex).encoded())
         if let resolvedRelayURL = NotificationRelayEndpoint.resolve(
             customBaseURL: relayBaseURL)
         {

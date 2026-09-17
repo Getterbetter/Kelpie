@@ -79,7 +79,9 @@ struct LiveActivityRegistration: Sendable, Equatable {
 /// Entries this device did not write are carried verbatim as JSON — a newer
 /// app's additive v1 metadata on another device's entry must survive a
 /// rewrite from this one — and only the entry matching a given token is ever
-/// replaced or removed.
+/// replaced or removed, plus, on a re-registration that carries one, the
+/// entry of the token this install previously registered here (open item 42:
+/// a token change would otherwise leave its dead entry behind forever).
 struct NotificationRegistrationFile: Sendable, Equatable {
     static let version = 1
 
@@ -114,7 +116,24 @@ struct NotificationRegistrationFile: Sendable, Equatable {
     /// or appends one: re-registration stays idempotent and additive fields
     /// this type does not own (`live_activity`, future metadata) survive.
     func upserting(_ entry: NotificationDeviceEntry) -> NotificationRegistrationFile {
+        upserting(entry, replacing: nil)
+    }
+
+    /// The upsert above, but for an install whose APNs token changed: the
+    /// entry carrying `previousToken` — the token this install last
+    /// registered on this Host — is dropped first, so a rotation (or an
+    /// Xcode-signed install becoming a TestFlight one) leaves one entry per
+    /// device rather than a dead one per token. The old entry goes whole:
+    /// its `live_activity` and `foreground_until` belong to the dead token
+    /// and must not be carried onto the new one. `nil`, or the same token as
+    /// `entry`, is the plain upsert.
+    func upserting(
+        _ entry: NotificationDeviceEntry, replacing previousToken: String?
+    ) -> NotificationRegistrationFile {
         var updated = devices
+        if let previousToken, previousToken != entry.token.hex {
+            updated.removeAll { $0["token"]?.stringValue == previousToken }
+        }
         if let index = updated.firstIndex(where: { $0["token"]?.stringValue == entry.token.hex }) {
             updated[index].mergeKeys(from: entry.wireValue)
         } else {

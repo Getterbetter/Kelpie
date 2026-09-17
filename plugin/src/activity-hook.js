@@ -353,7 +353,9 @@ function sealFitting(plaintextObject, device, request) {
 
 /**
  * POST one Live Activity push. Transient failures (network, 429, 5xx) retry
- * up to SEND_ATTEMPTS. Returns "ok", "pruned" (APNs 410), or "too_large"
+ * up to SEND_ATTEMPTS. Returns "ok", "pruned" (APNs 410, or a 400 whose APNs
+ * reason is BadDeviceToken — what a replaced install's token draws), or
+ * "too_large"
  * (relay-origin 413). Other conclusive failures throw.
  */
 async function postPush(relayUrl, body, retryDelayMs) {
@@ -376,11 +378,26 @@ async function postPush(relayUrl, body, retryDelayMs) {
     if (response.ok) return "ok";
     const detail = (await response.text().catch(() => "")).slice(0, 200);
     if (response.status === 410) return "pruned";
+    if (response.status === 400 && isBadDeviceToken(detail)) return "pruned";
     if (response.status === 413 && isRelayOrigin413(detail)) return "too_large";
     lastFailure = `relay answered ${response.status}: ${detail}`;
     if (response.status !== 429 && response.status < 500) break;
   }
   throw new Error(`push for token ${body.token.slice(0, 8)}… failed: ${lastFailure}`);
+}
+
+/**
+ * True when the relay passed through an APNs BadDeviceToken rejection. The
+ * relay's own validation errors are `{ "error": ... }` with no `reason`, and a
+ * non-JSON body parses to nothing, so neither prunes.
+ */
+function isBadDeviceToken(detail) {
+  try {
+    const parsed = JSON.parse(detail);
+    return parsed?.reason === "BadDeviceToken";
+  } catch {
+    return false;
+  }
 }
 
 function isRelayOrigin413(detail) {

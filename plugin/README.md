@@ -460,9 +460,11 @@ default (see `relay/README.md`), carrying the encrypted envelope and an opaque
 per-pane `collapse` key (derived from the device's Notification Key and the
 pane id, so the relay cannot guess the pane while newer statuses still replace
 older notifications). Transient failures (network errors, 429, 5xx) are
-retried up to 3 attempts; a `410 Unregistered` verdict prunes that token from
-`notifications.json` (preserving any fields this plugin does not understand);
-other 4xx verdicts are final.
+retried up to 3 attempts; a `410 Unregistered` verdict — or a `400` whose APNs
+reason is `BadDeviceToken`, which is what a replaced install's token draws
+instead — prunes that token from `notifications.json` (preserving any fields
+this plugin does not understand); other 4xx verdicts, including the relay's own
+`400 {"error": ...}` validation refusals, are final.
 
 Plugin-side settings live in `notify.json` next to the registration file in
 the plugin config dir:
@@ -528,9 +530,11 @@ empty); otherwise **5**.
 
 Each eligible device gets one `POST /push` with `kind: liveactivity`, the
 activity token, and the sealed envelope. Transient failures (network errors,
-429, 5xx) are retried up to 3 attempts. A `410 Unregistered` verdict deletes
-only that entry's `live_activity` field, preserving the alert `token`, `key`,
-`notify` flags, and any field this plugin does not understand. A relay-origin
+429, 5xx) are retried up to 3 attempts. A `410 Unregistered` verdict — or a
+`400` whose APNs reason is `BadDeviceToken`, which is what a replaced install's
+token draws instead — deletes only that entry's `live_activity` field,
+preserving the alert `token`, `key`, `notify` flags, and any field this plugin
+does not understand. A relay-origin
 `413` degrades the envelope once per step (drop every `title` while retaining
 the displayed workspace/kind/status, then send `agents: []`) and retries;
 the hook also pre-degrades when the projected ciphertext would exceed the Live

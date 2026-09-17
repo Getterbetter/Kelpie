@@ -69,6 +69,15 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - Agent Notifications stay off a device while another device has Kelpie in
   the foreground.
 
+### Fixed
+
+- Plugin: a push token that APNs rejects as `BadDeviceToken` is pruned from
+  the Host's registration file like an `Unregistered` one, so a replaced
+  install stops costing a dead send per notification.
+- Re-registering after the push token changed (a TestFlight install over an
+  Xcode one, or an APNs rotation) replaces this device's old entry on the
+  Host instead of leaving it beside the new one.
+
 ## [0.1.8] - 2026-09-13
 
 ### Added

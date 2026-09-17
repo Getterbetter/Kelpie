@@ -455,6 +455,34 @@ suite("activity-hook: relay failures", () => {
     assert.equal("live_activity" in file.devices[1], false);
   });
 
+  test("a 400 BadDeviceToken prunes only live_activity, preserving the rest of the entry", async () => {
+    await startFakeRelay(() => ({ status: 400, body: { reason: "BadDeviceToken" } }));
+    writeConfig();
+    writeRegistration(
+      [
+        device({ future_entry_field: "kept" }),
+        device({ token: "b".repeat(64), key: KEY_B, activityToken: ACTIVITY_TOKEN_B }),
+      ],
+      { future_top_field: "kept" },
+    );
+    writeHerdrStub([listedAgent()]);
+
+    const result = await runHook(statusEvent("working"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(relay.requests.length, 2);
+    const file = readRegistration();
+    assert.equal(file.v, 1);
+    assert.equal(file.future_top_field, "kept");
+    assert.equal(file.devices.length, 2);
+    assert.equal(file.devices[0].token, ALERT_TOKEN);
+    assert.equal(file.devices[0].key, KEY_A.toString("base64url"));
+    assert.deepEqual(file.devices[0].notify, { blocked: true, done: true });
+    assert.equal(file.devices[0].future_entry_field, "kept");
+    assert.equal("live_activity" in file.devices[0], false);
+    assert.equal("live_activity" in file.devices[1], false);
+  });
+
   test("a relay-origin 413 resends without titles", async () => {
     await startFakeRelay((_request, index) =>
       index === 0

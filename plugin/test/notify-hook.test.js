@@ -714,6 +714,49 @@ suite("notify-hook: relay failures", () => {
     );
   });
 
+  test("a 400 BadDeviceToken prunes the token, preserving everything else in the file", async () => {
+    await startFakeRelay((request) =>
+      request.body.token === TOKEN_A
+        ? { status: 400, body: { reason: "BadDeviceToken" } }
+        : { status: 200, body: { apnsId: "x" } },
+    );
+    writeConfig();
+    writeRegistration(
+      [device({ future_entry_field: "kept" }), device({ token: TOKEN_B, key: KEY_B })],
+      { future_top_field: "kept" },
+    );
+    writeHerdrStub({ status: "blocked" });
+
+    const result = await runHook(statusEvent("blocked"));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(relay.requests.length, 2);
+    const file = readRegistration();
+    assert.equal(file.v, 1);
+    assert.equal(file.future_top_field, "kept");
+    assert.deepEqual(
+      file.devices.map((d) => d.token),
+      [TOKEN_B],
+    );
+  });
+
+  test("a relay-origin 400 does not prune and is reported as a failure", async () => {
+    await startFakeRelay(() => ({ status: 400, body: { error: "bad_json" } }));
+    writeConfig();
+    writeRegistration([device(), device({ token: TOKEN_B, key: KEY_B })]);
+    writeHerdrStub({ status: "blocked" });
+
+    const result = await runHook(statusEvent("blocked"));
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /400/);
+    const file = readRegistration();
+    assert.deepEqual(
+      file.devices.map((d) => d.token),
+      [TOKEN_A, TOKEN_B],
+    );
+  });
+
   test("a transient 5xx is retried until it succeeds", async () => {
     await startFakeRelay((_request, index) =>
       index === 0

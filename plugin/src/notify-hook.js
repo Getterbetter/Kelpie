@@ -246,8 +246,10 @@ function collapseKeyFor(key, paneId) {
 /**
  * POST one push, retrying transient failures (network errors, 429, 5xx) up
  * to SEND_ATTEMPTS. The relay itself never retries by design (ADR 0008).
- * Returns "ok", "pruned" (APNs 410 Unregistered: the token is dead), or a
- * thrown Error for a delivery that conclusively failed.
+ * Returns "ok", "pruned" (the token is dead: APNs 410 Unregistered, or a 400
+ * whose APNs reason is BadDeviceToken — what a replaced install's token draws
+ * instead of a 410), or a thrown Error for a delivery that conclusively
+ * failed.
  */
 async function postPush(relayUrl, device, envelope, collapse, retryDelayMs) {
   const body = JSON.stringify({ token: device.token, env: device.env, envelope, collapse });
@@ -269,10 +271,25 @@ async function postPush(relayUrl, device, envelope, collapse, retryDelayMs) {
     if (response.ok) return "ok";
     const detail = (await response.text().catch(() => "")).slice(0, 200);
     if (response.status === 410) return "pruned";
+    if (response.status === 400 && isBadDeviceToken(detail)) return "pruned";
     lastFailure = `relay answered ${response.status}: ${detail}`;
     if (response.status !== 429 && response.status < 500) break;
   }
   throw new Error(`push for token ${device.token.slice(0, 8)}… failed: ${lastFailure}`);
+}
+
+/**
+ * True when the relay passed through an APNs BadDeviceToken rejection. The
+ * relay's own validation errors are `{ "error": ... }` with no `reason`, and a
+ * non-JSON body parses to nothing, so neither prunes.
+ */
+function isBadDeviceToken(detail) {
+  try {
+    const parsed = JSON.parse(detail);
+    return parsed?.reason === "BadDeviceToken";
+  } catch {
+    return false;
+  }
 }
 
 function requireEnv(name) {

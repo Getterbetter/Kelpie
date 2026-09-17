@@ -472,12 +472,17 @@ final class NotificationPreferencesStore {
             settings.isRegistered != enabled
         else { return }
         let relay = relayBaseURL()
+        // Enabling can be the first write after a token change (the launch
+        // sweep only rewrites Hosts it could reach), so the token this
+        // install last registered here has its entry dropped too.
+        let last = registeredTokens.lastRegistered(for: host.id)
         await write(for: host, from: settings) { ceremony, token, transport in
             if enabled {
                 let notify = NotificationTriggerPreferences()
                 try await ceremony.register(
                     hostID: host.id, hostName: host.displayName,
-                    deviceToken: token, notify: notify, relayBaseURL: relay, over: transport)
+                    deviceToken: token, notify: notify, relayBaseURL: relay,
+                    replacing: last, over: transport)
                 return HostSettings(isRegistered: true, notify: notify)
             } else {
                 try await ceremony.remove(
@@ -605,7 +610,7 @@ final class NotificationPreferencesStore {
         // unregistered too. The Notification Key in the Keychain is what
         // survives both and proves this install was registered here — and
         // without this, the install stays permanently silent while a dead
-        // entry sits on the Host drawing `400`s that prune nothing.
+        // entry sits on the Host drawing `400`s until the plugin prunes it.
         // `try?` on an optional-returning throwing call double-wraps; the
         // flatten is what makes "no record" and "Keychain unreadable" alike.
         let hasNotificationKey = ((try? ceremony.keys.record(forHost: host.id)) ?? nil) != nil
@@ -635,7 +640,7 @@ final class NotificationPreferencesStore {
             _ = try await transports.withNotificationTransport(for: host.id) { transport in
                 try await ceremony.register(
                     hostID: host.id, hostName: hostName, deviceToken: token,
-                    notify: notify, relayBaseURL: relay, over: transport)
+                    notify: notify, relayBaseURL: relay, replacing: last, over: transport)
             }
             registeredTokens.record(token, for: host.id)
             confirmed = HostSettings(
@@ -650,9 +655,9 @@ final class NotificationPreferencesStore {
     /// The notify flags the rewritten entry must carry, or nil when there is
     /// nothing to keep current. A rotated token reads them off the entry the
     /// old token still holds, so the user's Done choice survives the
-    /// rotation; that dead entry is left for the plugin to prune on the first
-    /// APNs `410` (ADR 0008), which is also what would retire it if this
-    /// device never came back.
+    /// rotation; the register that follows drops that dead entry
+    /// (`replacing:`), and the plugin's prune on APNs `410` or `400
+    /// BadDeviceToken` (ADR 0008) retires it if this device never came back.
     private func flagsToCarry(
         for hostID: Host.ID, settings: HostSettings, last: APNSDeviceToken?,
         hasNotificationKey: Bool

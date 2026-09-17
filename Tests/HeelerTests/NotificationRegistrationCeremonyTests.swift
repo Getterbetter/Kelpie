@@ -73,6 +73,29 @@ struct NotificationRegistrationCeremonyTests {
         #expect(foreign["extra"]?.stringValue == "kept")
     }
 
+    @Test func registerReplacingDropsThePreviousTokensEntry() async throws {
+        let transport = ScriptedTransport()
+        await transport.setNotificationRegistration(
+            Data(
+                (#"{"v":1,"devices":[{"token":"old00","key":"kk","env":"production","#
+                    + #""notify":{"blocked":true,"done":true},"#
+                    + #""live_activity":{"token":"la","started_at":"2024-01-01T00:00:00Z"}},"#
+                    + #"{"token":"ffff","key":"kk2","env":"production","extra":"kept"}]}"#).utf8))
+
+        try await ceremony.register(
+            hostID: hostID, hostName: "mac-studio", deviceToken: token,
+            replacing: APNSDeviceToken(hex: "old00", environment: .production),
+            over: transport)
+
+        let written = try #require(await transport.notificationRegistration)
+        let file = try NotificationRegistrationFile.decode(written)
+        #expect(!file.containsDevice(token: "old00"))
+        #expect(file.containsDevice(token: token.hex))
+        #expect(file.containsDevice(token: "ffff"))
+        #expect(file.devices.count == 2)
+        #expect(file.liveActivity(forDeviceToken: token.hex) == nil)
+    }
+
     @Test func removeDeletesOnlyOurEntryAndTheLocalKey() async throws {
         let transport = ScriptedTransport()
         await transport.setNotificationRegistration(

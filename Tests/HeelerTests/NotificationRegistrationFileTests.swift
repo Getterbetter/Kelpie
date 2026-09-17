@@ -358,4 +358,61 @@ struct NotificationRegistrationFileTests {
             Data(#"{"v":1,"devices":[{"token":"ffff","foreground_until":"2025-09-15T08:12:30.500Z"}]}"#.utf8))
         #expect(file.foregroundUntil(token: "ffff") == Date(timeIntervalSince1970: 1_757_923_950.5))
     }
+
+    @Test func upsertingReplacingDropsThePreviouslyRegisteredTokensEntry() throws {
+        let existing = Data(
+            (#"{"v":1,"devices":[{"token":"old00","key":"old-key","env":"sandbox","#
+                + #""notify":{"blocked":true,"done":true},"#
+                + #""live_activity":{"token":"la","started_at":"2024-01-01T00:00:00Z"},"#
+                + #""foreground_until":"2025-09-15T08:12:30Z"},"#
+                + #"{"token":"ffff","key":"kk","env":"production","#
+                + #""notify":{"blocked":true,"done":true},"future_field":"kept"}]}"#).utf8)
+
+        let file = try NotificationRegistrationFile.decode(existing)
+            .upserting(entry, replacing: "old00")
+
+        #expect(!file.containsDevice(token: "old00"))
+        #expect(file.devices.count == 2)
+        let mine = try #require(
+            file.devices.first { $0["token"]?.stringValue == entry.token.hex })
+        #expect(mine["live_activity"] == nil)
+        #expect(mine["foreground_until"] == nil)
+        #expect(mine["key"]?.stringValue == key.base64URLEncodedString())
+        #expect(mine["env"]?.stringValue == "production")
+        #expect(mine["notify"]?["done"] == .bool(false))
+        let foreign = try #require(
+            file.devices.first { $0["token"]?.stringValue == "ffff" })
+        #expect(foreign["key"]?.stringValue == "kk")
+        #expect(foreign["env"]?.stringValue == "production")
+        #expect(foreign["notify"]?["blocked"] == .bool(true))
+        #expect(foreign["notify"]?["done"] == .bool(true))
+        #expect(foreign["future_field"]?.stringValue == "kept")
+    }
+
+    @Test func upsertingReplacingTheSameTokenIsThePlainUpsert() throws {
+        let existing = Data(
+            (#"{"v":1,"devices":[{"token":"a1b2c3","key":"old-key","env":"production","#
+                + #""notify":{"blocked":true,"done":true},"future_field":"kept"}]}"#).utf8)
+        let file = try NotificationRegistrationFile.decode(existing)
+
+        #expect(
+            file.upserting(entry, replacing: entry.token.hex) == file.upserting(entry))
+        #expect(
+            file.upserting(entry, replacing: entry.token.hex).devices.first?["future_field"]
+                == .string("kept"))
+    }
+
+    @Test func upsertingReplacingATokenAbsentFromTheFileIsThePlainUpsert() throws {
+        let file = try NotificationRegistrationFile.decode(
+            Data(#"{"v":1,"devices":[{"token":"ffff","key":"kk","env":"sandbox"}]}"#.utf8))
+
+        #expect(file.upserting(entry, replacing: "not-there") == file.upserting(entry))
+    }
+
+    @Test func upsertingReplacingNilIsThePlainUpsert() throws {
+        let file = try NotificationRegistrationFile.decode(
+            Data(#"{"v":1,"devices":[{"token":"ffff","key":"kk","env":"sandbox"}]}"#.utf8))
+
+        #expect(file.upserting(entry, replacing: nil) == file.upserting(entry))
+    }
 }
