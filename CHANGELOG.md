@@ -76,6 +76,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   checked tailnet address on a Host that is serving Tailscale SSH is called
   out there too — before the QR appears, rather than as a failure on the
   phone. (#355)
+- Hosts can authenticate with a device-generated RSA Key using RSA-SHA2-512,
+  including connections through a Jump Host. The private key remains in the
+  Keychain and the public key can be copied from Host settings. (PR #347)
 
 ### Changed
 
@@ -123,6 +126,8 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - Re-registering after the push token changed (a TestFlight install over an
   Xcode one, or an APNs rotation) replaces this device's old entry on the
   Host instead of leaving it beside the new one.
+- A saved Host with an authentication method this build does not understand is
+  skipped without making the rest of the Host catalog unreadable. (PR #347)
 
 ## [0.1.8] - 2026-09-13
 

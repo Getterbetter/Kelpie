@@ -19,13 +19,16 @@ enum HostCredentialsError: Error, Equatable, LocalizedError {
 /// this type only hands them onward to the transport.
 struct HostCredentialsProvider: Sendable {
     private let deviceKeys: DeviceKeyStore
+    private let rsaKeys: RSAKeyStore
     private let secrets: any SecretStore
 
     init(
         deviceKeys: DeviceKeyStore = DeviceKeyStore(),
+        rsaKeys: RSAKeyStore = RSAKeyStore(),
         secrets: any SecretStore = KeychainSecretStore(service: "dev.bybee.heeler.ssh")
     ) {
         self.deviceKeys = deviceKeys
+        self.rsaKeys = rsaKeys
         self.secrets = secrets
     }
 
@@ -33,6 +36,8 @@ struct HostCredentialsProvider: Sendable {
         switch host.authMethod {
         case .deviceKey:
             return .ed25519(try deviceKeys.loadOrCreate().privateKey)
+        case .rsaKey:
+            return .rsaSHA512(try rsaKeys.loadOrCreate())
         case .password:
             guard
                 let data = try secrets.read(account: HostStore.passwordAccount(for: host.id)),
@@ -70,6 +75,16 @@ struct HostCredentialsProvider: Sendable {
     /// The device public key material shown during Host setup.
     func deviceKey() throws -> DeviceKey {
         try deviceKeys.loadOrCreate()
+    }
+
+    /// The RSA public key material registered with one or more Hosts.
+    func rsaKey() throws -> RSAKey {
+        try rsaKeys.loadOrCreate()
+    }
+
+    /// User-approved recovery for a corrupt RSA key.
+    func replaceRSAKey() throws -> RSAKey {
+        try rsaKeys.replaceStoredKey()
     }
 
     /// User-approved recovery for a corrupt device key. Callers must explain
