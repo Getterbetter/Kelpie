@@ -126,6 +126,10 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - Re-registering after the push token changed (a TestFlight install over an
   Xcode one, or an APNs rotation) replaces this device's old entry on the
   Host instead of leaving it beside the new one.
+- Connecting to a Host no longer fails intermittently during post-quantum key
+  exchange. Roughly one handshake in 256 was rejected by a defect in the SSH
+  library, and about twice as often for a Host behind a Jump Host; the app now
+  redials once. (#332)
 - A saved Host with an authentication method this build does not understand is
   skipped without making the rest of the Host catalog unreadable. (PR #347)
 
