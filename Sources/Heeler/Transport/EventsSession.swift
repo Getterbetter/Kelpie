@@ -417,6 +417,26 @@ actor EventsSession {
             if isSameTransport(currentTransport, transport) {
                 transportSuspect = true
                 currentTransport = nil
+                // The run loop is parked on the live stream and cannot act on
+                // the suspect mark by itself: a link whose events reader is
+                // still alive never ends the stream, and with the keepalive
+                // quiet or disabled nothing else wakes it — the retry below
+                // would wait forever. End the channel the way a failed
+                // keepalive does, but flagged as a deliberate re-subscribe so
+                // the run loop re-dials silently (no `.reconnecting`) and
+                // installs the replacement this retry rides. A redial that
+                // fails instead releases the waiter through the run loop's
+                // announce with its real cause.
+                //
+                // Kelpie: the end is `endStreamPromptly`, not a plain
+                // `end()`. This transport has just failed a call at the link
+                // level, which is exactly the case where a graceful close
+                // parks behind the SSH driver's operation mutex (Open item
+                // 22, the Tailscale hang); bounded, it abandons the channel.
+                if let stream = liveStream {
+                    resubscribeRequested = true
+                    await endStreamPromptly(stream)
+                }
             }
             let replacement = try await awaitUsableTransport()
             do {
