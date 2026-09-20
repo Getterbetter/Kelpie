@@ -101,7 +101,10 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   Host-scoped requests now wait for the replacement transport instead of
   failing against a gap the connection status never announced, and still fail
   at once with the real cause when the session is suspended, stopped on an
-  action-required failure, or visibly reconnecting. (#368)
+  action-required failure, or visibly reconnecting. A caller that reaches the
+  degraded transport before the session notices also gets one redial-and-retry
+  instead of a phantom "The Host is not connected." — the case the launch
+  window kept producing. (#368)
 - A message sent to an Agent the app had just launched no longer fails with
   "herdr rejected the message: agent wX:pY is not an active named agent".
   herdr 0.8.0+ answers `agent.start` while the pane's agent is still booting,
