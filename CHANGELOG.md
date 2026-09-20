@@ -89,7 +89,18 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   and veth addresses remain available for manual selection at the end of
   the checklist, without being pre-checked. Normal LAN bridges keep their
   existing selection behavior. (PR #357, refs #356)
-
+- A message sent to an Agent the app had just launched no longer fails with
+  "herdr rejected the message: agent wX:pY is not an active named agent".
+  herdr 0.8.0+ answers `agent.start` while the pane's agent is still booting,
+  and the Console's post-start wait only checks that the Agent's row exists —
+  so the first prompt typed into the fresh Agent's tab could beat the agent's
+  registration on the Host, and herdr refused the send even though the pane
+  id was correct; leaving the Agent and returning was what made sending work.
+  The composer now treats that rejection as the launch race it is and waits
+  it out at a fixed pace inside the same bounded budget the transport already
+  uses for a fresh pane's booting shell, still surfacing herdr's refusal once
+  the budget is spent and never retrying a genuinely absent Agent
+  (`agent_not_found`). (#368)
 - Plugin: a push token that APNs rejects as `BadDeviceToken` is pruned from
   the Host's registration file like an `Unregistered` one, so a replaced
   install stops costing a dead send per notification.
