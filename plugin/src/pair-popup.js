@@ -23,6 +23,7 @@ import {
   sweepExpiredStateFiles,
   PAIRING_TTL_SECONDS,
 } from "./pairing-session.js";
+import { readPairingConfig } from "./pairing-config.js";
 import {
   createSelection,
   moveCursor,
@@ -39,7 +40,6 @@ import {
   pairingStartFailed,
 } from "./pair-fatal.js";
 
-const DEFAULT_SSH_PORT = 22;
 // How often the QR screen checks whether Enrollment has completed. The pending
 // -> enrolled transition happens on the server side in pair-accept.js; polling
 // the record it leaves is simpler than an fs.watch and just as timely at human
@@ -81,7 +81,7 @@ async function holdFatal(message) {
   process.exit(1);
 }
 
-function renderChecklist(state, warning) {
+function renderChecklist(state, sshPort, warning) {
   const lines = [
     `${BOLD}Pair a Heeler device${RESET}`,
     "",
@@ -95,6 +95,7 @@ function renderChecklist(state, warning) {
     lines.push(` ${cursor} ${box} ${label}${RESET}`);
   });
   lines.push("");
+  lines.push(`SSH port ${BOLD}${sshPort}${RESET} ${DIM}(pair.json ssh_port)${RESET}`);
   lines.push(`${DIM}up/down move, space toggle, a all, enter confirm, q quit${RESET}`);
   if (warning) {
     lines.push("");
@@ -222,6 +223,7 @@ async function main() {
     return;
   }
   const home = os.homedir();
+  const { sshPort } = readPairingConfig(process.env.HERDR_PLUGIN_CONFIG_DIR);
 
   const hostKey = readHostKeyFingerprint();
   if (hostKey === null) {
@@ -375,7 +377,7 @@ async function main() {
     }, PAIRING_TTL_SECONDS * 1000);
     lastPayload = {
       addresses: confirmedAddresses,
-      port: DEFAULT_SSH_PORT,
+      port: sshPort,
       username: os.userInfo().username,
       hostKeyFingerprint: hostKey.fingerprint,
       bootstrapSeed: session.seed,
@@ -426,7 +428,7 @@ async function main() {
     });
   }
 
-  renderChecklist(state);
+  renderChecklist(state, sshPort);
 
   readKeys((key) => {
     if (closing) {
@@ -492,7 +494,7 @@ async function main() {
       case "return": {
         const addresses = selectedAddresses(state);
         if (addresses.length === 0) {
-          renderChecklist(state, "Select at least one address.");
+          renderChecklist(state, sshPort, "Select at least one address.");
           return;
         }
         phase = "qr";
@@ -503,7 +505,7 @@ async function main() {
       default:
         return;
     }
-    renderChecklist(state);
+    renderChecklist(state, sshPort);
   });
 }
 

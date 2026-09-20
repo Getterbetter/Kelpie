@@ -69,6 +69,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 - A soft-newline key beside the composer toggle, on while the composer is:
   it breaks the line in Claude Code's prompt (`\` then Return) instead of
   sending it.
+- Pairing Codes can advertise a non-default SSH port via `pair.json`
+  (`ssh_port`) in the plugin config directory, so OpenSSH can share a Host
+  with Tailscale SSH on port 22. (#355)
 
 ### Changed
 
