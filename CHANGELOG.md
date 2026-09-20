@@ -90,6 +90,19 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   the checklist, without being pre-checked. Normal LAN bridges keep their
   existing selection behavior. (PR #357, refs #356)
 - A message sent to an Agent the app had just launched no longer fails with
+  "The Host is not connected." Launching an Agent — a new Workspace's Agent in
+  particular — makes the Console subscribe to that pane's status events, and
+  when the Host's connection has gone quiet or degraded during the launch,
+  that subscription swap silently replaces the SSH transport. The Console kept
+  reporting the Host as connected while every Host-scoped request — the
+  composer's send included — was refused for the seconds the replacement dial
+  took, and the first message typed into the fresh Agent's tab died inside
+  that window; leaving the Agent and returning was what made sending work.
+  Host-scoped requests now wait for the replacement transport instead of
+  failing against a gap the connection status never announced, and still fail
+  at once with the real cause when the session is suspended, stopped on an
+  action-required failure, or visibly reconnecting. (#368)
+- A message sent to an Agent the app had just launched no longer fails with
   "herdr rejected the message: agent wX:pY is not an active named agent".
   herdr 0.8.0+ answers `agent.start` while the pane's agent is still booting,
   and the Console's post-start wait only checks that the Agent's row exists —
