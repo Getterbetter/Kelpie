@@ -84,6 +84,12 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Fixed
 
+- Pairing no longer defaults to a Docker bridge address when the Host's
+  primary interface has no suitable private or VPN address. Docker bridge
+  and veth addresses remain available for manual selection at the end of
+  the checklist, without being pre-checked. Normal LAN bridges keep their
+  existing selection behavior. (PR #357, refs #356)
+
 - Plugin: a push token that APNs rejects as `BadDeviceToken` is pruned from
   the Host's registration file like an `Unregistered` one, so a replaced
   install stops costing a dead send per notification.
