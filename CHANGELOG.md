@@ -132,6 +132,13 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   redials once. (#332)
 - A saved Host with an authentication method this build does not understand is
   skipped without making the rest of the Host catalog unreadable. (PR #347)
+- Pairing names Tailscale SSH when it answers the Pairing Code's port
+  instead of OpenSSH, and points at `ssh_port` in the plugin's `pair.json`.
+  It used to wait out a `check` policy and report that the Host did not
+  answer, or run the enrollment command under an `accept` policy and blame a
+  network hiccup; it now stops before authenticating. A pairing command
+  that ends without answering is reported as such rather than as a network
+  hiccup. (#358)
 
 ## [0.1.8] - 2026-09-13
 
