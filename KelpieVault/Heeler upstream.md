@@ -38,6 +38,8 @@ Module name, target names, `Heeler.xcodeproj` and the `Heeler` scheme are delibe
 
 ## Rebase strategy
 
+**Superseded 2026-09-23 (round 32): Kelpie is a hard fork.** No more rebases; the base stays v0.1.8 `b384847` and upstream fixes are read and cherry-picked (`git cherry-pick -x`) in the groups Kelpie runs — SSH, transport, terminal, plugin — while Console features are skipped. Why and the first list: [[Decisions]] round 32, [[Open items]] item 55. What follows is kept for the record.
+
 Upstream moves fast — daily commits, a live App Store/TestFlight release train. Kelpie's changes are deliberately shaped to survive that:
 
 - **Nothing in `Packages/`, `plugin/`, `relay/` or `landing/` is edited.** The one exception is the vendored `Packages/GhosttyTerminal`, which is an addition, not a modification.

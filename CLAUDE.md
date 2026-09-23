@@ -4,7 +4,7 @@
 
 **One round per session.** Work one round, close it out with the definition of done below, and end the session; the next round starts fresh from `resume.md`. Work that is not part of the round, and anything asked after the round's report, goes to `KelpieVault/Open items.md` for the next session unless Anthony says to do it here; "log: <idea>" or "next session: <idea>" means add it there in one edit and carry on. "Checkpoint" means write an `## In progress` section at the top of `resume.md` (done, running, uncommitted work, next step) so a fresh session can pick the round up; the close-out removes it. At session start, if `resume.md` has an `## In progress` section, `git log` shows commits after the last close-out, or the tree is dirty, the last session stopped mid-round: reconstruct from those and the tail of `KelpieVault/Feedback log.md`, say what you found, then continue. Why: `KelpieVault/Decisions.md`, 2026-09-13.
 
-Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; `origin` is the public Getterbetter/Kelpie.
+Kelpie is Anthony's iPadOS fork of Heeler (bundle `TME.Kelpie`, team 8JQWBQKEXX, display name Kelpie; Swift module, targets, project file and scheme still say Heeler). Upstream is the `upstream` git remote; `origin` is the public Getterbetter/Kelpie. Since 2026-09-23 Kelpie is a hard fork: it stays on upstream v0.1.8 (`b384847`) and takes upstream fixes by cherry-pick, never by rebase (`KelpieVault/Decisions.md`, round 32).
 
 ## The root screen
 
