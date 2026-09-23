@@ -214,6 +214,16 @@ The open device checks, in [[Open items]] order. Record what comes back in [[Fee
 
 Anything still unverified stays in [[Open items]].
 
+## Round 32 — herdr 0.9.1 on the mini, live (2026-09-23)
+
+No Swift, plugin or project file changed, so the device suite was not run; round 30's green runs stand. Everything below was observed live on the mini (herdr 0.9.1, protocol 22) in a throwaway workspace, since closed; report and captures in `Archive/round32/`.
+
+| What | How | Result |
+| --- | --- | --- |
+| Version and schema | `herdr --version`, `ping`, `herdr api schema --json` against the snapshot | 0.9.1, protocol 22; live schema equals `scripts/herdr-schema.json`. |
+| CLAUDE.md's load-bearing facts | `verify.py`, `verify2.py`, `verify3.py` over the API socket | All tested facts hold (connection, malformed ids, lifecycle ordering, all-or-nothing subscribe, reads, `events.wait`, keys, renames, async start, agent-only attach). New: `agent_launch_pending` on rename; `launch_pending` held through the trust dialog. Not re-tested: `agent.prompt`, `agent_not_idle`, takeover. |
+| The mini's `notifications.json` | Read, keys and tokens compared by hash | Four entries: per device one current `sandbox` and one stale `production` from build 5 (Open item 51); 15 orphaned temp files beside it (Open item 52). |
+
 ## Round 22 — the Kelpie Chat spike (2026-09-16)
 
 No Swift, plugin or project file changed this round, so the device suite was not run; the round-21 runs at `23d1d5c` stand. Everything below was observed live on the mini (herdr 0.8.2, protocol 20; Claude Code 2.1.273) against a throwaway `claude` agent in a throwaway workspace, since closed; captures in `Archive/round22/`.

@@ -1,0 +1,53 @@
+{
+ "B_second_write": "exception BrokenPipeError [Errno 32] Broken pipe",
+ "C_missing_params": "{\"id\":\"\",\"error\":{\"code\":\"invalid_request\",\"message\":\"invalid request: missing field `params` at line 1 column 28\"}}\n",
+ "C_not_json": "{\"id\":\"\",\"error\":{\"code\":\"invalid_request\",\"message\":\"invalid request: expected ident at line 1 column 2\"}}\n",
+ "D_unknown_method": {
+  "id": "",
+  "error": {
+   "code": "invalid_request",
+   "message": "invalid request: unknown variant `no.such.method`, expected one of `ping`, `server.stop`, `server.live_handoff`, `server.reload_config`, `server.agent_manifests`, `server.reload_agent_manifests`, `notification.show`, `product_announcement.dismiss`, `release_notes.dismiss`, `command.invoke`, `client.window_title.set`, `client.window_title.clear`, `client_shell.surface.set`, `session.snapshot`, `workspace.create`, `workspace.list`, `workspace.get`, `workspace.focus`, `workspace.rename`, `workspace.move`, `workspace.move_block`, `workspace.report_metadata`, `workspace.close`, `worktree.list`, `worktree.create`, `worktree.open`, `worktree.remove`, `tab.create`, `tab.list`, `tab.get`, `tab.focus`, `tab.rename`, `tab.move`, `tab.close`, `agent.list`, `agent.get`, `agent.read`, `agent.explain`, `agent.send_keys`, `agent.rename`, `agent.view.set`, `agent.view.clear`, `agent.focus`, `agent.start`, `agent.prompt`, `agent.wait`, `pane.split`, `pane.swap`, `pane.move`, `pane.zoom`, `pane.layout`, `pane.process_info`, `layout.export`, `layout.apply`, `layout.set_split_ratio`, `pane.neighbor`, `pane.edges`, `pane.focus_direction`, `pane.resize`, `pane.scroll`, `pane.edit_scrollback`, `pane.selection.read`, `pane.copy_motion`, `pane.copy_search`, `pane.list`, `pane.current`, `pane.get`, `pane.focus`, `pane.input.set`, `pane.link.activate`, `pane.link.resolve`, `pane.rename`, `pane.send_text`, `pane.send_keys`, `pane.send_input`, `pane.read`, `pane.graphics.set`, `pane.graphics.clear`, `pane.graphics.info`, `pane.graphics.stream`, `pane.report_agent`, `pane.report_agent_session`, `pane.report_metadata`, `pane.clear_agent_authority`, `pane.release_agent`, `pane.close`, `popup.close`, `events.subscribe`, `events.wait`, `pane.wait_for_output`, `integration.list`, `integration.install`, `integration.uninstall`, `plugin.link`, `plugin.list`, `plugin.unlink`, `plugin.enable`, `plugin.disable`, `plugin.action.list`, `plugin.action.invoke`, `plugin.log.list`, `plugin.pane.open`, `plugin.pane.focus`, `plugin.pane.close` at line 1 column 55"
+  }
+ },
+ "ws_create": {
+  "id": "r32",
+  "result": {
+   "type": "workspace_created",
+   "workspace": {
+    "workspace_id": "wF",
+    "number": 7,
+    "label": "kelpie-verify-r32",
+    "focused": false,
+    "pane_count": 1,
+    "tab_count": 1,
+    "active_tab_id": "wF:t1",
+    "agent_status": "unknown"
+   },
+   "tab": {
+    "tab_id": "wF:t1",
+    "workspace_id": "wF",
+    "number": 1,
+    "label": "1",
+    "focused": false,
+    "pane_count": 1,
+    "agent_status": "unknown"
+   },
+   "root_pane": {
+    "pane_id": "wF:p1",
+    "terminal_id": "term_65c23b3ba4aa414",
+    "workspace_id": "wF",
+    "tab_id": "wF:t1",
+    "focused": false,
+    "cwd": "/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/91478136-1945-4a0b-b1b0-ef178b26aa14/scratchpad/verify-cwd",
+    "foreground_cwd": "/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/91478136-1945-4a0b-b1b0-ef178b26aa14/scratchpad/verify-cwd",
+    "agent_status": "unknown",
+    "scroll": {
+     "offset_from_bottom": 0,
+     "max_offset_from_bottom": 0,
+     "viewport_rows": 36
+    },
+    "revision": 0
+   }
+  }
+ }
+}

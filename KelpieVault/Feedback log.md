@@ -498,3 +498,7 @@ Read as: round 30. The batch is Open item 19 (why the in-app banner never shows 
 Anthony (2026-09-17, round 28, later): "banner is up. whats the value of the widgets?" then, closing: "lets clsoe this out, ill start a new session next."
 
 Read as: the 10:1 banner is uploaded by his hand. On the widgets he asked what they are worth and was told: little, now that the Community Guide and the pinned Welcome post carry the links; the recommendation was to drop them from Open item 48. He did not answer either way, so the item keeps them marked as low value and his call. Close the round; the next session starts fresh from `resume.md`.
+
+Anthony (2026-09-23, new session, opening): "let's resume. what's in open items?" then, offered 47/14 first: "go ahead with 47/14"
+
+Read as: round 32. Found at start: round 31 and the parallel round 28 are closed out; the only uncommitted change is the dependency watcher's nightly rewrite of `Dependency watch.md`, which reports the mini on herdr 0.9.1 and upstream Heeler 146 commits ahead. The batch is Open items 47 and 14: the mini is upgraded (read `herdr 0.9.1`), so re-verify the 0.9.0-sourced facts in `CLAUDE.md` live against it, check the mini's `notifications.json` holds one entry per device, and close both.

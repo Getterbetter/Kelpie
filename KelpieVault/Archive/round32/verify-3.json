@@ -1,0 +1,41 @@
+{
+ "P2": "wF:p2",
+ "K_sub_ack": "{\"id\":\"st\",\"result\":{\"type\":\"subscription_started\"}}",
+ "K_start_ms": 0,
+ "K_start": {
+  "id": "r32",
+  "result": {
+   "type": "agent_started",
+   "agent": {
+    "terminal_id": "term_65c23b4b9962415",
+    "name": "kv32",
+    "agent_status": "unknown",
+    "workspace_id": "wF",
+    "tab_id": "wF:t2",
+    "pane_id": "wF:p2",
+    "focused": false,
+    "launch_pending": true,
+    "state_change_seq": 0,
+    "cwd": "/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/91478136-1945-4a0b-b1b0-ef178b26aa14/scratchpad/verify-cwd",
+    "foreground_cwd": "/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/91478136-1945-4a0b-b1b0-ef178b26aa14/scratchpad/verify-cwd",
+    "revision": 0
+   },
+   "argv": [
+    "claude"
+   ]
+  }
+ },
+ "K_events_12s": [
+  "{\"data\":{\"agent\":\"claude\",\"pane_id\":\"wF:p2\",\"type\":\"pane_agent_detected\",\"workspace_id\":\"wF\"},\"event\":\"pane_agent_detected\"}",
+  "{\"data\":{\"agent\":\"claude\",\"agent_status\":\"blocked\",\"pane_id\":\"wF:p2\",\"workspace_id\":\"wF\"},\"event\":\"pane.agent_status_changed\"}"
+ ],
+ "K_agent_get": "{'id': 'r32', 'result': {'type': 'agent_info', 'agent': {'terminal_id': 'term_65c23b4b9962415', 'name': 'kv32', 'agent': 'claude', 'agent_status': 'blocked', 'workspace_id': 'wF', 'tab_id': 'wF:t2', 'pane_id': 'wF:p2', 'focused': False, 'launch_pending': True, 'state_change_seq': 246, 'cwd': '/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kelpie/91478136-1945-4a0b-b1b0-ef178b26aa14/scratchpad/verify-cwd', 'foreground_cwd': '/private/tmp/claude-501/-Users-anthonytopalides-Developer-Kel",
+ "L_agent_rename_Bad_3": "invalid_agent_name",
+ "L_agent_rename_ok_name-1_9": "agent_launch_pending",
+ "L_agent_rename_1abc_4": "invalid_agent_name",
+ "L_agent_rename_aaaaaaaaaaaa_33": "invalid_agent_name",
+ "L_agent_rename_aaaaaaaaaaaa_32": "agent_launch_pending",
+ "L_agent_rename_null": "agent_launch_pending",
+ "L_agent_rename_omitted": "agent_launch_pending",
+ "L_agent_after_clear": "{'type': 'agent_info', 'agent': {'terminal_id': 'term_65c23b4b9962415', 'name': 'kv32', 'agent': 'claude', 'agent_status': 'blocked', 'workspace_id': 'wF', 'tab_id': 'wF:t2', 'pane_id': 'wF:p2', 'focused': False, 'launch_pending': True, 'state_change_seq': 246, 'cwd': '/private/tmp/claude-501/-Users"
+}

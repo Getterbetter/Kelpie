@@ -461,6 +461,12 @@ entry: a session cron survives `/clear`, because the session does.
 
 **Anthony, after the report: "3- lets arm it"**, with the token deferred ("1- ill do another time") and the verdict open ("2- ok"). Armed at 09:24 from the private checkout. His call after both caveats were on screen; the record there carries the disarm recipe. Also from the same message: the herdr 0.9.1 update on the mini waits for a pause with no live Claude session (new Open item).
 
+## 2026-09-23 — round 32: herdr 0.9.1 on the mini, verified live
+
+**Decided: items 47 and 14 close on the live run, with three facts not re-tested.** Anthony upgraded the mini between sessions (round 31's plan). Every CLAUDE.md fact that a throwaway workspace can exercise without prompting an agent held on 0.9.1; `agent.prompt`, `agent_not_idle` and takeover need a prompted agent or a second client and were left as they are marked (0.8.0 / source evidence), rather than spending an agent turn in Anthony's live herdr. The additions went into the existing facts in `CLAUDE.md` in place, each marked 0.9.1. Why: the facts file is the thing a next session trusts, and a re-verified fact without its version reads as a guarantee.
+
+**Decided: the stale `production` push entries are deleted by hand on his yes, not by code.** They are round-29 residue from a build that never recorded its token, so the app's replace cannot reach them, and APNs has not rejected them for a week, so the plugin's prune will not either. A code path for a one-off leftover is not worth it; the next TestFlight launch writes fresh entries anyway. Open item 51. The orphaned temp files (52) and the new rename refusal (53) are logged, low priority.
+
 ## 2026-09-17 — round 31: triage, the device checklists close
 
 **A — The device checklists close on his word.** Open items 1, 1f, 1g, 1a, 1b, 2, 10, 11, 12, 13, 20 and 28 had waited since rounds 2 to 14 for a sitting with the list open on the iPad. Anthony: "the device checklist was done previously, you can close it out" — those features have been used daily on both devices through thirty rounds, and every fault they turned up became its own item. Anything found from here is a new item, not a reopened checklist.

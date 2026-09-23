@@ -1,0 +1,82 @@
+{
+ "E_pre_tab": "wF:t2",
+ "E_after_subscribe_before_action": [
+  "{\"id\":\"sub32\",\"result\":{\"type\":\"subscription_started\"}}"
+ ],
+ "E_post_tab": "wF:t3",
+ "E_after_action": [
+  "{\"data\":{\"tab\":{\"agent_status\":\"unknown\",\"focused\":false,\"label\":\"post-sub\",\"number\":3,\"pane_count\":1,\"tab_id\":\"wF:t3\",\"workspace_id\":\"wF\"},\"type\":\"tab_created\"},\"event\":\"tab_created\"}"
+ ],
+ "L_ws_rename_empty": {
+  "id": "r32",
+  "result": {
+   "type": "workspace_info",
+   "workspace": {
+    "workspace_id": "wF",
+    "number": 7,
+    "label": "",
+    "focused": false,
+    "pane_count": 3,
+    "tab_count": 3,
+    "active_tab_id": "wF:t1",
+    "agent_status": "unknown"
+   }
+  }
+ },
+ "L_ws_rename_long": "{'id': 'r32', 'result': {'type': 'workspace_info', 'workspace': {'workspace_id': 'wF', 'number': 7, 'label': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+ "L_rename_events": [
+  "{\"data\":{\"label\":\"\",\"type\":\"workspace_renamed\",\"workspace_id\":\"wF\"},\"event\":\"workspace_renamed\"}",
+  "{\"data\":{\"label\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "{\"data\":{\"label\":\"kelpie-verify-r32\",\"type\":\"workspace_renamed\",\"workspace_id\":\"wF\"},\"event\":\"workspace_renamed\"}"
+ ],
+ "F_dead_pane": [
+  "{\"id\":\"sub32:sub:1:probe\",\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane wF:p999 not found\"}}",
+  "<EOF>"
+ ],
+ "G_output_changed": [
+  "{\"id\":\"\",\"error\":{\"code\":\"invalid_request\",\"message\":\"invalid request: unknown variant `pane.output_changed`, expected one of `workspace.created`, `workspace.updated`, `workspace.metadata_updated`, `workspace.renamed`, `workspace.moved`, `workspace.reordered`, `workspace.closed`, `workspace.focused`",
+  "<EOF>"
+ ],
+ "H_keys": [
+  "type",
+  "read"
+ ],
+ "H_read_keys": {
+  "pane_id": "wF:p1",
+  "workspace_id": "wF",
+  "tab_id": "wF:t1",
+  "source": "recent",
+  "format": "text",
+  "text": 1000,
+  "revision": 0,
+  "truncated": true
+ },
+ "H_default_lines": 80,
+ "I_wait_wrong_param": {
+  "id": "",
+  "error": {
+   "code": "invalid_request",
+   "message": "invalid request: missing field `match_event` at line 1 column 110"
+  }
+ },
+ "I_wait_match_event": {
+  "id": "r32",
+  "error": {
+   "code": "unsupported_event_wait_match",
+   "message": "events.wait currently supports pane agent status matches"
+  }
+ },
+ "I_wait_pane_status": {
+  "id": "",
+  "error": {
+   "code": "invalid_request",
+   "message": "invalid request: missing field `agent_status` at line 1 column 144"
+  }
+ },
+ "J_ctrl-c": "invalid_key",
+ "J_ctrl+c": "ok",
+ "J_C-c": "ok",
+ "J_CTRL+C": "ok",
+ "J_Enter": "ok",
+ "J_esc": "ok"
+}

@@ -368,6 +368,14 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 32 — herdr 0.9.1 on the mini, verified live — 2026-09-23
+
+No app code. The mini runs herdr 0.9.1 since Anthony's restart; CLAUDE.md's facts were re-run against it in a throwaway workspace.
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: round 32 close-out** — Open items 47 and 14 closed: the mini is on 0.9.1 (protocol 22), its schema equals the snapshot, and the load-bearing herdr facts re-verified live (`Archive/round32/herdr-0.9.1-live.md`, probe scripts and captures beside it). `CLAUDE.md` gains the 0.9.1 notes (`agent_launch_pending` on rename, `launch_pending` through the trust dialog, the new `ping` capabilities, `pane.graphics.stream` in the parser but not the schema). Open items 51 (two stale `production` push entries on the mini), 52 (orphaned temp files beside `notifications.json`) and 53 (the app has no message for `agent_launch_pending`) opened. Also commits the dependency watch's 2026-09-22 run (upstream Heeler 146 commits ahead). Vault reconciled. |
+
 ## Round 31 — triage: the device checklists and item 50 close — 2026-09-17
 
 Vault only, no code. Anthony read the open items in plain words and closed thirteen on his word; the herdr upgrade on the mini (item 47) is his, after this session ends.
