@@ -512,3 +512,7 @@ Answered (round 32): the 146 upstream commits since `b384847` are mostly Console
 Anthony (2026-09-23, round 32, answering the upstream question): "ok, per your recommendation"
 
 Read as: Kelpie stops rebasing onto Heeler and becomes a hard fork that cherry-picks upstream's transport, SSH, terminal and plugin fixes. Recorded as a decision and queued as Open item 55 for the next session (one round per session); not built here. Correction to the answer given: the pre-push ancestry check needs no loosening, because cherry-picks keep `kelpie` descending from `b384847`; what changes is the dependency watch's `heeler-upstream` check, which should stop recommending a rebase.
+
+Anthony (2026-09-23, round 32, closing): "let's close this out and I'll start a new session"
+
+Read as: round 32 ends here. The vault is already reconciled; commit this entry, push `kelpie` to `origin` (push freely, per `resume.md`), confirm the scratchpad is empty. The next session starts from `resume.md` at Open item 55.
