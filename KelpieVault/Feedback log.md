@@ -528,3 +528,7 @@ Read as: the batch is Open item 55 (cherry-pick upstream Heeler's fixes) first, 
 Anthony (2026-09-25, round 33, asked to detach the Magic Keyboard for the device run): "only ipad is plugged in, avoid iphone for now"
 
 Read as: the iPhone is not available this session; run the device suite on the iPad only and record the iPhone half of `make test-device` as not run (not skipped silently), to be run when the phone is plugged in. Nothing said about the keyboard: the iPad run itself shows whether the four keyboard tests ran or skipped.
+
+Anthony (2026-09-25, round 33, later): "iphone is ready for testing now too. once complete, provide a short summary of what you built"
+
+Read as: run the device suite on the iPhone now (phone plugged in, left alone), then report the round as a short summary of what was built.
