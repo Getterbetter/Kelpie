@@ -8,7 +8,8 @@ Batch (Anthony: "both but keep a to do list and update it as you go"): Open item
 
 - [ ] A. SSH group cherry-picked (`Packages/HeelerSSH`, plus 3b7ddf64's Tailscale-SSH pairing refusal)
 - [ ] B. Transport and terminal group cherry-picked (`EventsSession` dead-transport series, never-autocorrect, replaced-surface keyboard)
-- [ ] C. Plugin and build group cherry-picked; `npm test` green; `depwatch.py`'s `heeler-upstream` check reports unreviewed upstream fixes instead of a rebase
+- [x] C. Plugin and build group cherry-picked; `npm test` green; `depwatch.py`'s `heeler-upstream` check reports unreviewed upstream fixes instead of a rebase
+  - Done on `round33-C`: 11 picks, none skipped, `npm test` 355/355; depwatch reads `scripts/heeler-upstream-reviewed`. Two `test-depwatch.sh` tests were already red on `kelpie` (expect 102 schema methods, the 0.9.1 snapshot has 103): fixed on `kelpie` (`8416e9e7`), 51/51. Merged to `kelpie` (fast-forward to `e1517868`).
 - [ ] D. Items 49 (banner lost on a reconnect), 53 (`agent_launch_pending` message), 52 (temp-file sweep)
 - [ ] E. Integrated on `kelpie`, builds at the fixed path
 - [ ] F. Review of A to D
