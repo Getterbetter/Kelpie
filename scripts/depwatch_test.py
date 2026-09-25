@@ -118,9 +118,10 @@ class SchemaDriftTests(unittest.TestCase):
         cls.variant, cls.marks = schema_variant(cls.base)
 
     def test_snapshot_shape_matches_the_documented_counts(self):
-        # CLAUDE.md: the 0.9.0 snapshot declares 102 request methods and
-        # 26 event kinds, with 3 pane-scoped subscription kinds.
-        self.assertEqual(len(depwatch.schema_methods(self.base)), 102)
+        # CLAUDE.md: the 0.9.1 snapshot declares 103 request methods (0.9.1
+        # added pane.link.resolve) and 26 event kinds, with 3 pane-scoped
+        # subscription kinds.
+        self.assertEqual(len(depwatch.schema_methods(self.base)), 103)
         self.assertEqual(len(depwatch.schema_event_kinds(self.base)), 26)
         self.assertEqual(len(depwatch.schema_subscription_event_kinds(self.base)), 3)
 
@@ -162,10 +163,12 @@ class CrossReferenceTests(unittest.TestCase):
             ["agent.list", "pane.read", "ping", "session.snapshot"],
         )
 
-    def test_real_sources_declare_the_eighteen_methods(self):
+    def test_real_sources_declare_the_nineteen_methods(self):
+        # The nineteenth, pane.process_info, came with Kelpie Chat (43a).
         text = depwatch.sources_text(REPO_ROOT)
         methods = depwatch.used_methods(text)
-        self.assertEqual(len(methods), 18)
+        self.assertEqual(len(methods), 19)
+        self.assertIn("pane.process_info", methods)
         self.assertIn("events.subscribe", methods)
 
     def test_event_kinds_match_either_spelling(self):
