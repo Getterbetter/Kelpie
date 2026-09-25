@@ -10,7 +10,8 @@ Batch (Anthony: "both but keep a to do list and update it as you go"): Open item
 - [ ] B. Transport and terminal group cherry-picked (`EventsSession` dead-transport series, never-autocorrect, replaced-surface keyboard)
 - [x] C. Plugin and build group cherry-picked; `npm test` green; `depwatch.py`'s `heeler-upstream` check reports unreviewed upstream fixes instead of a rebase
   - Done on `round33-C`: 11 picks, none skipped, `npm test` 355/355; depwatch reads `scripts/heeler-upstream-reviewed`. Two `test-depwatch.sh` tests were already red on `kelpie` (expect 102 schema methods, the 0.9.1 snapshot has 103): fixed on `kelpie` (`8416e9e7`), 51/51. Merged to `kelpie` (fast-forward to `e1517868`).
-- [ ] D. Items 49 (banner lost on a reconnect), 53 (`agent_launch_pending` message), 52 (temp-file sweep)
+- [x] D. Items 49 (banner lost on a reconnect), 53 (`agent_launch_pending` message), 52 (temp-file sweep)
+  - Done and on `kelpie` (`7b6eb485`, `08cabe95`, `95417700`); six suites, 155 tests green on the iPad. Report `Archive/round33/report-D.md`.
 - [ ] E. Integrated on `kelpie`, builds at the fixed path
 - [ ] F. Review of A to D
 - [ ] G. `make test-device` green on the iPad and the iPhone, plus the four keyboard tests on the iPad with the Magic Keyboard detached
