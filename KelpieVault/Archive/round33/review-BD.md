@@ -195,3 +195,68 @@ the three D commits' sources and the relevant tests. Not checked: nothing was
 built or run (per brief); the upstream-only focus tests dropped in `9470cf55`; the
 new `EventsSessionSubscriptionsTests` beyond their existence; the round-30 item-19
 diagnosis note in detail.
+
+## Fix verification (`f7cbc098`)
+
+Read only; nothing built or run. The commit reports 230 tests green on the iPad,
+including the new `aTimedOutSendIsNotRetriedButTheTransportIsReplaced` and
+`aLinkFailureDuringTheSubscribeRedialsInsteadOfParkingForever`.
+
+**S1 and S2: pass.**
+- `withTransport` no longer clears `currentTransport`. It sets `transportSuspect`
+  and ends a live stream as before (`EventsSession.swift:431`, `:449`). The
+  suspect transport stays installed, so `ensureTransport` (`:1018-1027`) or
+  `windDown` closes it: S2 is closed.
+- `awaitUsableTransport` and the continuation branch both read `usableTransport`
+  (`transportSuspect ? nil : currentTransport`), so a suspect transport is never
+  handed out.
+- The run loop checks `transportSuspect` right after `liveStream = stream`
+  (`:893-903`). If it is set, the loop ends the stream (bounded) and continues
+  into `ensureTransport`, which closes the old transport, redials and resumes the
+  waiters. That closes the S1 wedge. It also covers a `networkPathDidChange` or
+  `terminalDidFail` that lands mid-subscribe, which returned early with no stream
+  before this commit.
+- I found no new way for a caller to park forever. I checked every
+  `transportSuspect = true` site:
+  - `withTransport` (`:431`) ends a live stream. With no live stream, the loop is
+    either mid-subscribe (the new check catches it) or backing off (the next
+    `ensureTransport` replaces the transport).
+  - `terminalDidFail` (`:586`), `networkPathDidChange` (`:626`) and
+    `keepaliveDidFail` (`:1238`) either end the live stream or return when there
+    is none, and the same two cases then apply.
+  - The subscribe-timeout catch (`:855`) backs off, then calls `ensureTransport`.
+  - After a non-retryable `.failed` return, the suspect transport can now stay
+    installed, but `terminalTransportFailure` is always recorded first, so
+    `awaitUsableTransport` throws it instead of parking. When the session is not
+    active, it throws at the phase guard.
+- The terminal channel is unchanged. `awaitTerminalTransport` and
+  `terminalTransportIsCurrent` already refused a suspect transport. They behave
+  as they did when the transport was cleared.
+
+**S3: pass.** Only `.sshUnreachable` is retried (`isRetryableLinkFailure`,
+`:475-479`). `.timedOut` still marks the transport suspect and ends the stream,
+then rethrows the original error at `guard retries else { throw error }`
+(`:453`).
+
+**S4: pass.** `sweepStaleTemporaryFiles` is awaited after the replace, outside the
+replace's deadline (`HeelerSSHTransport.swift:1007`). Failures stay silent, and
+the sweep still runs only after a successful replace.
+
+### New nits from the fix
+- **N4. A stale `resubscribeRequested`.** `liveStream` is now set before the new
+  suspect check, so a `withTransport` failure that lands while that stream is
+  being ended sets `resubscribeRequested = true` (`:449`). The new branch then
+  continues without clearing the flag. Its only reset is in the stream-ended
+  branch (`:938-944`), so it survives until the next stream ends. The next real
+  failure then goes through that branch as a silent resubscribe: no
+  `.reconnecting`, no backoff, and `pendingKeepaliveFailure` is left unread. This
+  happens once and recovers (`ensureTransport` still redials a suspect transport).
+  Fix: add `resubscribeRequested = false` before that branch's `continue`.
+- **N5. The awaited sweep lengthens the write.** On a slow link, the sweep adds up
+  to two exec round trips (each bounded by `requestTimeout`) to a successful
+  `replaceNotification*` call. It can never fail the write.
+- **Note, not a defect of this commit.** Since the B series, a single `.timedOut`
+  RPC (a busy herdr, not a dead link) marks the primary Host's transport suspect.
+  That replaces the transport and makes the root-screen herdr client re-attach.
+  This is by design upstream, and worth knowing if re-attaches show up after slow
+  `agent.read` calls.

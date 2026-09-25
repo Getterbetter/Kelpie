@@ -899,6 +899,10 @@ actor EventsSession {
                 trace(.subscribe, .note("the transport turned suspect during the subscribe"))
                 await endStreamPromptly(stream)
                 if liveStream === stream { liveStream = nil }
+                // A caller that failed while this stream was being ended may
+                // have asked for a resubscribe; this redial already is one,
+                // and a stale flag would hide the next real failure.
+                resubscribeRequested = false
                 continue
             }
             trace(.subscribe, .succeeded)
