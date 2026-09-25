@@ -524,3 +524,7 @@ Read as: round 33. Found at start: round 32 is closed out and pushed; the only u
 Anthony (2026-09-25, round 33, offered 55 or 49 + 53 + 52): "both but keep a to do list and update it as you go"
 
 Read as: the batch is Open item 55 (cherry-pick upstream Heeler's fixes) first, then 49, 53 and 52. The to-do list is kept as a checklist in an `## In progress` section at the top of `resume.md`, ticked as each step lands and committed with it, so it doubles as the checkpoint; the close-out removes it.
+
+Anthony (2026-09-25, round 33, asked to detach the Magic Keyboard for the device run): "only ipad is plugged in, avoid iphone for now"
+
+Read as: the iPhone is not available this session; run the device suite on the iPad only and record the iPhone half of `make test-device` as not run (not skipped silently), to be run when the phone is plugged in. Nothing said about the keyboard: the iPad run itself shows whether the four keyboard tests ran or skipped.
