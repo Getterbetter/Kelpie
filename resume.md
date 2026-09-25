@@ -15,7 +15,8 @@ Batch (Anthony: "both but keep a to do list and update it as you go"): Open item
 - [x] D. Items 49 (banner lost on a reconnect), 53 (`agent_launch_pending` message), 52 (temp-file sweep)
   - Done and on `kelpie` (`7b6eb485`, `08cabe95`, `95417700`); six suites, 155 tests green on the iPad. Report `Archive/round33/report-D.md`.
 - [x] E. Integrated on `kelpie`, builds at the fixed path (`build-for-testing` clean; `xcodegen` left no diff)
-- [ ] F. Review of A to D
+- [x] F. Review of A to D
+  - `review-A.md`: 1 must-fix (package CI count 61, `ff73dc07`), 4 nits. `review-BD.md`: 4 should-fix (suspect transport cleared and leaked; timed-out calls retried), fixed in `f7cbc098` and `N4` in the next commit, verified by the reviewer; nits left for Open items.
 - [ ] G. `make test-device` green on the iPad and the iPhone, plus the four keyboard tests on the iPad with the Magic Keyboard detached
 - [ ] H. HeelerSSH package suites through CI (a pull request on the fork; they cannot run on a device)
 - [ ] I. Plugin re-installed on the mini; Device regression list on both devices
