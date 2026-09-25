@@ -19,7 +19,7 @@ commands already written out.
 | --- | --- | --- | --- |
 | herdr API schema | `scripts/herdr-schema.json` (protocol 22) | Wire types, the protocol floor, every load-bearing fact in `CLAUDE.md` | mechanical + manual |
 | herdr on the Mac mini | nothing — brew upgrades it | The live server runs ahead of the snapshot Kelpie was built against | manual |
-| Heeler upstream | the `upstream` remote, branch `kelpie` | The next rebase; collisions in files both sides touched | manual |
+| Heeler upstream | `scripts/heeler-upstream-reviewed` (last reviewed `upstream/main` commit) | Nothing by itself: Kelpie takes upstream fixes by cherry-pick, and unreviewed commits in paths Kelpie runs may carry fixes it needs | manual |
 | libghostty-spm | `URL` / `SHA` in `scripts/fetch-ghostty-artifact.sh` | Terminal rendering, iPad pointer and scroll behaviour | manual |
 | libssh2 + OpenSSL | `Packages/HeelerSSH/Sources.lock` | SSH transport; a published advisory means a security fix, not a chore | manual |
 | `plugin/` and `relay/` npm trees | `plugin/package-lock.json` (relay has none, by design) | Pairing Codes and Agent Notifications | mechanical |
@@ -134,19 +134,26 @@ Until then the check reports `info`, never `error`.
 
 ### `heeler-upstream`
 
-The recipe that worked in round 7, and the one the finding repeats:
+Kelpie is a hard fork of Heeler since 2026-09-23 (round 32): it stays on
+upstream v0.1.8 and takes upstream fixes by `git cherry-pick -x`, never by
+rebase. The check reads the last reviewed upstream commit from
+`scripts/heeler-upstream-reviewed` (the full sha on the first line; lines
+starting `#` are comments) and lists `<reviewed>..upstream/main`
+(`--no-merges`), split into commits touching paths Kelpie runs
+(`Packages/HeelerSSH/`, `Sources/Heeler/Transport/`, `Sources/Heeler/Terminal/`,
+`Sources/Heeler/Pairing/`, `Sources/Heeler/Hosts/`, `plugin/`, `relay/`,
+`Makefile`, `scripts/`) and the rest (Console and docs). Severity is `info`
+with nothing new, `low` when only the rest moved, `medium` from one commit in
+Kelpie's paths and `high` from ten. A missing or malformed file is reported as
+a `medium` finding, not a crash.
+
+To act on it:
 
 ```sh
-git tag kelpie-pre-rebase-$(date +%Y%m%d)
-GIT_EDITOR=true git rebase upstream/main
-# resolve CHANGELOG.md by keeping both ### Added lists
-xcodegen generate
-# then a device build
+git log --no-merges <reviewed>..upstream/main   # review for fixes Kelpie wants
+git cherry-pick -x <sha>                         # oldest first, one at a time
+# then put upstream/main's full sha on the first line of scripts/heeler-upstream-reviewed
 ```
-
-The watcher rehearses this for you in a detached worktree and aborts, so the
-finding already knows whether it conflicts and where. Anything beyond a
-`CHANGELOG.md` conflict is a round of its own, not a five-minute job.
 
 ### `libghostty-spm`
 

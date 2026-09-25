@@ -1,0 +1,7 @@
+53b1c6ae07bfc3c29f5844546cd02779c7816241
+# The last upstream Heeler commit (upstream/main) Kelpie has reviewed for
+# cherry-picks. Kelpie is a hard fork since 2026-09-23 and takes upstream
+# fixes by `git cherry-pick -x`, never by rebase. The depwatch
+# `heeler-upstream` check reports `<this>..upstream/main`; after reviewing
+# those commits, replace the first line with the new upstream/main sha.
+# Recorded in round 33 (2026-09-25).

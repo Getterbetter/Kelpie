@@ -234,17 +234,11 @@ class SeverityTests(unittest.TestCase):
         )
 
     def test_upstream_severities(self):
-        self.assertEqual(depwatch.upstream_severity(0, [], []), "info")
-        self.assertEqual(depwatch.upstream_severity(14, [], []), "low")
-        self.assertEqual(depwatch.upstream_severity(14, [], ["CHANGELOG.md"]), "medium")
-        self.assertEqual(depwatch.upstream_severity(14, ["CHANGELOG.md"], []), "medium")
-        self.assertEqual(
-            depwatch.upstream_severity(14, ["Sources/Heeler/App.swift"], []), "high"
-        )
-        self.assertEqual(depwatch.upstream_severity(3, ["project.yml"], []), "high")
-        self.assertEqual(
-            depwatch.upstream_severity(3, ["Packages/HeelerSSH/Sources.lock"], []), "high"
-        )
+        self.assertEqual(depwatch.upstream_severity(0, 0), "info")
+        self.assertEqual(depwatch.upstream_severity(14, 0), "low")
+        self.assertEqual(depwatch.upstream_severity(14, 1), "medium")
+        self.assertEqual(depwatch.upstream_severity(14, 9), "medium")
+        self.assertEqual(depwatch.upstream_severity(14, 10), "high")
 
     def test_ssh_pin_severities(self):
         self.assertEqual(depwatch.ssh_pins_severity(["GHSA-x"], False), "high")
@@ -276,6 +270,78 @@ class SeverityTests(unittest.TestCase):
         self.assertEqual(depwatch.relay_severity(200, None), "info")
         self.assertEqual(depwatch.relay_severity(503, None), "high")
         self.assertEqual(depwatch.relay_severity(None, "URLError: timed out"), "high")
+
+
+class HeelerUpstreamTests(unittest.TestCase):
+    REVIEWED = "53b1c6ae07bfc3c29f5844546cd02779c7816241"
+    HEAD = "a" * 40
+
+    def _log(self, *commits):
+        return "".join(
+            "\x1e%s\t%s\n\n%s\n" % (sha, subject, "\n".join(paths)) for sha, subject, paths in commits
+        )
+
+    def test_nothing_new(self):
+        finding = depwatch.upstream_finding(self.REVIEWED, self.REVIEWED, [])
+        self.assertEqual(finding["severity"], "info")
+        self.assertEqual(finding["title"], "no upstream commits to review")
+        self.assertEqual(finding["lane"], "none")
+        self.assertEqual(finding["actions"], [])
+
+    def test_only_console_commits(self):
+        commits = depwatch.parse_upstream_log(self._log(
+            ("1" * 40, "feat(console): a drawer", ["Sources/Heeler/Console/Drawer.swift", "CHANGELOG.md"]),
+            ("2" * 40, "docs: readme", ["README.md"]),
+        ))
+        self.assertEqual(len(commits), 2)
+        finding = depwatch.upstream_finding(self.REVIEWED, self.HEAD, commits)
+        self.assertEqual(finding["severity"], "low")
+        self.assertEqual(finding["title"], "2 upstream commits to review (0 in paths Kelpie runs)")
+        self.assertEqual(finding["fingerprint"], "%s..%s" % (self.REVIEWED, self.HEAD))
+        text = " ".join(finding["actions"])
+        self.assertIn("git cherry-pick -x", text)
+        self.assertNotIn("rebase", text)
+        self.assertIn(self.HEAD, text)
+
+    def test_path_matching_commit(self):
+        commits = depwatch.parse_upstream_log(self._log(
+            ("1" * 40, "fix(plugin): x", ["plugin/src/addresses.js"]),
+            ("2" * 40, "feat(console): y", ["Sources/Heeler/Console/View.swift"]),
+            ("3" * 40, "fix(build): z", ["Makefile"]),
+            ("4" * 40, "fix: not makefile", ["Makefile.bak", "Sources/Heeler/TransportX.swift"]),
+        ))
+        finding = depwatch.upstream_finding(self.REVIEWED, self.HEAD, commits)
+        self.assertEqual(finding["severity"], "medium")
+        self.assertEqual(finding["title"], "4 upstream commits to review (2 in paths Kelpie runs)")
+        self.assertEqual(finding["data"]["kelpie_paths"], ["1" * 40, "3" * 40])
+        self.assertIn("fix(plugin): x", " ".join(finding["evidence"]))
+        many = [{"sha": "%040d" % i, "subject": "s", "paths": ["relay/x.js"]} for i in range(10)]
+        self.assertEqual(depwatch.upstream_finding(self.REVIEWED, self.HEAD, many)["severity"], "high")
+
+    def test_reviewed_file_parsing(self):
+        self.assertEqual(
+            depwatch.parse_reviewed_file("# note\n%s\n# more\n" % self.REVIEWED.upper()),
+            (self.REVIEWED, None),
+        )
+        for text in (None, "", "# only a comment\n", "53b1c6ae\n", "not a sha at all\n"):
+            sha, problem = depwatch.parse_reviewed_file(text)
+            self.assertIsNone(sha)
+            self.assertIn("heeler-upstream-reviewed", problem)
+
+    def test_missing_or_malformed_file_is_reported(self):
+        _, problem = depwatch.parse_reviewed_file(None)
+        finding = depwatch.upstream_finding(None, self.HEAD, [], problem)
+        self.assertEqual(finding["check"], "heeler-upstream")
+        self.assertEqual(finding["severity"], "medium")
+        self.assertEqual(finding["lane"], "manual")
+        self.assertIn("missing", " ".join(finding["evidence"]))
+
+    def test_committed_reviewed_file_parses(self):
+        sha, problem = depwatch.parse_reviewed_file(
+            (Path(depwatch.REPO_ROOT) / depwatch.REVIEWED_FILE).read_text()
+        )
+        self.assertIsNone(problem)
+        self.assertEqual(sha, self.REVIEWED)
 
 
 class PinParsingTests(unittest.TestCase):

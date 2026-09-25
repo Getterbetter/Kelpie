@@ -6,7 +6,10 @@ note: What Kelpie depends on, what the daily watch checks at 05:45, and what to 
 
 [[Kelpie]] is a fork balanced on top of things that move without asking.
 [[herdr]] ships a release most weeks and says plainly that its API has no
-stability guarantee. [[Heeler upstream]] moves daily. The terminal engine is a
+stability guarantee. [[Heeler upstream]] moves daily; Kelpie is a hard fork of
+it since 2026-09-23, so the `heeler-upstream` check lists the upstream commits
+nobody has reviewed for a cherry-pick yet (after the one recorded in
+`scripts/heeler-upstream-reviewed`), not the cost of a rebase. The terminal engine is a
 vendored prebuilt binary, the SSH stack is two C libraries pinned by commit
 hash, the notification path runs through a Cloudflare Worker, and Xcode updates
 itself whether or not anyone asked.

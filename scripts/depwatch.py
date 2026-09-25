@@ -56,7 +56,6 @@ SNAPSHOT_TAG_SEED = "v0.9.1"
 
 KELPIE_IPAD_UDID = "09D7738D-2173-55EF-8966-A9C3EA1D0514"  # Anthony's 11-inch iPad Pro
 HERDR_REPO = "herdrdev/herdr"
-HEELER_REPO = "ZingerLittleBee/Heeler"
 FORK_REPO = "Getterbetter/Kelpie"
 GHOSTTY_REPO = "Lakr233/libghostty-spm"
 HERDR_SCHEMA_PATH_IN_REPO = "docs/next/api/herdr-api.schema.json"
@@ -275,17 +274,129 @@ def herdr_release_severity(has_newer_tag, drift, breaking):
     return "medium"
 
 
-def upstream_severity(commit_count, conflicts, collisions):
-    """info at 0 commits; high when conflicts touch code; medium on a
-    non-empty collision set or a CHANGELOG-only conflict; low otherwise."""
+def upstream_severity(commit_count, kelpie_count):
+    """info at 0 unreviewed commits; low when none touch paths Kelpie runs;
+    medium from one such commit; high from ten."""
     if commit_count == 0:
         return "info"
-    risky = ("Sources/", "Packages/", "Tests/", "project.yml")
-    if any(path.startswith(risky) or path == "project.yml" for path in conflicts):
+    if kelpie_count >= 10:
         return "high"
-    if conflicts:
+    if kelpie_count >= 1:
         return "medium"
-    return "medium" if collisions else "low"
+    return "low"
+
+
+# Paths of upstream Heeler that Kelpie still runs; everything else upstream
+# changes is Console UI (hidden behind Kelpie's herdr client) or docs.
+KELPIE_RUN_PATHS = (
+    "Packages/HeelerSSH/",
+    "Sources/Heeler/Transport/",
+    "Sources/Heeler/Terminal/",
+    "Sources/Heeler/Pairing/",
+    "Sources/Heeler/Hosts/",
+    "plugin/",
+    "relay/",
+    "Makefile",
+    "scripts/",
+)
+REVIEWED_FILE = "scripts/heeler-upstream-reviewed"
+
+
+def touches_kelpie_paths(paths):
+    return any(path == prefix or (prefix.endswith("/") and path.startswith(prefix))
+               for path in paths for prefix in KELPIE_RUN_PATHS)
+
+
+def parse_reviewed_file(text):
+    """Return (sha, problem): the full sha on the first non-comment line, or
+    None and why not. Comment lines start with `#`."""
+    if text is None:
+        return None, "`%s` is missing" % REVIEWED_FILE
+    lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in lines if line and not line.startswith("#")]
+    if not lines:
+        return None, "`%s` names no commit" % REVIEWED_FILE
+    sha = lines[0].lower()
+    if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
+        return None, "`%s` does not start with a full commit sha: `%s`" % (REVIEWED_FILE, lines[0][:60])
+    return sha, None
+
+
+def parse_upstream_log(text):
+    """Parse `git log --no-merges --name-only --format=%x1e%H%x09%s` into
+    [{"sha", "subject", "paths"}], newest first."""
+    commits = []
+    for record in text.split("\x1e"):
+        record = record.strip("\n")
+        if not record.strip():
+            continue
+        header, _, rest = record.partition("\n")
+        sha, _, subject = header.partition("\t")
+        paths = [line.strip() for line in rest.splitlines() if line.strip()]
+        commits.append({"sha": sha.strip(), "subject": subject.strip(), "paths": paths})
+    return commits
+
+
+def upstream_finding(reviewed, head, commits, problem=None):
+    """The heeler-upstream finding from the recorded reviewed commit, the
+    upstream/main sha and the commits between them (pure: no git)."""
+    if problem:
+        return make_finding(
+            check="heeler-upstream",
+            severity="medium",
+            fingerprint="reviewed-file:%s:%s" % (problem, head),
+            title="cannot read the reviewed upstream commit",
+            summary="Kelpie takes upstream Heeler fixes by cherry-pick; the check needs the last "
+            "reviewed upstream commit to know what is new.",
+            evidence=[problem, "upstream/main `%s`" % head[:12]],
+            lane="manual",
+            actions=[
+                "Write the last reviewed upstream sha (full 40 characters) on the first line of "
+                "`%s`; comment lines start with `#`." % REVIEWED_FILE,
+            ],
+            data={"reviewed": None, "head": head, "problem": problem},
+        )
+    runs = [c for c in commits if touches_kelpie_paths(c["paths"])]
+    rest = [c for c in commits if not touches_kelpie_paths(c["paths"])]
+    total, kelpie_count = len(commits), len(runs)
+
+    def line(commit):
+        return "`%s` %s" % (commit["sha"][:8], commit["subject"])
+
+    evidence = [
+        "`%s..upstream/main` (`--no-merges`): %d commits, head `%s`" % (reviewed[:8], total, head[:12]),
+    ]
+    if runs:
+        evidence.append("in paths Kelpie runs (%d): %s" % (kelpie_count, "; ".join(line(c) for c in runs[:10])))
+    if rest:
+        evidence.append("Console and docs (%d): %s" % (len(rest), "; ".join(line(c) for c in rest[:5])))
+    if total == 0:
+        title = "no upstream commits to review"
+    else:
+        title = "%d upstream commit%s to review (%d in paths Kelpie runs)" % (
+            total, "" if total == 1 else "s", kelpie_count)
+    actions = [
+        "Review them for cherry-picks: `git log --no-merges %s..upstream/main`, then "
+        "`git cherry-pick -x <sha>` for each fix Kelpie wants, oldest first." % reviewed[:12],
+        "Then move the recorded commit forward: put `%s` on the first line of `%s`." % (head, REVIEWED_FILE),
+    ]
+    return make_finding(
+        check="heeler-upstream",
+        severity=upstream_severity(total, kelpie_count),
+        fingerprint="%s..%s" % (reviewed, head),
+        title=title,
+        summary="Kelpie is a hard fork of Heeler since 2026-09-23 and takes upstream fixes by "
+        "cherry-pick, never by rebase; these are the upstream commits nobody has reviewed yet.",
+        evidence=evidence,
+        lane="manual" if total else "none",
+        actions=actions if total else [],
+        data={
+            "reviewed": reviewed,
+            "head": head,
+            "commits": total,
+            "kelpie_paths": [c["sha"] for c in runs],
+        },
+    )
 
 
 def ssh_pins_severity(new_advisories, newer_patch_in_line):
@@ -1066,106 +1177,23 @@ def check_heeler_upstream(ctx):
     if head["code"] != 0:
         raise ToolError("no `upstream/main` ref: %s" % head["err"].strip()[:200])
     upstream_sha = head["out"].strip()
-    count_text = ctx.git(["rev-list", "--count", "kelpie..upstream/main"], tolerate=True)["out"].strip()
-    commit_count = int(count_text) if count_text.isdigit() else 0
-    oneline = ctx.git(["log", "--oneline", "-20", "kelpie..upstream/main"], tolerate=True)["out"].strip()
-    merge_base = ctx.git(["merge-base", "kelpie", "upstream/main"], tolerate=True)["out"].strip()
-
-    upstream_files = set()
-    kelpie_files = set()
-    if merge_base:
-        upstream_files = set(
-            ctx.git(["diff", "--name-only", "%s..upstream/main" % merge_base], tolerate=True)["out"].split()
-        )
-        kelpie_files = set(
-            ctx.git(["diff", "--name-only", "%s..kelpie" % merge_base], tolerate=True)["out"].split()
-        )
-    collisions = sorted(upstream_files & kelpie_files)
-
-    releases = ctx.gh_json("repos/%s/releases?per_page=5" % HEELER_REPO, tolerate=True) or []
-    release_line = ", ".join(
-        "%s (%s)" % (r.get("tag_name"), (r.get("published_at") or "")[:10]) for r in releases[:3]
-    )
-
-    conflicts = []
-    rebase_note = "skipped (0 commits behind)"
-    if commit_count:
-        conflicts, rebase_note = dry_run_rebase(ctx, upstream_sha)
-
-    evidence = [
-        "`kelpie..upstream/main`: %d commits, head `%s`" % (commit_count, upstream_sha[:12]),
-        "merge-base `%s`" % (merge_base[:12] or "unknown"),
-        "collision set (%d files both sides touched): %s"
-        % (len(collisions), ", ".join(collisions[:10]) or "empty"),
-        "dry-run rebase: %s" % rebase_note,
-    ]
-    if release_line:
-        evidence.append("upstream releases: %s" % release_line)
-    if oneline:
-        evidence.append("first commits: %s" % "; ".join(oneline.splitlines()[:5]))
-
-    severity = upstream_severity(commit_count, conflicts, collisions)
-    actions = [
-        "Tag first: `git tag kelpie-pre-rebase-$(date +%Y%m%d)`.",
-        "`GIT_EDITOR=true git rebase upstream/main`; resolve `CHANGELOG.md` by keeping both "
-        "`### Added` lists (the only conflict round 7 hit).",
-        "`xcodegen generate`, then a device build — never merge a rebase on a compile alone.",
-        "Give it a round of its own when the conflict set is not just `CHANGELOG.md`.",
-    ]
-    if conflicts:
-        actions.insert(
-            2, "Conflicting files to resolve by hand: %s." % ", ".join(conflicts[:20])
-        )
-    title = "%d commits behind upstream" % commit_count
-    if conflicts:
-        title += ", %d conflicting file%s" % (len(conflicts), "" if len(conflicts) == 1 else "s")
-    elif commit_count == 0:
-        title = "level with upstream/main"
-    return make_finding(
-        check="heeler-upstream",
-        severity=severity,
-        fingerprint=upstream_sha,
-        title=title,
-        summary="Heeler upstream moves daily and Kelpie is a rebasing fork, so the cost of the next "
-        "rebase is worth knowing before it is forced.",
-        evidence=evidence,
-        lane="manual" if commit_count else "none",
-        actions=actions if commit_count else [],
-        data={"conflicts": conflicts, "collisions": collisions, "commits": commit_count},
-    )
-
-
-def dry_run_rebase(ctx, upstream_sha):
-    """Rebase `kelpie` onto `upstream/main` in a throwaway detached worktree."""
-    worktree = ctx.worktree_root / ("upstream-%s" % upstream_sha[:12])
     try:
-        add_worktree(ctx, worktree)
-    except ToolError as error:
-        return [], "could not create a worktree (%s)" % error
-    try:
-        result = ctx.run(
-            ["git", "-C", str(worktree), "rebase", "upstream/main"],
-            env={"GIT_EDITOR": "true"},
-            timeout=DEFAULT_TIMEOUT * 3,
+        text = (Path(ctx.repo) / REVIEWED_FILE).read_text()
+    except OSError:
+        text = None
+    reviewed, problem = parse_reviewed_file(text)
+    commits = []
+    if reviewed:
+        log = ctx.git(
+            ["log", "--no-merges", "--name-only", "--format=%x1e%H%x09%s", "%s..upstream/main" % reviewed],
             tolerate=True,
         )
-        if result["code"] == 0:
-            return [], "clean"
-        conflicts = sorted(
-            set(
-                ctx.git(
-                    ["diff", "--name-only", "--diff-filter=U"], cwd=worktree, tolerate=True
-                )["out"].split()
-            )
-        )
-        ctx.run(["git", "-C", str(worktree), "rebase", "--abort"], tolerate=True)
-        if not conflicts:
-            return [], "failed without a conflict list: %s" % (
-                (result["err"] or result["out"]).strip().splitlines()[-1:] or [""]
-            )[0][:160]
-        return conflicts, "%d conflicting files" % len(conflicts)
-    finally:
-        remove_worktree(ctx, worktree)
+        if log["code"] != 0:
+            problem = "`%s` names `%s`, which git cannot range from: %s" % (
+                REVIEWED_FILE, reviewed[:12], log["err"].strip()[:160])
+        else:
+            commits = parse_upstream_log(log["out"])
+    return upstream_finding(reviewed, upstream_sha, commits, problem)
 
 
 def check_libghostty_spm(ctx):
