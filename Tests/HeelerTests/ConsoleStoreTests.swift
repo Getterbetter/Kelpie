@@ -1274,6 +1274,70 @@ struct ConsoleStoreTests {
         store.setHosts([])
     }
 
+    /// Open item 53: herdr 0.9.1 refuses `agent.rename` with
+    /// `agent_launch_pending` while the Agent is still starting. The rename
+    /// waits that out and lands once the launch clears.
+    @Test func renameAgentRetriesThroughAPendingLaunch() async throws {
+        let host = Host.fixture()
+        let transport = ScriptedTransport(
+            snapshot: .fixture(agents: [.fixture(paneID: "w1:p1", status: .idle)]))
+        let store = makeStore(transports: [host.id: transport])
+
+        store.setHosts([host])
+        await store.resume()
+        try await waitUntil("the agent should arrive") { store.agents.count == 1 }
+
+        await transport.setAgentRenameRefusals([
+            HerdrAPIError(code: "agent_launch_pending", message: "agent launch is pending")
+        ])
+        try await store.renameAgent("w1:p1", name: "reviewer", on: host.id)
+
+        #expect(await transport.agentRenameAttempts == 2)
+        #expect(
+            await transport.agentRenames == [AgentRenameParams(target: "w1:p1", name: "reviewer")])
+
+        store.setHosts([])
+    }
+
+    /// The other outcome: a launch still pending when the bounded wait ends
+    /// surfaces herdr's refusal (which the rename sheet explains), after
+    /// retrying rather than on the first answer. Short steps keep it quick;
+    /// production uses 1 s steps over 10 s.
+    @Test func aLaunchThatStaysPendingExhaustsTheRenameRetry() async throws {
+        let transport = ScriptedTransport(snapshot: .fixture())
+        let refusal = HerdrAPIError(
+            code: "agent_launch_pending", message: "agent launch is pending")
+        await transport.setAgentRenameRefusesForever(refusal)
+
+        await #expect(throws: refusal) {
+            try await AgentLaunchPendingRetry.run(
+                step: .milliseconds(10), budget: .milliseconds(100)
+            ) {
+                try await transport.renameAgent(
+                    AgentRenameParams(target: "w1:p1", name: "reviewer"))
+            }
+        }
+        #expect(await transport.agentRenameAttempts >= 3)
+        #expect(await transport.agentRenames.isEmpty)
+    }
+
+    /// Other herdr refusals are not retried.
+    @Test func aRenameRefusedForAnotherReasonIsNotRetried() async throws {
+        let transport = ScriptedTransport(snapshot: .fixture())
+        let refusal = HerdrAPIError(code: "invalid_agent_name", message: "bad name")
+        await transport.setAgentRenameRefusesForever(refusal)
+
+        await #expect(throws: refusal) {
+            try await AgentLaunchPendingRetry.run(
+                step: .milliseconds(10), budget: .milliseconds(100)
+            ) {
+                try await transport.renameAgent(
+                    AgentRenameParams(target: "w1:p1", name: "Bad"))
+            }
+        }
+        #expect(await transport.agentRenameAttempts == 1)
+    }
+
     @Test func renameAgentForwardsANilNameAsTheClear() async throws {
         // A nil name clears the custom name back to the detected kind
         // (verified live against herdr 0.7.5); the transport must see the

@@ -128,6 +128,21 @@ struct RenameStoreTests {
                     "herdr rejected the rename: agent name must start with a lowercase letter"))
     }
 
+    /// Open item 53: a launch still pending after the retry reads as a
+    /// plain instruction, not herdr's raw refusal.
+    @Test func aPendingLaunchMapsToAFriendlyMessage() async {
+        let store = agentStore { _ in
+            throw HerdrAPIError(
+                code: "agent_launch_pending", message: "agent launch is pending")
+        }
+
+        await store.submit()
+
+        #expect(
+            store.state
+                == .failed("The agent is still starting. Try renaming it again in a moment."))
+    }
+
     @Test func disconnectedHostMapsToAFriendlyMessage() async {
         let store = workspaceStore { _ in
             throw TransportError.sshUnreachable(detail: "connection dropped")

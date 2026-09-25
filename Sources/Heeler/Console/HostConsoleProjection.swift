@@ -489,9 +489,16 @@ final class HostConsoleProjection {
     /// host), so subscribing to it as a resync trigger would re-snapshot
     /// continuously. Renames made by other clients therefore surface only on
     /// the next resync.
+    ///
+    /// herdr 0.9.1 refuses a rename while the Agent's launch is pending
+    /// (`agent_launch_pending`); the rename is retried through that window
+    /// (Open item 53).
     func renameAgent(_ paneID: String, name: String?) async throws {
-        try await session.withTransport { transport in
-            try await transport.renameAgent(AgentRenameParams(target: paneID, name: name))
+        let session = session
+        try await AgentLaunchPendingRetry.run {
+            try await session.withTransport { transport in
+                try await transport.renameAgent(AgentRenameParams(target: paneID, name: name))
+            }
         }
         scheduleResync()
     }
@@ -846,5 +853,31 @@ final class HostConsoleProjection {
             $0 != .workspaceReordered || (protocolVersion ?? 0) >= 19
         }.map(EventSubscription.global)
             + paneIDs.sorted().map { EventSubscription.pane(.agentStatusChanged, paneID: $0) }
+    }
+}
+
+/// Retries an operation herdr refuses with `agent_launch_pending` (0.9.1:
+/// `agent.rename` while the Agent's launch is still pending, verified live in
+/// round 32). A launch clears within seconds, so the wait is short and
+/// bounded; past it herdr's refusal is rethrown for the caller to explain.
+/// Cancellation ends the wait at once.
+@MainActor
+enum AgentLaunchPendingRetry {
+    static let code = "agent_launch_pending"
+
+    static func run<Value>(
+        step: Duration = .seconds(1),
+        budget: Duration = .seconds(10),
+        _ operation: () async throws -> Value
+    ) async throws -> Value {
+        let deadline = ContinuousClock.now + budget
+        while true {
+            do {
+                return try await operation()
+            } catch let error as HerdrAPIError where error.code == code {
+                guard ContinuousClock.now + step <= deadline else { throw error }
+                try await Task.sleep(for: step)
+            }
+        }
     }
 }

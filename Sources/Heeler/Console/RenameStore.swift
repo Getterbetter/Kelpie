@@ -139,6 +139,8 @@ final class RenameStore {
             "The Host is not connected."
         case TransportError.timedOut:
             "The Host did not answer in time."
+        case let apiError as HerdrAPIError where apiError.code == AgentLaunchPendingRetry.code:
+            "The agent is still starting. Try renaming it again in a moment."
         case let apiError as HerdrAPIError:
             "herdr rejected the rename: \(apiError.message)"
         default:

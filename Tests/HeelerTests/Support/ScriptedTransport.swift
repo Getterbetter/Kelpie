@@ -43,6 +43,11 @@ final actor ScriptedTransport: Transport {
     private(set) var agentRenames: [AgentRenameParams] = []
     private(set) var workspaceRenames: [WorkspaceRenameParams] = []
     private var renameFailure: TransportError?
+    /// Scripted `agent.rename` refusals, consumed one per call before
+    /// `renameFailure` applies; `agentRenameAttempts` counts every call.
+    private var agentRenameRefusals: [HerdrAPIError] = []
+    private var agentRenameRefusesForever: HerdrAPIError?
+    private(set) var agentRenameAttempts = 0
     private var startFailure: TransportError?
     private var startedAgent: AgentInfo?
     private var shellTerminalIdentity = ShellTerminalIdentity(
@@ -278,6 +283,16 @@ final actor ScriptedTransport: Transport {
     /// Makes every subsequent rename (agent or workspace) throw `failure`.
     func setRenameFailure(_ failure: TransportError?) {
         renameFailure = failure
+    }
+
+    /// Makes the next `agent.rename` calls throw `refusals` in order.
+    func setAgentRenameRefusals(_ refusals: [HerdrAPIError]) {
+        agentRenameRefusals = refusals
+    }
+
+    /// Makes every `agent.rename` throw `refusal`.
+    func setAgentRenameRefusesForever(_ refusal: HerdrAPIError?) {
+        agentRenameRefusesForever = refusal
     }
 
     func configureImageStaging(
@@ -619,6 +634,9 @@ final actor ScriptedTransport: Transport {
     }
 
     func renameAgent(_ params: AgentRenameParams) async throws {
+        agentRenameAttempts += 1
+        if let agentRenameRefusesForever { throw agentRenameRefusesForever }
+        if !agentRenameRefusals.isEmpty { throw agentRenameRefusals.removeFirst() }
         if let renameFailure { throw renameFailure }
         agentRenames.append(params)
     }
