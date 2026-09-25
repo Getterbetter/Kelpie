@@ -6,7 +6,8 @@ Read this first in a new session started in `~/Developer/Kelpie`. It holds the c
 
 Batch (Anthony: "both but keep a to do list and update it as you go"): Open item 55, then 49, 53 and 52. This list is ticked as each step lands. Specs and worker reports: `KelpieVault/Archive/round33/`.
 
-- [ ] A. SSH group cherry-picked (`Packages/HeelerSSH`, plus 3b7ddf64's Tailscale-SSH pairing refusal)
+- [x] A. SSH group cherry-picked (`Packages/HeelerSSH`, plus 3b7ddf64's Tailscale-SSH pairing refusal)
+  - On `kelpie` (`e7eb9b57`..`86e8a126`): all 11 picked. `HostStore` merge keeps Kelpie's skip-and-notice for an unreadable Host (upstream's test adapted); upstream's ADR 0017 renumbered 0020 (`e44396bc`). 18 suites, 162 tests green on the iPad; the pairing e2e suite skips on a device (needs local sshd), CI runs it. Report `Archive/round33/report-A.md`.
 - [x] B. Transport and terminal group cherry-picked (`EventsSession` dead-transport series, never-autocorrect, replaced-surface keyboard)
   - On `kelpie` (`db0db7e4`..`e09af2db`): 7 picked; `c6135ec5` skipped (the class it fixes arrived upstream after v0.1.8). `45fcfd7d` adapted to close with Kelpie's bounded `endStreamPromptly`. 356 tests in 11 suites green on the iPad. Report `Archive/round33/report-B.md`.
 - [x] C. Plugin and build group cherry-picked; `npm test` green; `depwatch.py`'s `heeler-upstream` check reports unreviewed upstream fixes instead of a rebase
