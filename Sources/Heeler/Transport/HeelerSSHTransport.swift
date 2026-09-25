@@ -1004,12 +1004,12 @@ actor HeelerSSHTransport: Transport {
             return (directory, written)
         }
         // Only after a successful replace, and off its deadline: the sweep
-        // is best effort and must never fail or delay the write (Open item
-        // 52).
-        Task {
-            await self.sweepStaleTemporaryFiles(
-                in: replaced.0, fileName: name, justWritten: replaced.1)
-        }
+        // is best effort and must never fail the write (Open item 52). It is
+        // awaited rather than detached so no exec outlives the call that
+        // started it: the channel counts the e2e tests read after a replace
+        // stay exact, and a closing transport has nothing left in flight.
+        await sweepStaleTemporaryFiles(
+            in: replaced.0, fileName: name, justWritten: replaced.1)
     }
 
     /// Removes this file's temporary siblings an interrupted replace left

@@ -407,6 +407,13 @@ actor EventsSession {
             guard Self.isTransportLinkFailure(error) else {
                 throw error
             }
+            // Kelpie: a timed-out call may have reached herdr before the link
+            // went quiet, and not every call is safe to repeat — a prompt or
+            // `agent.start` sent twice is a duplicate the user sees. Distrust
+            // the transport as below so the run loop redials, but surface the
+            // timeout instead of retrying it (round 33 review, S3). An
+            // unreachable link never delivered the call, so that one retries.
+            let retries = Self.isRetryableLinkFailure(error)
             // A replacement may already be in flight (currentTransport nil)
             // or a fresher transport may have been installed since; either
             // way the single retry rides whatever is current. It is also
@@ -415,8 +422,13 @@ actor EventsSession {
             // wait, and a failing redial releases the waiter through the
             // run loop's announce with its real cause.
             if isSameTransport(currentTransport, transport) {
+                // Kelpie: the suspect transport stays installed, so the run
+                // loop's `ensureTransport` (or `windDown`) closes it, and
+                // `awaitUsableTransport` never hands it out again (round 33
+                // review, S1 and S2: upstream cleared it here, which leaked
+                // the connection and, mid-subscribe, left the Host connected
+                // with every call parked and no keepalive).
                 transportSuspect = true
-                currentTransport = nil
                 // The run loop is parked on the live stream and cannot act on
                 // the suspect mark by itself: a link whose events reader is
                 // still alive never ends the stream, and with the keepalive
@@ -438,6 +450,7 @@ actor EventsSession {
                     await endStreamPromptly(stream)
                 }
             }
+            guard retries else { throw error }
             let replacement = try await awaitUsableTransport()
             do {
                 let value = try await operation(replacement)
@@ -459,6 +472,13 @@ actor EventsSession {
         }
     }
 
+    /// The link failures a call is retried after: only those that mean the
+    /// call never reached the Host.
+    private static func isRetryableLinkFailure(_ error: any Error) -> Bool {
+        if case .sshUnreachable = error as? TransportError { return true }
+        return false
+    }
+
     private func isSameTransport(
         _ a: (any Transport)?, _ b: any Transport
     ) -> Bool {
@@ -469,10 +489,16 @@ actor EventsSession {
         return ObjectIdentifier(aObject) == ObjectIdentifier(bObject)
     }
 
+    /// The installed Transport unless it is suspect: the run loop is about
+    /// to replace a suspect one, and callers wait for the replacement.
+    private var usableTransport: (any Transport)? {
+        transportSuspect ? nil : currentTransport
+    }
+
     /// The installed Transport, or — while the active run loop is
     /// establishing one — the next Transport it installs.
     private func awaitUsableTransport() async throws -> any Transport {
-        if let transport = currentTransport { return transport }
+        if let transport = usableTransport { return transport }
         guard phase == .active, !isWindingDown, runTask != nil else {
             throw TransportError.sshUnreachable(detail: "The Host is not connected.")
         }
@@ -484,7 +510,7 @@ actor EventsSession {
                 (continuation: CheckedContinuation<any Transport, any Error>) in
                 if Task.isCancelled {
                     continuation.resume(throwing: CancellationError())
-                } else if let transport = currentTransport {
+                } else if let transport = usableTransport {
                     continuation.resume(returning: transport)
                 } else {
                     transportWaiters.append(
@@ -864,6 +890,17 @@ actor EventsSession {
                 break
             }
             liveStream = stream
+            if transportSuspect {
+                // A call failed at the link level while this subscribe was in
+                // flight on the same transport. The subscribe answered, but
+                // the transport is distrusted and callers are parked waiting
+                // for its replacement: redial now rather than announce
+                // `.connected` on it (round 33 review, S1).
+                trace(.subscribe, .note("the transport turned suspect during the subscribe"))
+                await endStreamPromptly(stream)
+                if liveStream === stream { liveStream = nil }
+                continue
+            }
             trace(.subscribe, .succeeded)
             attempt = 0
             pendingKeepaliveFailure = nil

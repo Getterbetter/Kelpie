@@ -482,6 +482,101 @@ struct EventsSessionSubscriptionsTests {
         try await Task.sleep(for: .milliseconds(50))
         await connectGate.open()
         #expect(try await probe.value == "replacement")
+        // Kelpie: the dead transport stays installed until the run loop
+        // replaces it, so it is closed rather than dropped (round 33, S2).
+        #expect(await first.isClosed)
+
+        await session.end()
+    }
+
+    /// Kelpie (round 33 review, S3): a call that timed out may have reached
+    /// herdr, so it is not sent again — a prompt or `agent.start` repeated is
+    /// a duplicate. The transport is still distrusted and replaced.
+    @Test func aTimedOutSendIsNotRetriedButTheTransportIsReplaced() async throws {
+        let first = ScriptedTransport(
+            serverInfo: ServerInfo(version: "first", protocolVersion: 17))
+        let replacement = ScriptedTransport(
+            serverInfo: ServerInfo(version: "replacement", protocolVersion: 17))
+        let connector = SequencedTransportConnector([first, replacement])
+        let session = EventsSession(
+            subscriptions: initial,
+            connect: { try await connector.connect() },
+            reconnectPolicy: ReconnectPolicy(
+                initialDelay: .milliseconds(10), multiplier: 2, maxDelay: .milliseconds(50)),
+            keepalive: nil)
+        var updates = session.updates.makeAsyncIterator()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+        #expect(await updates.next() == .status(.connected))
+
+        // Call 1 was the connect path's own ping.
+        await first.failPing(atCall: 2, with: TransportError.timedOut)
+        await #expect(throws: TransportError.timedOut) {
+            try await session.withTransport { transport in
+                try await transport.ping().version
+            }
+        }
+
+        // The run loop redials silently onto the replacement.
+        #expect(await updates.next() == .status(.connected))
+        #expect(await first.isClosed)
+        // Only the replacement's connect ping: the timed-out call was not
+        // repeated on it.
+        #expect(await replacement.pingCount == 1)
+        let next = try await session.withTransport { transport in
+            try await transport.ping().version
+        }
+        #expect(next == "replacement")
+
+        await session.end()
+    }
+
+    /// Kelpie (round 33 review, S1): a call that fails at the link level
+    /// while the run loop's subscribe is in flight on the same transport
+    /// must not leave the Host `.connected` on a distrusted transport with
+    /// the call parked for good. The run loop redials, the call rides the
+    /// replacement, and the old transport is closed.
+    @Test func aLinkFailureDuringTheSubscribeRedialsInsteadOfParkingForever() async throws {
+        let first = ScriptedTransport(
+            serverInfo: ServerInfo(version: "first", protocolVersion: 17))
+        let replacement = ScriptedTransport(
+            serverInfo: ServerInfo(version: "replacement", protocolVersion: 17))
+        let connector = SequencedTransportConnector([first, replacement])
+        let session = EventsSession(
+            subscriptions: initial,
+            connect: { try await connector.connect() },
+            reconnectPolicy: ReconnectPolicy(
+                initialDelay: .milliseconds(10), multiplier: 2, maxDelay: .milliseconds(50)),
+            keepalive: nil)
+        var updates = session.updates.makeAsyncIterator()
+
+        await session.resume()
+        #expect(await updates.next() == .status(.connecting))
+        #expect(await updates.next() == .status(.connected))
+
+        // Park the re-subscribe on the same (still trusted) transport.
+        let subscribeGate = ScriptedTransportCallGate()
+        await first.gateNextSubscription(using: subscribeGate)
+        await session.updateSubscriptions(updated)
+        try await Task.sleep(for: .milliseconds(50))
+
+        await first.failPing(
+            atCall: 2, with: TransportError.sshUnreachable(detail: "dead link"))
+        let probe = Task {
+            try await session.withTransport { transport in
+                try await transport.ping().version
+            }
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        await subscribeGate.open()
+
+        let version = try await AsyncDeadline.run(for: .seconds(5)) {
+            try await probe.value
+        }
+        #expect(version == "replacement")
+        #expect(await first.isClosed)
+        #expect(await replacement.capturedSubscriptions.count == 1)
 
         await session.end()
     }
