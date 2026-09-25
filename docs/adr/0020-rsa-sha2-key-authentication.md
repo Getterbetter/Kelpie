@@ -4,6 +4,8 @@ status: accepted
 
 # RSA-SHA2-512 authentication with one device RSA Key
 
+> Upstream Heeler numbers this ADR 0017; Kelpie renumbered it to 0020 when it was cherry-picked (round 33), because Kelpie's 0017 is `0017-herdr-client-is-the-screen.md`.
+
 This decision is tracked in [Issue #318](https://github.com/ZingerLittleBee/Heeler/issues/318).
 
 Heeler adds **RSA Key** as an explicit Host authentication method alongside
