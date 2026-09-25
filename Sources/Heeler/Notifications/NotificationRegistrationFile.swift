@@ -379,3 +379,92 @@ private extension AgentRowLayout {
         ])
     }
 }
+
+/// Sweeps the temporary files an interrupted SFTP replace leaves beside a
+/// plugin config file (Open item 52). The replace writes
+/// `<name>.tmp-<uuid>` and renames it over `<name>`; a connection that dies
+/// mid-write cannot remove it, and 15 had built up on the mini by round 32.
+///
+/// After a successful replace the Transport lists the siblings over exec,
+/// and removes those matching `<name>.tmp-*` whose modification time, by the
+/// Host's own clock, is more than an hour old. Never the file it just wrote,
+/// never anything else. Best effort: nothing here can fail the replace.
+enum NotificationTemporaryFileSweep {
+    /// Seconds a temporary file must be older than to be swept: far past any
+    /// replace still in flight from another client.
+    static let maximumAge: Int64 = 3600
+
+    /// Lists the candidates under `/bin/sh` whatever the login shell (fish
+    /// included; the script has no quote or backslash, and the directory and
+    /// name arrive as positional parameters). The first line is the Host's
+    /// clock, then one `<mtime> <file name>` per candidate; `stat -c %Y` is
+    /// GNU, `stat -f %m` BSD and macOS.
+    static func listingCommand(directory: String, fileName: String) -> String? {
+        guard let quotedDirectory = RemoteShellPath.quotedAbsolute(directory),
+            isSafeFileName(fileName)
+        else { return nil }
+        let script =
+            #"cd "$1" || exit 1; date +%s; for f in "$2".tmp-*; do [ -f "$f" ] || continue; "#
+            + #"m=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null) || continue; "#
+            + #"echo "$m $f"; done"#
+        return "/bin/sh -c '\(script)' sh \(quotedDirectory) '\(fileName)'"
+    }
+
+    /// The names from `listing` to remove: temporary siblings of
+    /// `fileName`, older than `maximumAge` by the listed clock, other than
+    /// `justWritten`. An unreadable clock sweeps nothing.
+    static func staleNames(
+        inListing listing: String, fileName: String, excluding justWritten: String?
+    ) -> [String] {
+        var lines = listing.split(whereSeparator: \.isNewline)
+        guard let clock = lines.first,
+            let now = Int64(clock.trimmingCharacters(in: .whitespaces))
+        else { return [] }
+        lines.removeFirst()
+        return lines.compactMap { line in
+            let fields = line.split(separator: " ", maxSplits: 1)
+            guard fields.count == 2, let modified = Int64(fields[0]) else { return nil }
+            let name = String(fields[1])
+            guard isTemporaryName(name, of: fileName), name != justWritten,
+                now - modified > maximumAge
+            else { return nil }
+            return name
+        }
+    }
+
+    /// Whether `name` is one of the replace's own temporary files for
+    /// `fileName`: the exact `<fileName>.tmp-` prefix and a non-empty
+    /// letters, digits and hyphens suffix (a lowercased UUID).
+    static func isTemporaryName(_ name: String, of fileName: String) -> Bool {
+        let prefix = "\(fileName).tmp-"
+        guard name.hasPrefix(prefix) else { return false }
+        let suffix = name.dropFirst(prefix.count)
+        return !suffix.isEmpty
+            && suffix.unicodeScalars.allSatisfy { scalar in
+                scalar.isASCII
+                    && (CharacterSet.alphanumerics.contains(scalar) || scalar == "-")
+            }
+    }
+
+    /// Removes `names` (already vetted by `isTemporaryName`) from the
+    /// directory; nil when there is nothing to remove.
+    static func removalCommand(directory: String, names: [String]) -> String? {
+        guard !names.isEmpty,
+            let quotedDirectory = RemoteShellPath.quotedAbsolute(directory),
+            names.allSatisfy(isSafeFileName)
+        else { return nil }
+        let script = #"cd "$1" || exit 1; shift; rm -f -- "$@""#
+        let arguments = names.map { "'\($0)'" }.joined(separator: " ")
+        return "/bin/sh -c '\(script)' sh \(quotedDirectory) \(arguments)"
+    }
+
+    private static func isSafeFileName(_ name: String) -> Bool {
+        !name.isEmpty && !name.hasPrefix("-")
+            && name.unicodeScalars.allSatisfy { scalar in
+                scalar.isASCII
+                    && (CharacterSet.alphanumerics.contains(scalar)
+                        || scalar == "." || scalar == "_" || scalar == "-")
+            }
+    }
+}
+

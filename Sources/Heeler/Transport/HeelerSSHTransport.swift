@@ -974,7 +974,7 @@ actor HeelerSSHTransport: Transport {
     }
 
     private func replacePluginConfigFile(named name: String, contents: Data) async throws {
-        try await withNotificationFileRequestDeadline {
+        let replaced = try await withNotificationFileRequestDeadline {
             guard await self.notificationConnectionIsAvailable() else {
                 throw NotificationRegistrationError.writeFailed(
                     detail: "The SSH connection is unavailable.")
@@ -982,14 +982,44 @@ actor HeelerSSHTransport: Transport {
             let directory = try await self.notificationPluginConfigDirectory()
             let path = "\(directory)/\(name)"
             let operationID = UUID()
-            try await self.channelAdmission.withChannel(.ordinarySession) {
+            let written = try await self.channelAdmission.withChannel(.ordinarySession) {
                 try await self.performNotificationFileReplace(
                     contents,
                     at: path,
                     configDirectory: directory,
                     operationID: operationID)
             }
+            return (directory, written)
         }
+        // Only after a successful replace, and off its deadline: the sweep
+        // is best effort and must never fail or delay the write (Open item
+        // 52).
+        Task {
+            await self.sweepStaleTemporaryFiles(
+                in: replaced.0, fileName: name, justWritten: replaced.1)
+        }
+    }
+
+    /// Removes this file's temporary siblings an interrupted replace left
+    /// behind more than an hour ago. Every failure is ignored.
+    private func sweepStaleTemporaryFiles(
+        in directory: String, fileName: String, justWritten: String
+    ) async {
+        guard
+            let listing = NotificationTemporaryFileSweep.listingCommand(
+                directory: directory, fileName: fileName),
+            let result = try? await runExec(listing),
+            result.exitStatus == 0
+        else { return }
+        let stale = NotificationTemporaryFileSweep.staleNames(
+            inListing: String(decoding: result.stdout, as: UTF8.self),
+            fileName: fileName,
+            excluding: justWritten)
+        guard
+            let removal = NotificationTemporaryFileSweep.removalCommand(
+                directory: directory, names: stale)
+        else { return }
+        _ = try? await runExec(removal)
     }
 
     private func notificationConnectionIsAvailable() async -> Bool {
@@ -1037,7 +1067,7 @@ actor HeelerSSHTransport: Transport {
         at path: String,
         configDirectory: String,
         operationID: UUID
-    ) async throws {
+    ) async throws -> String {
         let sftp: SSHSFTPClient
         do {
             sftp = try await connection.openSFTP(timeout: requestTimeout)
@@ -1045,7 +1075,8 @@ actor HeelerSSHTransport: Transport {
             try Self.notificationWriteError(error)
         }
         notificationFileClients[operationID] = sftp
-        var temporaryPath: String? = "\(path).tmp-\(UUID().uuidString.lowercased())"
+        let writtenPath = "\(path).tmp-\(UUID().uuidString.lowercased())"
+        var temporaryPath: String? = writtenPath
         notificationTemporaryPaths[operationID] = temporaryPath
 
         do {
@@ -1095,6 +1126,7 @@ actor HeelerSSHTransport: Transport {
             notificationTemporaryPaths[operationID] = nil
             try await sftp.close(timeout: .seconds(2))
             notificationFileClients[operationID] = nil
+            return (writtenPath as NSString).lastPathComponent
         } catch {
             let operationError = error
             var compensationFailed = false

@@ -416,3 +416,94 @@ struct NotificationRegistrationFileTests {
         #expect(file.upserting(entry, replacing: nil) == file.upserting(entry))
     }
 }
+
+/// Open item 52: the sweep of temporary files an interrupted SFTP replace
+/// left beside `notifications.json`. Only this file's own `.tmp-` siblings,
+/// only past an hour by the Host's clock, never the one just written.
+@Suite("Notification temporary file sweep")
+struct NotificationTemporaryFileSweepTests {
+    private let fileName = "notifications.json"
+    private let uuid = "3f2c9a4e-8b1d-4c6e-9a7f-2d5b8e1c0a93"
+
+    @Test func onlyTheReplacesOwnTemporaryNamesMatch() {
+        #expect(NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json.tmp-\(uuid)", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json.tmp-", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json.bak", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "pair.json.tmp-\(uuid)", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "xnotifications.json.tmp-\(uuid)", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json.tmp-\(uuid) other", of: fileName))
+        #expect(!NotificationTemporaryFileSweep.isTemporaryName(
+            "notifications.json.tmp-../x", of: fileName))
+    }
+
+    @Test func onlyFilesOlderThanAnHourByTheHostsClockAreStale() {
+        let now: Int64 = 1_800_000_000
+        let listing = """
+            \(now)
+            \(now - 3601) notifications.json.tmp-aaaa
+            \(now - 3600) notifications.json.tmp-bbbb
+            \(now - 60) notifications.json.tmp-cccc
+            \(now - 90_000) notifications.json.tmp-dddd
+            \(now - 90_000) pair.json.tmp-eeee
+            \(now - 90_000) notifications.json
+            garbage line
+            """
+        #expect(
+            NotificationTemporaryFileSweep.staleNames(
+                inListing: listing, fileName: fileName, excluding: nil)
+                == ["notifications.json.tmp-aaaa", "notifications.json.tmp-dddd"])
+    }
+
+    @Test func theFileJustWrittenIsNeverSwept() {
+        let listing = "5000\n1 notifications.json.tmp-\(uuid)\n1 notifications.json.tmp-old\n"
+        #expect(
+            NotificationTemporaryFileSweep.staleNames(
+                inListing: listing, fileName: fileName,
+                excluding: "notifications.json.tmp-\(uuid)")
+                == ["notifications.json.tmp-old"])
+    }
+
+    @Test func anUnreadableClockSweepsNothing() {
+        #expect(
+            NotificationTemporaryFileSweep.staleNames(
+                inListing: "", fileName: fileName, excluding: nil).isEmpty)
+        #expect(
+            NotificationTemporaryFileSweep.staleNames(
+                inListing: "not-a-clock\n1 notifications.json.tmp-old",
+                fileName: fileName, excluding: nil
+            ).isEmpty)
+    }
+
+    @Test func theCommandsQuoteTheDirectoryAndRunUnderPOSIXSh() throws {
+        let directory = "/Users/me/.config/herdr/plugins/config/heeler"
+        let listing = try #require(
+            NotificationTemporaryFileSweep.listingCommand(
+                directory: directory, fileName: fileName))
+        #expect(listing.hasPrefix("/bin/sh -c '"))
+        #expect(listing.hasSuffix(" sh '\(directory)' 'notifications.json'"))
+
+        let removal = try #require(
+            NotificationTemporaryFileSweep.removalCommand(
+                directory: directory, names: ["notifications.json.tmp-old"]))
+        #expect(removal.hasSuffix(" sh '\(directory)' 'notifications.json.tmp-old'"))
+        #expect(removal.contains("rm -f --"))
+
+        #expect(
+            NotificationTemporaryFileSweep.removalCommand(directory: directory, names: [])
+                == nil)
+        #expect(
+            NotificationTemporaryFileSweep.listingCommand(
+                directory: "relative/dir", fileName: fileName) == nil)
+        #expect(
+            NotificationTemporaryFileSweep.removalCommand(
+                directory: directory, names: ["x'; rm -rf ~"]) == nil)
+    }
+}
