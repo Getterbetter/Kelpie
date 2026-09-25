@@ -461,6 +461,24 @@ entry: a session cron survives `/clear`, because the session does.
 
 **Anthony, after the report: "3- lets arm it"**, with the token deferred ("1- ill do another time") and the verdict open ("2- ok"). Armed at 09:24 from the private checkout. His call after both caveats were on screen; the record there carries the disarm recipe. Also from the same message: the herdr 0.9.1 update on the mini waits for a pause with no live Claude session (new Open item).
 
+## 2026-09-25 — round 33: upstream fixes by cherry-pick, and items 49, 52, 53
+
+**Decided: Anthony chose both batches in one round** ("both but keep a to do list and update it as you go"): Open item 55 first, then 49, 53 and 52. The to-do list lives in `resume.md`'s In progress section and was ticked and committed as each step landed. Why: it is the checkpoint the vault already has, so it survives a dropped session.
+
+**Decided: four builders in parallel worktrees behind one build lock.** The Mac has 8 GB; `scratchpad/locked.py` serialised every `xcodebuild` and every device run across builders. Why: four concurrent builds would have swapped, and two device runs on one iPad collide.
+
+**Decided: 36 upstream commits taken, one skipped.** The plan's 21 plus what upstream shipped since round 32 that touches paths Kelpie runs (the server identification string and the Tailscale SSH refusal at pairing, the Console composer's `agent_not_ready` wait that the transport series builds on, SSH test deadlines, the anchored `make bump`, the plugin manifest test) and, after the first CI run failed in fixture setup, upstream's seven CI harness fixes. `c6135ec5` was skipped: the class it fixes arrived upstream after v0.1.8 (Open item 56). Upstream's Console features stay out.
+
+**Decided: where Kelpie and upstream disagree, Kelpie's behaviour wins, with upstream's fix kept around it.** Four places: the dead-transport wake uses Kelpie's bounded `endStreamPromptly` (a plain `end()` is the round-14 Tailscale hang); `HostStore` keeps Kelpie's skip-and-notice for any unreadable Host and writes it back unchanged (upstream's test adapted); the terminal never autocorrects but Kelpie's composer field does; the CI simulator stays the iPad Air.
+
+**Decided: the upstream retry does not repeat a timed-out call, and a suspect transport stays installed until the run loop replaces it** (review S1 to S3). A timed-out call may have reached herdr, and a prompt or `agent.start` sent twice is a duplicate the user sees; an unreachable link never delivered the call, so that one still retries. Keeping the suspect transport installed (and never handing it out) means it is closed, not dropped, and a subscribe that answers on it redials instead of announcing `.connected` with every call parked. Kelpie now differs from upstream here on purpose.
+
+**Decided: upstream's RSA-SHA2 ADR is 0020 in Kelpie**, with a note that upstream numbers it 0017. Why: CLAUDE.md and the vault cite Kelpie's 0017.
+
+**Decided: the item 52 sweep is awaited, not detached.** It runs after a successful replace, outside its deadline, and ignores failure; awaiting it keeps every exec inside the call that started it (the e2e channel counts stay exact, nothing outlives a closing transport). Cost: up to two exec round trips on a notification write.
+
+**Decided: the dependency watch's `heeler-upstream` tracks a reviewed commit, not a rebase.** `scripts/heeler-upstream-reviewed` holds `53b1c6ae`; move it forward after each review of upstream.
+
 ## 2026-09-23 — round 32: herdr 0.9.1 on the mini, verified live
 
 **Decided: items 47 and 14 close on the live run, with three facts not re-tested.** Anthony upgraded the mini between sessions (round 31's plan). Every CLAUDE.md fact that a throwaway workspace can exercise without prompting an agent held on 0.9.1; `agent.prompt`, `agent_not_idle` and takeover need a prompted agent or a second client and were left as they are marked (0.8.0 / source evidence), rather than spending an agent turn in Anthony's live herdr. The additions went into the existing facts in `CLAUDE.md` in place, each marked 0.9.1. Why: the facts file is the thing a next session trusts, and a re-verified fact without its version reads as a guarantee.

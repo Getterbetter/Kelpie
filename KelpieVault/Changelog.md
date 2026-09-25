@@ -368,6 +368,29 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 33 — upstream fixes by cherry-pick, and Open items 49, 52, 53 — 2026-09-25
+
+Delegated: four Opus builders in parallel worktrees (SSH; transport and terminal; plugin, build and the dependency watch; items 49, 53, 52), two Opus reviewers; integration, the review fixes and the CI harness picks in the session. Specs, reports and reviews in `Archive/round33/`. Every upstream pick carries its `-x` trailer.
+
+| Commit | |
+| --- | --- |
+| `88d522ca` | **docs: round 33 opens** — the to-do list in `resume.md`'s In progress section (Anthony: "keep a to do list and update it as you go"). |
+| `5cf52018`..`9c91df08` | **plugin and build group (11 picks)** — devicectl JSON discovery keeping Kelpie's iPad fallback, the configurable pairing SSH port, `pair.json` reporting and live reload, the Tailscale SSH warning (only for addresses tailscaled answers), plugin 0.5.0, the anchored `make bump` parse, container and VM bridges skipped and Docker addresses demoted. `npm test` 355/355. |
+| `e1517868` | **depwatch: heeler-upstream reports unreviewed upstream commits, not a rebase** — reads `scripts/heeler-upstream-reviewed` (`53b1c6ae`), splits commits into paths Kelpie runs and the rest. |
+| `8416e9e7` | **depwatch tests** — two tests red since the 0.9.1 snapshot and 43a (103 schema methods, 19 used). 51/51. |
+| `7b6eb485` | **notifications: keep the banner's hold across a reconnect** (Open item 49). |
+| `08cabe95` | **console: retry agent.rename through a pending launch** (Open item 53). |
+| `95417700` | **notifications: sweep stale temporary files after a replace** (Open item 52). |
+| `db0db7e4`..`e09af2db` | **transport and terminal group (7 picks)** — never autocorrect on the terminal (Kelpie's composer field keeps it, pinned by a test), the Console composer waits out `agent_not_ready`, sends wait out a silent transport replacement, a bounded dead-transport retry, the run loop woken for the redial (adapted: Kelpie's bounded `endStreamPromptly`, not a plain `end()`), the keyboard-height poll in the tests. `c6135ec5` skipped (Open item 56). |
+| `e7eb9b57`..`86e8a126` | **SSH group (11 picks)** — per-operation failure diagnostics (#343), RSA-SHA2 key authentication (#347; Kelpie's skip-and-notice for an unreadable Host kept), forwarding pump failures, a redial on a key-exchange failure, fixture deadlines, the server identification string, Tailscale SSH refused at pairing before authenticating. Kelpie's abandon path, keepalive and SFTP size cap intact. |
+| `e44396bc` | **docs(adr): upstream's RSA-SHA2 ADR becomes 0020** — Kelpie's 0017 is the herdr-client screen. |
+| `ff73dc07` | **ci: the HeelerSSH package lane counts 61** — review must-fix: Kelpie's abandon test (`19277ce8`) was never counted. |
+| `f7cbc098` | **transport: a suspect transport stays installed until replaced, timed-out calls are not repeated, the sweep is awaited** — review should-fixes S1 to S4 on the upstream retry: no Host left `.connected` with calls parked, the old transport closed rather than dropped, no duplicate prompt from a retried timeout. Two new tests. |
+| `61cd3c89` | **transport: the post-subscribe redial clears a stale resubscribe request** — review N4. |
+| `5e827a96`..`a0ca9b4f` | **CI harness (7 picks)** — simulator destination recovery (#331, keeping Kelpie's iPad simulator), timestamped and DEBUG1 fixture sshd logs, the named password fixture step, a completion deadline for `sysadminctl`. The app lane had failed in fixture setup on the round's first CI run. |
+| `a334e793`, `69f38bc0`, the `docs: round 33 to-do` commits | **docs** — Anthony's words, and the to-do list ticked as each step landed. |
+| (this commit) | **docs: round 33 close-out.** |
+
 ## Round 32 — herdr 0.9.1 on the mini, verified live — 2026-09-23
 
 No app code. The mini runs herdr 0.9.1 since Anthony's restart; CLAUDE.md's facts were re-run against it in a throwaway workspace.

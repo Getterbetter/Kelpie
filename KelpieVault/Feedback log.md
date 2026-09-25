@@ -532,3 +532,7 @@ Read as: the iPhone is not available this session; run the device suite on the i
 Anthony (2026-09-25, round 33, later): "iphone is ready for testing now too. once complete, provide a short summary of what you built"
 
 Read as: run the device suite on the iPhone now (phone plugged in, left alone), then report the round as a short summary of what was built.
+
+Anthony (2026-09-25, round 33, while CI ran): "summarise what was built"
+
+Read as: the short summary of the round now, without waiting for CI; given in the chat. The close-out continues after it.

@@ -62,6 +62,21 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   behind the sidebar toggle instead of splitting the screen. iPhone
   navigation is unchanged.
 
+### Fixed
+
+- The in-app banner for an Agent that finished no longer goes missing when
+  the connection drops and returns within the banner's short hold.
+- Renaming an Agent that herdr is still launching waits up to ten seconds
+  for the launch instead of showing herdr's raw `agent_launch_pending`
+  refusal, and then says the Agent is still starting.
+- A notification registration interrupted mid-write no longer leaves its
+  temporary file on the Host for good: the next successful write removes
+  any older than an hour.
+- A request that times out on a failing connection is not sent again on the
+  replacement connection, so a prompt cannot reach an Agent twice; the
+  connection is still replaced. The replaced connection is closed rather
+  than left open.
+
 ## [Unreleased]
 
 ### Added

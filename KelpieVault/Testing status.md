@@ -10,6 +10,22 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 33 — upstream fixes by cherry-pick, items 49, 52, 53 (2026-09-25)
+
+| Check | Means | Result |
+| --- | --- | --- |
+| Full `HeelerTests` on the iPad, integrated tree before the review fixes | Unit, on the iPad (`make test-device-ipad`) | 2214 tests in 200 suites, 0 issues, 140 skipped. |
+| Full `HeelerTests` on the iPad, final tree (review fixes and CI picks) | Unit, on the iPad | **2216 tests in 200 suites, 0 issues, 140 skipped.** Skips: the CI-only sshd fixtures (129), seven that read the checkout, and the four keyboard tests (Magic Keyboard docked; Open item 58). |
+| Full `HeelerTests` on the iPhone, final tree | Unit, on the iPhone (`make test-device-iphone`) | **2216 tests in 200 suites, 0 issues, 136 skipped**; the four keyboard tests ran and passed. |
+| The builders' targeted suites | Unit, on the iPad | A: 18 suites, 162 tests; B: 11 suites, 356; D: 6 suites, 155. All green. |
+| The review fixes (`f7cbc098`, `61cd3c89`) | Unit, on the iPad | 230 tests in 7 suites (transport, terminal channel, console, composer, notification registration, client store); the two new `EventsSessionSubscriptionsTests` (`aTimedOutSendIsNotRetriedButTheTransportIsReplaced`, `aLinkFailureDuringTheSubscribeRedialsInsteadOfParkingForever`) and the extended retry test pass. |
+| Plugin | `npm test` | 355/355 (subprocess tests can time out under heavy Mac load; re-run before calling them red). |
+| Scripts | local | `test-depwatch.sh` 51/51; `test-find-ios-device.py` 5/5; `test-ci-simulator-recovery.sh` 15/15; `test-run-ci-ios-tests-guards.sh` 49/49. |
+| HeelerSSH package suites | CI, PR #6 | Pass (the lane asserts 61 tests in 5 suites, corrected by review; it had never counted Kelpie's abandon test). |
+| App lane | CI, PR #6 | First run failed in sshd fixture setup (password user; the lane had not run since 2026-09-12); after upstream's seven CI harness picks the fixtures came up and the shared-fixture (99), stream-local (9) and pairing (13) e2e lanes passed. The app suite: **2228 tests in 202 suites, 1 issue** — `AgentDirectInputTests.toolsKeyboardSurvivesAgentHandoffAndResumesSystemInset` (line 867: after a Console agent switch the second terminal never becomes first responder) on the iPad Air simulator. The other three keyboard tests pass there. It arrived with the round-16 rebase, passes on the iPhone, and never ran on iPad hardware (skips with the keyboard docked): an iPad difference in the hidden Console's handoff or an iPhone-shaped test (Open item 58). Failed job re-run once to rule out a flake. |
+| Pairing ceremony e2e, Tailscale refusal tests | CI only | Skip on a device (need a local sshd, key, node and the plugin checkout). |
+| Device regression list | Not run | Nothing in the root screen's input or rendering changed except never-autocorrect on the terminal's own text input, which the composer test pins; carried to the next device sitting. |
+
 ## Round 31 — triage (2026-09-17)
 
 No code changed; the device suite was not run (docs-only exemption, round 23). Two things changed in what this note claims: the device checklists in Open items 1 to 28 are closed on Anthony's word as exercised in earlier sessions, not by a recorded sitting, so their features stay **Device** by daily use rather than by a ticked list; and the iPhone suite's timing reds from round 30 are read as the phone being in use during the run (item 50 closed). The gate's condition for the phone is now explicit: unlocked, plugged in, idle and untouched for the run.
