@@ -18,6 +18,7 @@ Batch (Anthony: "both but keep a to do list and update it as you go"): Open item
 - [x] F. Review of A to D
   - `review-A.md`: 1 must-fix (package CI count 61, `ff73dc07`), 4 nits. `review-BD.md`: 4 should-fix (suspect transport cleared and leaked; timed-out calls retried), fixed in `f7cbc098` and `N4` in the next commit, verified by the reviewer; nits left for Open items.
 - [ ] G. `make test-device` green on the iPad and the iPhone, plus the four keyboard tests on the iPad with the Magic Keyboard detached
+  - iPad green on the final tree (`61cd3c89` + CI cherry-picks): 2216 tests in 200 suites, 0 issues, 140 skipped. iPhone **not run** (Anthony: "only ipad is plugged in, avoid iphone for now"). The four keyboard tests still skipped (keyboard docked).
 - [ ] H. HeelerSSH package suites through CI (a pull request on the fork; they cannot run on a device)
 - [ ] I. Plugin re-installed on the mini; Device regression list on both devices
 - [ ] J. Close-out: vault reconciled, pushed, scratchpad empty
