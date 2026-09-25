@@ -176,16 +176,82 @@ struct AgentNotificationBannerStoreTests {
         #expect(world.soundCount == 1)
     }
 
-    @Test func aVanishedPaneCancelsItsPendingBanner() async throws {
+    /// Open item 49: a connection drop inside the hold clears the Host's
+    /// rows, and the pane comes back at the status the hold was for. The
+    /// hold keeps running across the gap and banners once.
+    @Test func aDropInsideTheHoldStillBannersWhenThePaneReturnsUnchanged() async throws {
         world.triggers[hostID] = NotificationTriggerPreferences()
         let store = makeStore()
         store.agentsDidChange([agent("wV:p1", .working)])
 
         store.agentsDidChange([agent("wV:p1", .blocked)])
         store.agentsDidChange([])
-        // The baseline survives the clear (a reconnect looks exactly like
-        // this), so the pane coming back Blocked is not a transition either.
         store.agentsDidChange([agent("wV:p1", .blocked)])
+
+        try await waitUntil("the held transition should survive the reconnect") {
+            store.banner != nil
+        }
+        #expect(store.banner?.alert.body == "Blocked — waiting for input")
+        try await waitPastHold()
+        #expect(world.soundCount == 1, "one transition, one banner")
+    }
+
+    /// A hold that elapses while the snapshot is still cleared waits for the
+    /// pane, then banners when it returns at the same status.
+    @Test func aHoldThatElapsesWhileAwayBannersWhenThePaneReturns() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+        store.agentsDidChange([])
+        try await waitPastHold()
+        #expect(store.banner == nil, "nothing is announced for a pane that is not listed")
+
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+        #expect(store.banner?.alert.body == "Blocked — waiting for input")
+        #expect(world.soundCount == 1)
+    }
+
+    /// A pane that returns at another status is a new status, handled as
+    /// before: Working cancels the Blocked hold.
+    @Test func aPaneReturningAtAnotherStatusCancelsTheHold() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("wV:p1", .working)])
+
+        store.agentsDidChange([agent("wV:p1", .blocked)])
+        store.agentsDidChange([])
+        try await waitPastHold()
+        store.agentsDidChange([agent("wV:p1", .working)])
+
+        try await waitPastHold()
+        #expect(store.banner == nil)
+    }
+
+    /// A pane that does not come back — its Host lists other Agents again —
+    /// exited, and its held transition goes with it.
+    @Test func aPaneGoneAfterTheReconnectCancelsItsPendingBanner() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .working)])
+
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .blocked)])
+        store.agentsDidChange([])
+        store.agentsDidChange([agent("w1:pT", .working)])
+
+        try await waitPastHold()
+        #expect(store.banner == nil)
+    }
+
+    /// A pane that exits while its Host stays live cancels its hold at once.
+    @Test func aVanishedPaneCancelsItsPendingBanner() async throws {
+        world.triggers[hostID] = NotificationTriggerPreferences()
+        let store = makeStore()
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .working)])
+
+        store.agentsDidChange([agent("w1:pT", .working), agent("wV:p1", .blocked)])
+        store.agentsDidChange([agent("w1:pT", .working)])
 
         try await waitPastHold()
         #expect(store.banner == nil)

@@ -56,6 +56,14 @@ final class AgentNotificationBannerStore {
     @ObservationIgnored private var statuses: [ConsoleAgent.ID: AgentStatus] = [:]
     /// In-flight anti-flap holds, cancelled when the status moves on.
     @ObservationIgnored private var holds: [ConsoleAgent.ID: Task<Void, Never>] = [:]
+    /// Panes missing only because their Host's snapshot was cleared (a
+    /// reconnect or revalidation), not because they exited. A hold running
+    /// for one of them keeps running across the gap (Open item 49).
+    @ObservationIgnored private var awaitingSnapshot: Set<ConsoleAgent.ID> = []
+    /// Holds that elapsed while their pane was awaiting a snapshot. They fire
+    /// when the pane comes back with the same status, and are dropped when it
+    /// comes back with another one or turns out to have exited.
+    @ObservationIgnored private var elapsedWhileAway: [ConsoleAgent.ID: AgentStatus] = [:]
     @ObservationIgnored private var dismissal: Task<Void, Never>?
     /// What was last announced for a pane, when, and by which pipeline. One
     /// key, checked in both directions: whichever of the live event stream
@@ -124,18 +132,32 @@ final class AgentNotificationBannerStore {
         // keepalive. Baselines are kept across that, so a Blocked or Done
         // that happened while the link was down banners once on the first
         // snapshot back instead of being swallowed as "first sight".
+        //
+        // A hold in flight is kept across a cleared snapshot too (Open item
+        // 49): cancelling it there, with the pane coming back at the same
+        // status as the kept baseline, lost the banner for good. If the hold
+        // elapses while the pane is away, it fires when the pane returns
+        // with that status.
         let hostsWithLiveRows = Set(agents.map(\.hostID))
         for id in Array(statuses.keys) where current[id] == nil {
-            cancelHold(for: id)
             if hostsWithLiveRows.contains(id.hostID) {
+                cancelHold(for: id)
                 statuses[id] = nil
                 announced[id] = nil
+            } else {
+                awaitingSnapshot.insert(id)
             }
         }
         for (id, agent) in current {
+            awaitingSnapshot.remove(id)
             let previous = statuses[id]
             let status = agent.agent.status
-            guard status != previous else { continue }
+            guard status != previous else {
+                if elapsedWhileAway.removeValue(forKey: id) == status {
+                    present(agent, status: status)
+                }
+                continue
+            }
             statuses[id] = status
             cancelHold(for: id)
             guard previous != nil, status == .blocked || status == .done else { continue }
@@ -181,15 +203,21 @@ final class AgentNotificationBannerStore {
         let hold = holdDuration
         holds[agent.id] = Task { [weak self] in
             try? await Task.sleep(for: hold)
-            guard !Task.isCancelled else { return }
-            self?.holds[agent.id] = nil
-            self?.present(agent, status: status)
+            guard !Task.isCancelled, let self else { return }
+            self.holds[agent.id] = nil
+            if self.awaitingSnapshot.contains(agent.id) {
+                self.elapsedWhileAway[agent.id] = status
+            } else {
+                self.present(agent, status: status)
+            }
         }
     }
 
     private func cancelHold(for id: ConsoleAgent.ID) {
         holds[id]?.cancel()
         holds[id] = nil
+        elapsedWhileAway[id] = nil
+        awaitingSnapshot.remove(id)
     }
 
     /// The held transition fires: apply the presentation-time gates, then
