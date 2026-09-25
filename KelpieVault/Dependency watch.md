@@ -67,14 +67,14 @@ Everything between the markers below is rewritten by the watcher on every run.
 Prose above and below them survives, so notes here are safe.
 
 <!-- depwatch:begin -->
-_Last run: 2026-09-22T19-45-05Z UTC._
+_Last run: 2026-09-24T19-45-06Z UTC._
 
 | Check | Severity | State | Headline |
 | --- | --- | --- | --- |
 | `herdr-release` | info | repeat | herdr v0.9.1, snapshot current |
 | `herdr-mini` | info | repeat | mini runs herdr 0.9.1 (snapshot v0.9.1) |
-| `heeler-upstream` | high | new | 146 commits behind upstream, 1 conflicting file |
-| `libghostty-spm` | low | new | libghostty upstream.82938b633ba6 pinned, upstream.3c47ca159368-2 available |
+| `heeler-upstream` | high | repeat | 156 commits behind upstream, 1 conflicting file |
+| `libghostty-spm` | low | repeat | libghostty upstream.82938b633ba6 pinned, upstream.3c47ca159368-2 available |
 | `heeler-ssh-pins` | low | repeat | OpenSSL 3.6.3 pinned, openssl-3.6.4 in line |
 | `node` | info | repeat | npm audit: 0 vulnerabilities |
 | `toolchain` | info | repeat | Xcode 26.4.1, 26.4.1 |
@@ -84,5 +84,5 @@ _Last run: 2026-09-22T19-45-05Z UTC._
 
 ### Needs attention
 
-- **146 commits behind upstream, 1 conflicting file** — Tag first: `git tag kelpie-pre-rebase-$(date +%Y%m%d)`.
+- **156 commits behind upstream, 1 conflicting file** — Tag first: `git tag kelpie-pre-rebase-$(date +%Y%m%d)`.
 <!-- depwatch:end -->

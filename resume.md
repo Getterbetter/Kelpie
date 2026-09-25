@@ -2,6 +2,21 @@
 
 Read this first in a new session started in `~/Developer/Kelpie`. It holds the current state only: rewritten in place at the close of every round, with an `## In progress` section at the top when a round is checkpointed part-way (one round per session, see `CLAUDE.md`). Every round's history is in `KelpieVault/Changelog.md` and `KelpieVault/Decisions.md`; this file as it stood before the 2026-09-13 trim is `KelpieVault/Archive/round14/resume-before-trim.md`. Full documentation lives in the Obsidian vault at `KelpieVault/` (start at `KelpieVault/Kelpie.md`), and open work is in `KelpieVault/Open items.md`.
 
+## In progress: round 33 (2026-09-25)
+
+Batch (Anthony: "both but keep a to do list and update it as you go"): Open item 55, then 49, 53 and 52. This list is ticked as each step lands. Specs and worker reports: `KelpieVault/Archive/round33/`.
+
+- [ ] A. SSH group cherry-picked (`Packages/HeelerSSH`, plus 3b7ddf64's Tailscale-SSH pairing refusal)
+- [ ] B. Transport and terminal group cherry-picked (`EventsSession` dead-transport series, never-autocorrect, replaced-surface keyboard)
+- [ ] C. Plugin and build group cherry-picked; `npm test` green; `depwatch.py`'s `heeler-upstream` check reports unreviewed upstream fixes instead of a rebase
+- [ ] D. Items 49 (banner lost on a reconnect), 53 (`agent_launch_pending` message), 52 (temp-file sweep)
+- [ ] E. Integrated on `kelpie`, builds at the fixed path
+- [ ] F. Review of A to D
+- [ ] G. `make test-device` green on the iPad and the iPhone, plus the four keyboard tests on the iPad with the Magic Keyboard detached
+- [ ] H. HeelerSSH package suites through CI (a pull request on the fork; they cannot run on a device)
+- [ ] I. Plugin re-installed on the mini; Device regression list on both devices
+- [ ] J. Close-out: vault reconciled, pushed, scratchpad empty
+
 ## Where things stand (2026-09-23, after round 32)
 
 - Kelpie is Anthony's iPadOS and iPhone fork of Heeler, an SSH client for herdr. Branch `kelpie` on `origin` (Getterbetter/Kelpie, public, push freely), rebased onto upstream Heeler v0.1.8 (`b384847`) on 2026-09-15 in round 16, 125 commits on top; `upstream` is Heeler. Every hash quoted in the vault from before **2026-09-16** resolves only through the bundle `~/Developer/kelpie-pre-social-purge-20260916.bundle`: round 26's purge rewrote every commit, the surviving tags included, so no tag in this repo reaches the old objects. The bundle is local and is never pushed.

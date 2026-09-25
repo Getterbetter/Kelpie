@@ -516,3 +516,11 @@ Read as: Kelpie stops rebasing onto Heeler and becomes a hard fork that cherry-p
 Anthony (2026-09-23, round 32, closing): "let's close this out and I'll start a new session"
 
 Read as: round 32 ends here. The vault is already reconciled; commit this entry, push `kelpie` to `origin` (push freely, per `resume.md`), confirm the scratchpad is empty. The next session starts from `resume.md` at Open item 55.
+
+Anthony (2026-09-25, new session, opening): "lets look through the open items and pick a batch to build. you can unit test on the ipad including the backlogged unit tests"
+
+Read as: round 33. Found at start: round 32 is closed out and pushed; the only uncommitted change is the dependency watcher's nightly rewrite of `Dependency watch.md` (upstream now 156 commits ahead). Offer batches from the open items, agree one, build it, and run unit tests on the iPad, including the ones that have been waiting for a run (the four keyboard tests that skip while the Magic Keyboard is docked, and whatever tests the batch brings).
+
+Anthony (2026-09-25, round 33, offered 55 or 49 + 53 + 52): "both but keep a to do list and update it as you go"
+
+Read as: the batch is Open item 55 (cherry-pick upstream Heeler's fixes) first, then 49, 53 and 52. The to-do list is kept as a checklist in an `## In progress` section at the top of `resume.md`, ticked as each step lands and committed with it, so it doubles as the checkpoint; the close-out removes it.
