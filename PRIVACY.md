@@ -1,8 +1,8 @@
 # Privacy Policy
 
-_Last updated: September 11, 2026._
+_Last updated: October 19, 2026._
 
-Kelpie is a native iPadOS console for [herdr](https://herdr.dev). It connects
+Kelpie is a native iPad and iPhone console for [herdr](https://herdr.dev). It connects
 to machines you control ("Hosts") over SSH. Kelpie has no user accounts,
 advertising, analytics, or tracking. Your SSH credentials, terminal output,
 prompts, files, and live agent sessions do not pass through a service operated

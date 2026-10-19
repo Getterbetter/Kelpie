@@ -22,10 +22,10 @@ Built for the iPad
 • Works in Split View, Slide Over and Stage Manager, in every orientation, with the font stepping down as the window narrows.
 
 Agent Notifications
-Turn them on and your host tells you when an agent is waiting for input or has finished. Each notification is encrypted on the host with a key only your iPad holds; the push relay forwards it to Apple without being able to read it.
+Turn them on and your host tells you when an agent is waiting for input or has finished. Each notification is encrypted on the host with a key shared only between that host and your own devices; the push relay forwards it to Apple without being able to read it.
 
 Pairing in a minute
-Install the Heeler plugin on your machine, run its pair action inside herdr, and paste or scan the Pairing Code. Kelpie keeps its SSH key in the Secure Enclave-backed Keychain; private keys never leave the device.
+Install the Heeler plugin on your machine, run its pair action inside herdr, and paste or scan the Pairing Code. Kelpie keeps its SSH key in the iOS Keychain. The private key never goes to any server: it stays on your devices, shared between them only through end-to-end encrypted iCloud Keychain while pairing sync is on.
 
 What you need
 A Mac or Linux machine running herdr (herdr.dev) that the iPad can reach over SSH. Kelpie is a client; it runs nothing on its own.
@@ -41,5 +41,7 @@ First release.
 
 **App Review notes** (from docs/guides/app-review-host.md, host details filled in at submission):
 Kelpie is a client for herdr, a developer tool that runs on the user's own machine, so it needs a machine to connect to. We have provided one for review. On the Welcome screen choose "Add a Host manually", enter host <IP>, user review, password <password>, and accept the host key. herdr's interface appears with a shell pane; type `ls` and press Return to see it respond. A 30-second recording of the same flow is attached. Notifications require the user's own machine and are not needed for review.
+
+**Corrected 2026-10-19, not yet in App Store Connect.** The approved 1.0 description (read back from the App Store Connect API on 2026-10-19) still says "a key only your iPad holds", "Secure Enclave-backed Keychain" and "private keys never leave the device". The first and last are wrong since iCloud pairing sync (ADR 0018, on by default): the Device Key and each Notification Key ride iCloud Keychain to the user's other devices, and each Notification Key is also copied to its Host, as `PRIVACY.md` says. "Secure Enclave-backed" is defensible for the Keychain itself (Apple Platform Security: every Keychain item's key round-trips through the Secure Enclave) but reads as if the SSH key were a Secure Enclave key, which an Ed25519 key cannot be, so it is dropped. The two sentences above are the corrected wording; they reach the store with the next version's description. The rest of the description is unchanged from what was submitted.
 
 Related: [[App Store plan]]

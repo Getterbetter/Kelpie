@@ -536,3 +536,9 @@ Read as: run the device suite on the iPhone now (phone plugged in, left alone), 
 Anthony (2026-09-25, round 33, while CI ran): "summarise what was built"
 
 Read as: the short summary of the round now, without waiting for CI; given in the chat. The close-out continues after it.
+
+## Between rounds — 2026-10-19
+
+Anthony (2026-10-19, project thread): "Kelpies fact pack may need updating"
+
+Read as: check Postie's Kelpie facts pack (`~/.postie/facts/kelpie.md`, built 2026-10-06 from the Kelpie notes in Notion, `README.md`, `PRIVACY.md` and the code) against live sources, and correct the notes it is built from, since the pack rebuilds itself when a source changes. Not a round: no app code changes.
