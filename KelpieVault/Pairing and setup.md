@@ -12,7 +12,7 @@ Kelpie uses [[Heeler upstream|Heeler]]'s pairing flow unchanged: the **upstream*
 
 - herdr ≥ 0.7.5 running (`herdr --version`)
 - Node.js ≥ 20 on `PATH` (`node --version`)
-- An OpenSSH server: **System Settings → General → Sharing → Remote Login**. The Pairing Code pins this machine's SSH host-key fingerprint, so it must be running before the code is minted. The advertised SSH port is currently fixed at 22.
+- An OpenSSH server: **System Settings → General → Sharing → Remote Login**. The Pairing Code pins this machine's SSH host-key fingerprint, so it must be running before the code is minted. The advertised SSH port is 22 unless the plugin's `pair.json` sets `ssh_port` (plugin 0.5.0 and later, upstream's and Kelpie's: `herdr plugin config-dir heeler`, then write `{"ssh_port": 2222}` there as `pair.json`; the same sshd must serve that port, see `plugin/README.md`). *Corrected 2026-10-19: this said "fixed at 22", true only before plugin 0.5.0 (round 33).*
 
 **Install the plugin and open the pairing popup**
 

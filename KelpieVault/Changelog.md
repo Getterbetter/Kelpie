@@ -368,6 +368,12 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Between rounds — the facts pack's sources — 2026-10-19
+
+| Commit | |
+| --- | --- |
+| (this commit) | **docs: correct the facts the pack is built from** — App Store state (approved, `READY_FOR_SALE`, not on the store: Open item 59), the pairing port (configurable since plugin 0.5.0), the listing's "private keys never leave the device" and "a key only your iPad holds" (wrong since iCloud pairing sync), `PRIVACY.md` naming the iPhone, the mini's herdr (0.9.3) and upstream's (0.9.5). Open items 59 and 60 opened. No app code changed. |
+
 ## Round 33 — upstream fixes by cherry-pick, and Open items 49, 52, 53 — 2026-09-25
 
 Delegated: four Opus builders in parallel worktrees (SSH; transport and terminal; plugin, build and the dependency watch; items 49, 53, 52), two Opus reviewers; integration, the review fixes and the CI harness picks in the session. Specs, reports and reviews in `Archive/round33/`. Every upstream pick carries its `-x` trailer.
