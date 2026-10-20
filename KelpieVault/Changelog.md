@@ -368,6 +368,16 @@ Anthony's local community tooling, moved out of this repo on 2026-09-16 (round 2
 
 Related: [[Kelpie]] · [[Decisions]] · [[Testing status]] · [[Open items]]
 
+## Round 34 — a held hardware key repeats on the iPad — 2026-10-20
+
+SASh's report ("when i press and hold a key it does not repeat"), run on his Mac: no iPad paired, iPhone offline, so the suite ran on an iPad simulator and the device gate is Open item 59. Decisions: [[Decisions]] 2026-10-20.
+
+| Commit | |
+| --- | --- |
+| `71aa6080` | **fix(terminal): repeat a held hardware key on the iPad** — `TerminalHardwareKeyRepeat` (the policy, a port of upstream libghostty-spm's `TerminalKeyRepeat`: modifiers, ⌘ chords, Escape, Ctrl plus a text key, Shift+Tab and the input method's keys never repeat) and the `// MARK: Hardware key repeat (Kelpie)` block in `HeelerTerminalView`: a 0.4 s / 50 ms timer started after `pressesBegan`, resending an intercepted combo's bytes or handing the press to the package again; stopped by a new non-modifier key, the release, a cancel, resigning first responder, a composition, losing the key window or local input off. 11 tests in `TerminalHardwareKeyRepeatTests`; `CHANGELOG.md` entry; marked for removal on the re-vendor (Open item 60). |
+| `78aec049` | **test: one literal for the registration fixture Xcode 27.1 cannot type-check** — `NotificationRegistrationFileTests`' six-way `+` chain of raw strings, which the newer type checker gives up on, as one multi-line literal. Test target only. |
+| (this commit) | **docs: round 34 close-out** — the vault: decisions, Open items 59 and 60, the regression row, the re-vendor note in [[Build and deploy]], [[Testing status]], the feedback entry, `resume.md`. |
+
 ## Round 33 — upstream fixes by cherry-pick, and Open items 49, 52, 53 — 2026-09-25
 
 Delegated: four Opus builders in parallel worktrees (SSH; transport and terminal; plugin, build and the dependency watch; items 49, 53, 52), two Opus reviewers; integration, the review fixes and the CI harness picks in the session. Specs, reports and reviews in `Archive/round33/`. Every upstream pick carries its `-x` trailer.

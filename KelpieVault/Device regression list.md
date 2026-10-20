@@ -10,6 +10,7 @@ Written 2026-09-12 after a trackpad right-click regression (introduced in round 
 
 - Press Escape or Cmd+. → herdr receives Escape. ("escape works, thank you", round 3b — `Feedback log.md:50`; confirmed for real on Cmd+., round 3b — `resume.md:11`)
 - Press Option+Backspace in a shell → deletes exactly one word. (round 3 — `Feedback log.md:48`, `resume.md:11`)
+- Hold a letter, Backspace, Left arrow and Option+Left in a shell → each repeats after 0.4 s at 20 a second and stops on release; press a second key mid-hold → the first stops, the second repeats; hold Escape or Ctrl+C → sent once. (round 34 — built on a simulator only, Open item 59; the key trace logs `keyRepeat start/tick/stop`)
 - The floating menu is a labelled Host capsule top-right with Switch Host / Hosts listed first. ("great stuff", round 3 — `Feedback log.md:49`)
 
 ## Keyboard detached (touch + software keyboard)

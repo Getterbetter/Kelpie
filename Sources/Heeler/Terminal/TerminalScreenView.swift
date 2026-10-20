@@ -1310,6 +1310,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         guard responderGate.mayResignFirstResponder else { return false }
         let resigned = super.resignFirstResponder()
         if resigned {
+            stopKeyRepeat()
             clearTouchSelection()
             onFirstResponderChange?()
         }
@@ -2804,6 +2805,17 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// through the text-input path as well, and the real bytes have already
     /// gone out. See ``isSuppressingAltEcho(forUsage:)``.
     private var claimedAltCombos: Set<TerminalHardwareKeyMapping.Key> = []
+    /// The held hardware key being repeated, if any. Kelpie: see
+    /// ``startKeyRepeat(for:)``.
+    private var keyRepeat: HardwareKeyRepeat?
+    private struct HardwareKeyRepeat {
+        /// The press whose release ends the repeat.
+        let press: UIPress
+        /// Set when the press is one this view answered itself
+        /// (``interceptHardwareKey(_:)``); each repeat resends its bytes.
+        let interceptedKey: TerminalHardwareKeyMapping.Key?
+        let timer: Timer
+    }
 
     /// Cmd+`.` as a key command. As a `UITextInput` first responder this view
     /// loses it to iPadOS's text machinery before `pressesBegan` runs, exactly
@@ -2897,6 +2909,16 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             } else {
                 TerminalKeyTrace.log("pressesBegan type=\(press.type.rawValue) no key")
             }
+            // Kelpie: only the most recent key repeats, as on every desktop —
+            // a new key down ends the old repeat. A modifier going down
+            // leaves it alone: Shift pressed mid-repeat does not stop the
+            // letter.
+            if let key = press.key,
+                !TerminalHardwareKeyRepeat.isModifier(
+                    usage: UInt16(truncatingIfNeeded: key.keyCode.rawValue))
+            {
+                stopKeyRepeat()
+            }
             // ⌘C races UIKit's editing shortcut exactly as ⌘V does, and
             // whichever path runs first wins. Answer it here while the touch
             // selection still exists — the blanket clear below would
@@ -2930,6 +2952,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             // other ⌘ chord still takes upstream's routing; the zoom pair is
             // excluded so ⌘+/⌘− keep stepping the font size.
             if Self.zoomShortcutStep(for: press) == nil, interceptHardwareKey(press) {
+                startKeyRepeat(for: press)
                 continue
             }
             if press.key.map({ Self.hardwarePressRoute(for: $0) }) == .sceneCommand {
@@ -2960,9 +2983,15 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         guard !forwarded.isEmpty else { return }
         super.pressesBegan(forwarded, with: event)
+        for press in forwarded {
+            startKeyRepeat(for: press)
+        }
     }
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if presses.contains(where: { $0 === keyRepeat?.press }) {
+            stopKeyRepeat()
+        }
         let sceneCommands = presses.filter { forgetSceneCommandPress($0) }
         if !sceneCommands.isEmpty {
             next?.pressesEnded(sceneCommands, with: event)
@@ -3028,6 +3057,90 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
         }
         TerminalKeyTrace.log("sendHardwareKey usage=0x\(String(key.usage, radix: 16)) bytes=\(bytes.map { String($0, radix: 16) })")
         terminalSession.sendInput(bytes)
+    }
+
+    // MARK: Hardware key repeat (Kelpie)
+
+    /// UIKit sends one `pressesBegan` for a held hardware key and nothing
+    /// more until it goes up; auto-repeat is the text input system's, and the
+    /// terminal keeps every key off that path, so a held letter, Backspace or
+    /// arrow typed exactly once on the iPad (SASh, 2026-10-20). The repeat is
+    /// generated here instead, as upstream libghostty-spm does since
+    /// `56510302` (the vendored `7e45d27` predates it; see
+    /// ``TerminalHardwareKeyRepeat`` for when this must go). A press this
+    /// view answered itself resends its bytes; any other is handed to the
+    /// package's `pressesBegan` again, which the core encodes as a press —
+    /// the package's `handleKeyPress` is internal, so no
+    /// `GHOSTTY_ACTION_REPEAT` can be sent from a subclass, and both of
+    /// ghostty's encoders write the two alike unless a program asked for
+    /// Kitty event types.
+    private func startKeyRepeat(for press: UIPress) {
+        guard let key = press.key else { return }
+        let modifierFlags = key.modifierFlags
+        let usage = UInt16(truncatingIfNeeded: key.keyCode.rawValue)
+        guard
+            TerminalHardwareKeyRepeat.repeats(
+                usage: usage,
+                charactersIgnoringModifiers: key.charactersIgnoringModifiers,
+                control: modifierFlags.contains(.control),
+                option: modifierFlags.contains(.alternate),
+                shift: modifierFlags.contains(.shift),
+                command: modifierFlags.contains(.command),
+                hasMarkedText: markedTextRange != nil,
+                inputModeUsesComposition: TerminalHardwareKeyRepeat.inputModeUsesComposition(
+                    primaryLanguage: textInputMode?.primaryLanguage))
+        else { return }
+        stopKeyRepeat()
+        let interceptedKey = interceptedPresses.contains(press) ? Self.hardwareKey(for: press) : nil
+        let timer = Timer(
+            fire: Date(timeIntervalSinceNow: TerminalHardwareKeyRepeat.initialDelay),
+            interval: TerminalHardwareKeyRepeat.interval,
+            repeats: true
+        ) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            MainActor.assumeIsolated { self.sendKeyRepeat() }
+        }
+        // `.common`, so a repeat keeps going while a scroll is tracking.
+        RunLoop.main.add(timer, forMode: .common)
+        keyRepeat = HardwareKeyRepeat(press: press, interceptedKey: interceptedKey, timer: timer)
+        TerminalKeyTrace.log("keyRepeat start code=0x\(String(usage, radix: 16)) intercepted=\(interceptedKey != nil)")
+    }
+
+    private func stopKeyRepeat() {
+        guard let keyRepeat else { return }
+        keyRepeat.timer.invalidate()
+        self.keyRepeat = nil
+        TerminalKeyTrace.log("keyRepeat stop")
+    }
+
+    private func sendKeyRepeat() {
+        // The release normally ends the repeat. Should it never arrive —
+        // focus moved, the scene left the foreground, local input was turned
+        // off, a composition opened — this does, instead of a key that types
+        // forever.
+        guard let keyRepeat, keyRepeat.press.key != nil,
+            isFirstResponder, isLocalInputEnabled, isTakingHardwareKeys,
+            markedTextRange == nil
+        else {
+            stopKeyRepeat()
+            return
+        }
+        TerminalKeyTrace.log("keyRepeat tick intercepted=\(keyRepeat.interceptedKey != nil)")
+        if let key = keyRepeat.interceptedKey {
+            sendHardwareKey(key)
+        } else {
+            super.pressesBegan([keyRepeat.press], with: nil)
+        }
+    }
+
+    /// Whether hardware keys come to this view's window: the key window of a
+    /// scene the user is in.
+    private var isTakingHardwareKeys: Bool {
+        guard let window, window.isKeyWindow else { return false }
+        return (window.windowScene?.activationState ?? .foregroundActive) == .foregroundActive
     }
 
     /// Whether this delivery path gets to send the combo. On some iPadOS
@@ -3096,6 +3209,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     }
 
     override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if presses.contains(where: { $0 === keyRepeat?.press }) {
+            stopKeyRepeat()
+        }
         // Filter only presses this feature consumed. Zoom ⌘+/⌘− cancellations
         // must reach the superclass exactly as they did before this override.
         let sceneCommands = presses.filter { forgetSceneCommandPress($0) }
