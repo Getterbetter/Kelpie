@@ -360,13 +360,18 @@ struct NotificationRegistrationFileTests {
     }
 
     @Test func upsertingReplacingDropsThePreviouslyRegisteredTokensEntry() throws {
+        // One literal, not a `+` chain: Xcode 27.1's type checker gives up on
+        // the concatenation ("unable to type-check this expression in
+        // reasonable time"). The line breaks fall between JSON tokens.
         let existing = Data(
-            (#"{"v":1,"devices":[{"token":"old00","key":"old-key","env":"sandbox","#
-                + #""notify":{"blocked":true,"done":true},"#
-                + #""live_activity":{"token":"la","started_at":"2024-01-01T00:00:00Z"},"#
-                + #""foreground_until":"2025-09-15T08:12:30Z"},"#
-                + #"{"token":"ffff","key":"kk","env":"production","#
-                + #""notify":{"blocked":true,"done":true},"future_field":"kept"}]}"#).utf8)
+            #"""
+            {"v":1,"devices":[{"token":"old00","key":"old-key","env":"sandbox",
+            "notify":{"blocked":true,"done":true},
+            "live_activity":{"token":"la","started_at":"2024-01-01T00:00:00Z"},
+            "foreground_until":"2025-09-15T08:12:30Z"},
+            {"token":"ffff","key":"kk","env":"production",
+            "notify":{"blocked":true,"done":true},"future_field":"kept"}]}
+            """#.utf8)
 
         let file = try NotificationRegistrationFile.decode(existing)
             .upserting(entry, replacing: "old00")
