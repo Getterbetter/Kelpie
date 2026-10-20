@@ -128,7 +128,26 @@ Related: [[Architecture]] · [[Testing status]] · [[Pairing and setup]] · [[Ar
 
 **Uploading is not distributing** (found 2026-09-15, round 21). `altool` leaves the build at `READY_FOR_BETA_SUBMISSION`: it is visible to nobody until it is added to the external group "Kelpie public beta" and submitted for beta App Review, and there is no internal group, so Anthony's own devices get builds through the public link too. Builds 3, 4 and 5 were uploaded in rounds 13, 17 and 20 and never added; the 16 testers, Anthony included, stayed on build 2. The step is one command, dry run by default: `make distribute NOTES="what changed"` shows the three writes (group, what-to-test text, beta review submission), `APPLY=1` performs them, `BUILD=<n>` picks a build other than the newest VALID one. The recipe is therefore `make bump`, archive, export, `altool`, then `make distribute APPLY=1 NOTES="..."`. Each device re-registers its push environment on launch, so a device runs `production` only while the TestFlight build is the one installed: every `make test-device` and `make install` puts an Xcode-signed build back and flips the mini's entry to `sandbox` (both entries read `sandbox` on 2026-09-15 for that reason).
 
+### A test install from a Mac outside the team
+
+Round 34 (2026-10-20) ran on SASh's Mac: Xcode signed in with his Apple ID, which is only on his free personal team, so the project's App IDs (`TME.Kelpie` and its extensions are Anthony's team's), push and the app group cannot be provisioned there. A throwaway install still works, beside the TestFlight copy, with an xcconfig passed on the command line and nothing in `project.yml` changed:
+
+```
+DEVELOPMENT_TEAM = <personal team id>
+CODE_SIGN_STYLE = Automatic
+KELPIE_TEST_ID_Heeler = com.<you>.kelpietest
+KELPIE_TEST_ID_HeelerNotificationService = com.<you>.kelpietest.NotificationService
+KELPIE_TEST_ID_HeelerWidgets = com.<you>.kelpietest.Widgets
+PRODUCT_BUNDLE_IDENTIFIER = $(KELPIE_TEST_ID_$(TARGET_NAME))
+CODE_SIGN_ENTITLEMENTS = <path to an entitlements plist holding an empty dict>
+INFOPLIST_KEY_CFBundleDisplayName = Kelpie test
+```
+
+Build with the usual command plus `-xcconfig <that file> -allowProvisioningUpdates`, install with `devicectl device install app`, and launch `com.<you>.kelpietest`. Three things learned the hard way: an empty `CODE_SIGN_ENTITLEMENTS =` does not drop the project's entitlements (Xcode still asks Apple for push and the app group), so point it at an empty plist; an extension's id must be the app's id plus a dot and a suffix, or installd refuses the bundle (`AppexBundleIDNotPrefixed`); and the first launch is refused until the developer is trusted on the device (Settings → General → VPN & Device Management). Developer Mode must be on. The build has no push, app group or Live Activities, and shares nothing with the real Kelpie.
+
 ### Re-vendoring the package
+
+**Round 34 (2026-10-20) left one thing to undo on the next re-vendor:** Kelpie's `TerminalHardwareKeyRepeat.swift` and the `// MARK: Hardware key repeat (Kelpie)` block in `TerminalScreenView.swift` port upstream's held-key repeat (libghostty-spm `56510302` / `5a025555`), which the vendored `7e45d27` lacks; a re-vendor past those commits must delete both or every held key repeats twice (Open item 60).
 
 **First, before anything is copied:** `make ghostty-override-diff NEW=<commit>` (`scripts/ghostty-override-diff.py`, Open item 40, round 21). It reads Kelpie's subclasses of `UITerminalView` and the vendored package on both sides (the checkout's copy against the new commit in a bare libghostty-spm clone kept at `~/Library/Caches/kelpie-build/libghostty-spm.git`) and names every override point removed, closed, re-signed or given a new body, every new upstream member or `@objc` selector that collides with one Kelpie declares, every new upstream conformance Kelpie already declares, and every public API Kelpie calls that moved; exit 1 means read the list before building. Replayed on round 16 it names all three of that round's compile-time collisions plus the six override bodies that changed under Kelpie's `super` calls (`scripts/test-ghostty-override-diff.sh` asserts this; upstream has since rewritten its pre-round-16 history, so the old side comes from Kelpie's own tag). `VERBOSE=1` prints the body diffs. It is a parser of declarations, not a compiler: it does not see semantic changes inside members Kelpie never touches, and the device suite stays the gate after the build.
 

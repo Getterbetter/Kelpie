@@ -10,6 +10,19 @@ The headline through rounds 1 to 9 was that **no automated test could be execute
 
 Legend: **Device** = seen working on the iPad · **CI** = executed in GitHub Actions on the fork · **Unit** = executed unit tests locally · **Compiled** = builds, assertions hand-traced only · **Reviewed** = read line-by-line in a fresh context · **Untested** = nobody has seen it run.
 
+## Round 34 — a held hardware key repeats (2026-10-20)
+
+Run on SASh's Mac (`alex-mbp`, macOS 27.0.1, Xcode 27.1): no iPad paired with it and the iPhone offline, so **`make test-device` did not run** and the device gate is Open item 59. Its simulator works (an iOS 18.5 `iPad Pro 11-inch (M4)` created as `kelpie-ipad`), so the full suite ran there.
+
+| Check | Means | Result |
+| --- | --- | --- |
+| `TerminalHardwareKeyRepeatTests` (11, new), `TerminalHardwareKeyMappingTests` | Unit, iPad simulator | Pass. The first draft of the policy failed three expectations (Ctrl+Backspace, Ctrl+Shift+Tab and Backspace under a composing input mode): a control character is a key, not text, for both vendored rules — fixed in the policy, not the tests. |
+| Full `HeelerTests` at `78aec049`, signing on | Unit, iPad simulator | **2239 tests in 203 suites, 2 issues, 121 skipped (63 s).** The two: `AgentDirectInputTests.toolsKeyboardSurvivesAgentHandoffAndResumesSystemInset` (Open item 58's failure, the same line) and `TerminalAttachTests.theComposerSettlesItsHandoffAgainstTheLiveKeyboardLayoutGuide` (the round-30 timing-bound keyboard wait, green on both devices in round 33). Both wait on the simulator's keyboard layout guide and touch nothing this round changed. |
+| Full `HeelerTests`, `CODE_SIGNING_ALLOWED=NO` | Unit, iPad simulator | 11 issues: the two above, the three policy expectations since fixed, and six keychain tests (`DeviceKeyStoreTests` ×5, `NotificationKeyStoreTests` ×1) failing `-34018` — the unsigned build has no keychain access group. They pass with signing on; build simulator tests signed. |
+| Test target on Xcode 27.1 | Compiled | Needed `78aec049`: `NotificationRegistrationFileTests`' `+` chain of raw strings no longer type-checks there. |
+| The repeat on a device | **Device**, SASh's iPad Pro 13-inch (M5, iOS 27.0.1), the personal-team test build (`com.alexiev.kelpietest`, no entitlements, recipe in [[Build and deploy]]) | SASh, the same day: "i can confirm its fixed". Not itemised which keys he held; the regression row stays for the next sitting. Open item 59 keeps the rest: hold a letter, Backspace, an arrow and Option+Left; a second key stops the first; Escape and Ctrl+C send once; the key trace logs `keyRepeat start/tick/stop`. Only `pressesBegan` wiring can prove it; no unit test can hold a `UIPress`. |
+| Device regression list | Not run | Carried to the next iPad sitting with item 59. |
+
 ## Round 33 — upstream fixes by cherry-pick, items 49, 52, 53 (2026-09-25)
 
 | Check | Means | Result |
