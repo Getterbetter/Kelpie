@@ -64,6 +64,12 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
 
 ### Fixed
 
+- Holding a key on a hardware keyboard repeats it. UIKit reports a held key
+  once and leaves auto-repeat to the text input system, which the terminal
+  keeps its keys away from, so a held letter, Backspace or arrow typed once
+  on the iPad. The terminal now repeats a held key itself after 0.4 s, 20
+  times a second, until it is released or another key goes down; ⌘ chords,
+  Escape, Ctrl combos and keys the input method is composing do not repeat.
 - The in-app banner for an Agent that finished no longer goes missing when
   the connection drops and returns within the banner's short hold.
 - Renaming an Agent that herdr is still launching waits up to ten seconds
