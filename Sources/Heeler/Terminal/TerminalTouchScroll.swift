@@ -152,16 +152,21 @@ struct TerminalModeTracker {
         retainIncompletePrefix()
     }
 
+    /// `cell` is where the wheel report says the pointer is, 1-based. herdr
+    /// scrolls the pane under that cell, so a gesture passes the cell it
+    /// started on; without one the report lands mid-grid, which in a split
+    /// layout is always the same pane.
     func remoteScrollSequence(
         towardOlderContent: Bool,
         columns: Int,
-        rows: Int
+        rows: Int,
+        at cell: (column: Int, row: Int)? = nil
     ) -> Data? {
         if tracksMouse {
             return mouseEncoding.report(
                 button: towardOlderContent ? .wheelUp : .wheelDown,
-                column: max(1, columns / 2),
-                row: max(1, rows / 2))
+                column: cell?.column ?? max(1, columns / 2),
+                row: cell?.row ?? max(1, rows / 2))
         }
 
         guard isAlternateScreen else { return nil }

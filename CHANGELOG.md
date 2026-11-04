@@ -76,6 +76,9 @@ Kelpie is the iPad-capable fork of Heeler; these changes are not in Heeler.
   replacement connection, so a prompt cannot reach an Agent twice; the
   connection is still replaced. The replaced connection is closed rather
   than left open.
+- Scrolling with two or more herdr panes open scrolls the pane under the
+  finger or pointer. It used to scroll whichever pane held the middle of
+  the screen, so with two side by side only the left one ever moved.
 
 ## [Unreleased]
 

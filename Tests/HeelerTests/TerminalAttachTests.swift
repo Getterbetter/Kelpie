@@ -2855,6 +2855,15 @@ struct TerminalAttachTests {
                 rows: 24)
                 == Data("\u{1B}[<64;40;12M".utf8))
 
+        // A split layout scrolls the pane under the gesture, not mid-grid.
+        #expect(
+            tracker.remoteScrollSequence(
+                towardOlderContent: false,
+                columns: 80,
+                rows: 24,
+                at: (column: 61, row: 5))
+                == Data("\u{1B}[<65;61;5M".utf8))
+
         tracker.receive(Data("\u{1B}[?1002;1006l".utf8))
         #expect(!tracker.tracksMouse)
         #expect(!tracker.usesSGRMouseEncoding)
