@@ -888,6 +888,9 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     private var hasTerminalGridMetrics = false
     private var terminalCellSize = CGSize(width: 8, height: 16)
     private var touchScrollAccumulator = TerminalTouchScrollAccumulator()
+    /// The cell a scroll gesture began on, carried through its momentum, so
+    /// the wheel reports reach the pane under the finger or pointer.
+    private var touchScrollAnchorCell: (column: Int, row: Int)?
     /// The tap-to-dismiss task waiting out the double-tap window. Held so
     /// that anything the user does next can call the dismissal off.
     private var pendingKeyboardDismiss: Task<Void, Never>?
@@ -2647,9 +2650,23 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             for: translationY,
             pointsPerRow: max(8, terminalCellSize.height))
         guard rows != 0 else { return 0 }
-        applyScroll(towardOlderContent: rows > 0, rowCount: abs(rows))
+        applyScroll(
+            towardOlderContent: rows > 0, rowCount: abs(rows),
+            at: touchScrollAnchorCell)
         onTouchScroll?(rows > 0)
         return rows
+    }
+
+    /// Pins the wheel reports of a scroll gesture (and of its momentum) to the
+    /// cell where it began, so herdr scrolls the pane under the finger or
+    /// pointer rather than whichever pane holds the grid's centre. A pan's
+    /// location at `.began` has already moved by the recognition threshold,
+    /// so the start is the location less the translation.
+    private func anchorTouchScroll(to gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: self)
+        let translation = gesture.translation(in: self)
+        touchScrollAnchorCell = gridPointMapper.cell(
+            at: CGPoint(x: location.x - translation.x, y: location.y - translation.y))
     }
 
     /// One scroll step of `rowCount` lines for chrome that is not a gesture.
@@ -2666,11 +2683,15 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
     /// Remote wheel / cursor sequence when the mode tracker supplies one;
     /// otherwise local `scroll_page_lines`. Shared by touch and the jump
     /// control so they cannot drift. `refs #268`.
-    private func applyScroll(towardOlderContent: Bool, rowCount: Int) {
+    private func applyScroll(
+        towardOlderContent: Bool, rowCount: Int,
+        at cell: (column: Int, row: Int)? = nil
+    ) {
         if let sequence = modeTracker.remoteScrollSequence(
             towardOlderContent: towardOlderContent,
             columns: terminalGridSize.columns,
-            rows: terminalGridSize.rows)
+            rows: terminalGridSize.rows,
+            at: cell)
         {
             callbackBridge.scroll(sequence, rows: rowCount)
         } else {
@@ -3591,6 +3612,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             case .began:
                 stopTouchScrollMomentum()
                 touchScrollAccumulator.reset()
+                anchorTouchScroll(to: gesture)
             case .changed:
                 _ = scrollTouch(translationY: gesture.translation(in: self).y)
                 gesture.setTranslation(.zero, in: self)
@@ -3674,6 +3696,7 @@ final class HeelerTerminalView: UITerminalView, TerminalByteSink {
             cancelPendingKeyboardDismiss()
             stopTouchScrollMomentum()
             touchScrollAccumulator.reset()
+            anchorTouchScroll(to: gesture)
         case .changed:
             _ = scrollTouch(translationY: gesture.translation(in: self).y)
             gesture.setTranslation(.zero, in: self)
